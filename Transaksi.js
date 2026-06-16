@@ -18,18 +18,37 @@ function setSettingValue_(key, value) {
   const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("SETTING");
   if (!sh) throw new Error("Sheet SETTING tidak ditemukan!");
-  const data = sh.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]).trim() === k) {
-      sh.getRange(i + 1, 2).setValue(value);
-      if (!SETTINGS_CACHE_) loadSettingsCache_();
-      SETTINGS_CACHE_[k] = value;
-      return;
-    }
+  const rowMap = loadSettingsRowMap_(sh);
+  if (rowMap[k]) {
+    sh.getRange(rowMap[k], 2).setValue(value);
+  } else {
+    sh.appendRow([k, value]);
+    rowMap[k] = sh.getLastRow();
   }
-  sh.appendRow([k, value]);
   if (!SETTINGS_CACHE_) loadSettingsCache_();
   SETTINGS_CACHE_[k] = value;
+}
+
+/** Satu baca sheet SETTING, banyak update — untuk save invoice / transaksi. */
+function setSettingValues_(pairs) {
+  if (!pairs || !pairs.length) return;
+  const ss = getDatabaseSpreadsheet_();
+  const sh = ss.getSheetByName("SETTING");
+  if (!sh) throw new Error("Sheet SETTING tidak ditemukan!");
+  const rowMap = loadSettingsRowMap_(sh);
+  pairs.forEach(function(pair) {
+    const k = String(pair[0] || "").trim();
+    if (!k) return;
+    const v = pair[1];
+    if (rowMap[k]) {
+      sh.getRange(rowMap[k], 2).setValue(v);
+    } else {
+      sh.appendRow([k, v]);
+      rowMap[k] = sh.getLastRow();
+    }
+    if (!SETTINGS_CACHE_) loadSettingsCache_();
+    SETTINGS_CACHE_[k] = v;
+  });
 }
 
 function scanMaxTransactionSeqFromSheet_() {
@@ -103,6 +122,65 @@ function allocateTransactionIds_(count) {
   return ids;
 }
 
+/** Invoice no + transaction IDs + update counter SETTING dalam satu pass. */
+function allocateInvoiceSaveIds_(productCount) {
+  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd");
+  const dateKey = "INVOICE_SEQ_DATE";
+  const seqKey = "INVOICE_SEQ_NUM";
+  const txnKey = "TRANSACTION_SEQ";
+
+  let storedDate = String(getSettingValue_(dateKey) || "").trim();
+  let invSeq = Number(getSettingValue_(seqKey));
+  if (!storedDate || isNaN(invSeq)) {
+    invSeq = scanMaxInvoiceSeqForDate_(today);
+    storedDate = today;
+  } else if (storedDate !== today) {
+    invSeq = scanMaxInvoiceSeqForDate_(today);
+    storedDate = today;
+  }
+  invSeq += 1;
+
+  let txnSeq = Number(getSettingValue_(txnKey));
+  const txnEmpty = getSettingValue_(txnKey) === null || getSettingValue_(txnKey) === "";
+  if (txnEmpty || isNaN(txnSeq)) {
+    txnSeq = scanMaxTransactionSeqFromSheet_();
+  }
+
+  const transactionIds = [];
+  for (let i = 0; i < productCount; i++) {
+    txnSeq += 1;
+    transactionIds.push("TC-J-" + String(txnSeq).padStart(6, "0"));
+  }
+
+  setSettingValues_([
+    [dateKey, today],
+    [seqKey, invSeq],
+    [txnKey, txnSeq]
+  ]);
+
+  return {
+    invoiceNo: "INV-" + today + "-" + String(invSeq).padStart(4, "0") + "-TC",
+    transactionIds: transactionIds
+  };
+}
+
+let PRODUCT_ACCOUNT_MAP_ = null;
+
+function buildProductAccountMap_(ss) {
+  if (PRODUCT_ACCOUNT_MAP_) return PRODUCT_ACCOUNT_MAP_;
+  PRODUCT_ACCOUNT_MAP_ = {};
+  readMasterProduk_(ss, true).forEach(function(p) {
+    PRODUCT_ACCOUNT_MAP_[p.nama] = p.akun || "PENDAPATAN";
+  });
+  return PRODUCT_ACCOUNT_MAP_;
+}
+
+function getProductAccountFast_(productName, ss) {
+  const map = buildProductAccountMap_(ss);
+  const n = String(productName || "").trim();
+  return map[n] || "PENDAPATAN";
+}
+
 function saveInvoice(invoiceData){
   authGuard_();
   validateInvoiceData_(invoiceData);
@@ -111,14 +189,17 @@ function saveInvoice(invoiceData){
   lock.waitLock(10000);
 
   try {
-    const ss = SpreadsheetApp.openById(DATABASE_ID);
+    const ss = getDatabaseSpreadsheet_();
     if (invoiceData.quotationNo) {
       assertQuotationConvertible_(ss, invoiceData.quotationNo);
     }
-    const invoiceNo = nextInvoiceNumber_();
-    const result = persistInvoice_(invoiceData, invoiceNo, ss, { mutasiNominal: invoiceData.bayar });
+    const ids = allocateInvoiceSaveIds_(invoiceData.products.length);
+    const result = persistInvoice_(invoiceData, ids.invoiceNo, ss, {
+      mutasiNominal: invoiceData.bayar,
+      transactionIds: ids.transactionIds
+    });
     if (invoiceData.quotationNo) {
-      markQuotationConverted_(ss, invoiceData.quotationNo, invoiceNo);
+      markQuotationConverted_(ss, invoiceData.quotationNo, ids.invoiceNo);
     }
     return result;
   } catch(err) {
@@ -133,7 +214,11 @@ function persistInvoice_(invoiceData, invoiceNo, ss, options) {
   const mutasiNominal = options.mutasiNominal !== undefined ? Number(options.mutasiNominal) : Number(invoiceData.bayar) || 0;
 
   const sh = ss.getSheetByName("PEMASUKAN");
-  const transactionIds = allocateTransactionIds_(invoiceData.products.length);
+  const transactionIds = options.transactionIds || allocateTransactionIds_(invoiceData.products.length);
+  const tz = Session.getScriptTimeZone();
+  const tanggal = new Date(invoiceData.tanggal);
+  const bulan = Utilities.formatDate(tanggal, tz, "MMMM");
+  const tahun = Utilities.formatDate(tanggal, tz, "yyyy");
   let sisaBayar = invoiceData.bayar;
 
   let fileUrl = "";
@@ -145,22 +230,21 @@ function persistInvoice_(invoiceData, invoiceNo, ss, options) {
     fileUrl = file.getUrl();
   }
 
+  const rows = [];
   invoiceData.products.forEach(function(item, index){
     const transactionId = transactionIds[index];
     const total = (item.qty * item.harga) - item.diskon;
     const bayarItem = Math.min(sisaBayar, total);
     const kurangBayar = total - bayarItem;
     const status = kurangBayar > 0 ? "PENJUALAN KREDIT" : "PENJUALAN TUNAI";
-    const tanggalBayar = bayarItem > 0 ? new Date(invoiceData.tanggal) : "";
-
+    const tanggalBayar = bayarItem > 0 ? tanggal : "";
     sisaBayar = sisaBayar - bayarItem;
-    const akunPendapatan = getProductAccount(item.produk);
-    const bulan = Utilities.formatDate(new Date(invoiceData.tanggal), Session.getScriptTimeZone(), "MMMM");
-    const tahun = Utilities.formatDate(new Date(invoiceData.tanggal), Session.getScriptTimeZone(), "yyyy");
+    const akunFromClient = String(item.akun || "").trim();
+    const akunPendapatan = akunFromClient || getProductAccountFast_(item.produk, ss);
 
-    sh.appendRow([
+    rows.push([
       "",
-      new Date(invoiceData.tanggal),
+      tanggal,
       bulan,
       tahun,
       invoiceNo,
@@ -183,6 +267,11 @@ function persistInvoice_(invoiceData, invoiceNo, ss, options) {
       fileUrl
     ]);
   });
+
+  if (rows.length) {
+    const startRow = sh.getLastRow() + 1;
+    sh.getRange(startRow, 1, rows.length, rows[0].length).setValues(rows);
+  }
 
   if (mutasiNominal > 0 && invoiceData.rekening) {
     const shMutasi = ss.getSheetByName("MUTASI_DANA");

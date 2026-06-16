@@ -510,12 +510,15 @@ function executeUpdateInvoice(invoiceNo) {
 function getInvoiceFormData() {
   const products = [];
   document.querySelectorAll(".productRow").forEach(row => {
+    const produk = row.querySelector(".productSelect").value;
+    const p = productList.find(function(x) { return x.nama === produk; });
     products.push({
-      produk: row.querySelector(".productSelect").value,
+      produk: produk,
       qty: Number(row.querySelector(".qtyInput").value),
       satuan: row.querySelector(".satuanInput").value,
       harga: Number(row.querySelector(".hargaInput").value),
-      diskon: Number(row.querySelector(".diskonInput").value)
+      diskon: Number(row.querySelector(".diskonInput").value),
+      akun: p ? p.akun : ""
     });
   });
   return {

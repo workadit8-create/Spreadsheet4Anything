@@ -5,6 +5,7 @@
 
 let SS_DATABASE_ = null;
 let SETTINGS_CACHE_ = null;
+let SETTINGS_ROW_MAP_ = null;
 
 function getDatabaseSpreadsheet_() {
   if (!SS_DATABASE_) {
@@ -29,6 +30,18 @@ function loadSettingsCache_() {
 
 function invalidateSettingsCache_() {
   SETTINGS_CACHE_ = null;
+  SETTINGS_ROW_MAP_ = null;
+}
+
+function loadSettingsRowMap_(sh) {
+  if (SETTINGS_ROW_MAP_) return SETTINGS_ROW_MAP_;
+  SETTINGS_ROW_MAP_ = {};
+  const data = sh.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    const k = String(data[i][0] || "").trim();
+    if (k) SETTINGS_ROW_MAP_[k] = i + 1;
+  }
+  return SETTINGS_ROW_MAP_;
 }
 
 // ==========================================
