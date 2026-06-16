@@ -16,6 +16,9 @@ python3 scripts/generate-smoke-test-doc.py
 echo "==> Template form lapor bug"
 python3 scripts/generate-bug-report-form-doc.py
 
+echo "==> Early Partner Management"
+python3 scripts/generate-early-partner-doc.py
+
 echo ""
 echo "Semua dokumen di: $ROOT/docs/"
 ls -1 "$ROOT/docs/"*.docx
