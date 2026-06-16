@@ -1,0 +1,9 @@
+{
+  "scriptId": "GANTI_SCRIPT_ID_SETELAH_CLONE_APPS_SCRIPT",
+  "rootDir": "",
+  "scriptExtensions": [".js", ".gs"],
+  "htmlExtensions": [".html"],
+  "jsonExtensions": [".json"],
+  "filePushOrder": [],
+  "skipSubdirectories": false
+}

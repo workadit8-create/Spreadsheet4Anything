@@ -15,6 +15,28 @@ npm-debug.log*
 .tmp/
 tmp/
 
+# Client deploy — file sync dari root (generated on deploy)
+clients/*/Auth.js
+clients/*/Code.js
+clients/*/Dashboard.js
+clients/*/Helpers.js
+clients/*/HutangPembelian.js
+clients/*/Jurnal.js
+clients/*/KasBank.js
+clients/*/Laporan.js
+clients/*/MasterData.js
+clients/*/Posting.js
+clients/*/PurchaseRequest.js
+clients/*/Quotation.js
+clients/*/QaSmokeTest.js
+clients/*/QaSmokeTestModules.js
+clients/*/Transaksi.js
+clients/*/index.html
+clients/*/appsscript.json
+clients/*/.claspignore
+clients/*/client.env
+
+
 # Editor
 .idea/
 *.swp
