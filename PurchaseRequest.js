@@ -20,6 +20,31 @@ function nextPRNumber_(ss) {
   return nextDocNumber_("PR", "PR_SEQ_DATE", "PR_SEQ_NUM", "PURCHASE_REQUEST", 1, ss);
 }
 
+function allocatePRSaveIds_(ss) {
+  ensureSeqPropsFromSetting_();
+  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd");
+  const dateKey = "PR_SEQ_DATE";
+  const seqKey = "PR_SEQ_NUM";
+
+  let storedDate = String(getSeqProp_(dateKey) || "").trim();
+  let prSeq = Number(getSeqProp_(seqKey));
+  if (!storedDate || isNaN(prSeq)) {
+    prSeq = scanMaxDocSeqForDate_("PURCHASE_REQUEST", 1, "PR", today, ss);
+    storedDate = today;
+  } else if (storedDate !== today) {
+    prSeq = scanMaxDocSeqForDate_("PURCHASE_REQUEST", 1, "PR", today, ss);
+    storedDate = today;
+  }
+  prSeq += 1;
+
+  setSeqProps_({
+    [dateKey]: today,
+    [seqKey]: prSeq
+  });
+
+  return "PR-" + today + "-" + String(prSeq).padStart(4, "0");
+}
+
 function validatePurchaseRequest_(p) {
   if (!p.tanggal) throw new Error("Tanggal PR wajib diisi.");
   if (!p.items || !p.items.length) throw new Error("Minimal harus ada 1 barang.");
@@ -38,13 +63,12 @@ function savePurchaseRequest(payload) {
   authGuard_();
   validatePurchaseRequest_(payload);
 
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
+  const lock = acquireSaveLock_("purchase request");
 
   try {
     const ss = getDatabaseSpreadsheet_();
     const sh = ensurePurchaseRequestSheet_(ss);
-    const prNo = nextPRNumber_(ss);
+    const prNo = allocatePRSaveIds_(ss);
     const tanggal = new Date(payload.tanggal + "T12:00:00");
     const supplier = String(payload.supplier || "").trim();
     const keterangan = String(payload.keterangan || "").trim();
@@ -186,21 +210,34 @@ function getPurchaseRequestDetail(prNo) {
 }
 
 function assertPurchaseRequestConvertible_(ss, prNo) {
-  const detail = getPurchaseRequestDetail(prNo);
-  if (detail.status === "CONVERTED") {
-    throw new Error("Purchase Request " + prNo + " sudah dikonversi ke PO " + (detail.poNo || "") + ".");
+  const sh = ss.getSheetByName("PURCHASE_REQUEST");
+  if (!sh || sh.getLastRow() < 2) {
+    throw new Error("Purchase Request " + prNo + " tidak ditemukan.");
   }
+  const target = String(prNo || "").trim();
+  const lastRow = sh.getLastRow();
+  const block = sh.getRange(2, 2, lastRow - 1, 12).getValues();
+  for (let i = 0; i < block.length; i++) {
+    if (String(block[i][0] || "").trim() !== target) continue;
+    const status = String(block[i][10] || "").trim().toUpperCase();
+    const po = String(block[i][11] || "").trim();
+    if (status === "CONVERTED") {
+      throw new Error("Purchase Request " + prNo + " sudah dikonversi ke PO " + (po || "") + ".");
+    }
+    return;
+  }
+  throw new Error("Purchase Request " + prNo + " tidak ditemukan.");
 }
 
 function markPurchaseRequestConverted_(ss, prNo, poNo) {
   const sh = ss.getSheetByName("PURCHASE_REQUEST");
   if (!sh) return;
   const target = String(prNo).trim();
-  const data = sh.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][1] || "").trim() === target) {
-      sh.getRange(i + 1, 12).setValue("CONVERTED");
-      sh.getRange(i + 1, 13).setValue(poNo);
-    }
+  const nos = readSheetColumnValues_(sh, 2);
+  for (let i = 0; i < nos.length; i++) {
+    if (String(nos[i][0] || "").trim() !== target) continue;
+    const rowNum = i + 2;
+    sh.getRange(rowNum, 12).setValue("CONVERTED");
+    sh.getRange(rowNum, 13).setValue(poNo);
   }
 }

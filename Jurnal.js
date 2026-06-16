@@ -37,31 +37,30 @@ function getChartOfAccounts() {
 }
 
 function scanMaxJurnalManualSeqForDate_(dateStr) {
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("JURNAL_MANUAL");
   if (!sh || sh.getLastRow() < 2) return 0;
-
-  const data = sh.getDataRange().getValues();
+  const vals = readSheetColumnValues_(sh, 8);
   let max = 0;
   const prefix = "TX-JM-" + dateStr + "-";
-
-  for (let i = 1; i < data.length; i++) {
-    const raw = String(data[i][7] || "").trim().toUpperCase();
-    if (!raw.startsWith(prefix)) continue;
+  vals.forEach(function(r) {
+    const raw = String(r[0] || "").trim().toUpperCase();
+    if (!raw.startsWith(prefix)) return;
     const m = raw.match(/^TX-JM-\d{8}-(\d+)$/i);
     if (m) max = Math.max(max, Number(m[1]));
-  }
+  });
   return max;
 }
 
 function nextManualJournalMeta_(journalDate) {
+  ensureSeqPropsFromSetting_();
   const d = journalDate ? new Date(journalDate + "T12:00:00") : new Date();
   const dateStr = Utilities.formatDate(d, Session.getScriptTimeZone(), "yyyyMMdd");
   const dateKey = "JM_SEQ_DATE";
   const seqKey = "JM_SEQ_NUM";
 
-  let storedDate = String(getSettingValue_(dateKey) || "").trim();
-  let seq = Number(getSettingValue_(seqKey));
+  let storedDate = String(getSeqProp_(dateKey) || "").trim();
+  let seq = Number(getSeqProp_(seqKey));
 
   if (!storedDate || isNaN(seq)) {
     seq = scanMaxJurnalManualSeqForDate_(dateStr);
@@ -70,10 +69,10 @@ function nextManualJournalMeta_(journalDate) {
   }
 
   seq += 1;
-  setSettingValues_([
-    [dateKey, dateStr],
-    [seqKey, seq]
-  ]);
+  setSeqProps_({
+    [dateKey]: dateStr,
+    [seqKey]: seq
+  });
 
   return {
     transactionId: "TX-JM-" + dateStr + "-" + seq,
@@ -112,8 +111,7 @@ function validateManualJournal_(p) {
 
 function saveManualJournal(payload) {
   assertRole_(["owner", "akuntan"]);
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
+  const lock = acquireSaveLock_("jurnal manual");
 
   try {
     validateManualJournal_(payload);

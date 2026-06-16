@@ -51,6 +51,83 @@ function writeSheetRows_(sh, rows) {
   sh.getRange(startRow, 1, rows.length, rows[0].length).setValues(rows);
 }
 
+// Counter nomor dokumen — PropertiesService (jauh lebih cepat dari tulis sheet SETTING tiap save)
+const SEQ_PROP_KEYS_ = [
+  "INVOICE_SEQ_DATE", "INVOICE_SEQ_NUM", "TRANSACTION_SEQ",
+  "QT_SEQ_DATE", "QT_SEQ_NUM", "QT_LINE_SEQ",
+  "PR_SEQ_DATE", "PR_SEQ_NUM",
+  "JM_SEQ_DATE", "JM_SEQ_NUM"
+];
+
+let SEQ_PROPS_READY_ = false;
+
+function scriptProps_() {
+  return PropertiesService.getScriptProperties();
+}
+
+function ensureSeqPropsFromSetting_() {
+  if (SEQ_PROPS_READY_) return;
+  SEQ_PROPS_READY_ = true;
+  const props = scriptProps_();
+  if (props.getProperty("TRANSACTION_SEQ")) return;
+  try {
+    loadSettingsCache_();
+    const batch = {};
+    SEQ_PROP_KEYS_.forEach(function(k) {
+      const v = getSettingValue_(k);
+      if (v !== null && v !== undefined && String(v) !== "") batch[k] = String(v);
+    });
+    if (Object.keys(batch).length) props.setProperties(batch);
+  } catch (ignore) {}
+}
+
+function getSeqProp_(key) {
+  ensureSeqPropsFromSetting_();
+  return scriptProps_().getProperty(key);
+}
+
+function setSeqProps_(map) {
+  ensureSeqPropsFromSetting_();
+  const batch = {};
+  Object.keys(map).forEach(function(k) {
+    batch[k] = String(map[k]);
+  });
+  scriptProps_().setProperties(batch);
+  Object.keys(map).forEach(function(k) {
+    if (!SETTINGS_CACHE_) loadSettingsCache_();
+    SETTINGS_CACHE_[k] = map[k];
+  });
+}
+
+/** Salin counter ke sheet SETTING (backup) — panggil saat warm-up, bukan tiap save. */
+function syncSeqPropsToSetting_() {
+  ensureSeqPropsFromSetting_();
+  const props = scriptProps_();
+  const pairs = [];
+  SEQ_PROP_KEYS_.forEach(function(k) {
+    const v = props.getProperty(k);
+    if (v !== null && v !== undefined) pairs.push([k, v]);
+  });
+  if (pairs.length) setSettingValues_(pairs);
+}
+
+function acquireSaveLock_(label) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) {
+    throw new Error("Sistem sibuk (" + (label || "simpan") + "). Coba lagi dalam beberapa detik.");
+  }
+  return lock;
+}
+
+/** Baca satu kolom sheet (tanpa getDataRange penuh). */
+function readSheetColumnValues_(sh, col, startRow) {
+  if (!sh) return [];
+  const lastRow = sh.getLastRow();
+  const from = startRow || 2;
+  if (lastRow < from) return [];
+  return sh.getRange(from, col, lastRow - from + 1, 1).getValues();
+}
+
 // ==========================================
 // VALIDASI & HELPER INTERNAL
 // ==========================================

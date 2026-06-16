@@ -19,15 +19,15 @@ function scanMaxDocSeqForDate_(sheetName, colIndex, prefix, dateStr, ss) {
   const spreadsheet = ss || getDatabaseSpreadsheet_();
   const sh = spreadsheet.getSheetByName(sheetName);
   if (!sh || sh.getLastRow() < 2) return 0;
-  const data = sh.getDataRange().getValues();
+  const vals = readSheetColumnValues_(sh, colIndex + 1);
   let max = 0;
   const fullPrefix = prefix + "-" + dateStr + "-";
-  for (let i = 1; i < data.length; i++) {
-    const raw = String(data[i][colIndex] || "").trim().toUpperCase();
-    if (!raw.startsWith(fullPrefix)) continue;
+  vals.forEach(function(r) {
+    const raw = String(r[0] || "").trim().toUpperCase();
+    if (!raw.startsWith(fullPrefix)) return;
     const m = raw.match(new RegExp("^" + prefix + "-\\d{8}-(\\d+)$", "i"));
     if (m) max = Math.max(max, Number(m[1]));
-  }
+  });
   return max;
 }
 
@@ -57,13 +57,14 @@ function nextQuotationNumber_(ss) {
 }
 
 function allocateQuotationSaveIds_(lineCount, ss) {
+  ensureSeqPropsFromSetting_();
   const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd");
   const dateKey = "QT_SEQ_DATE";
   const seqKey = "QT_SEQ_NUM";
   const lineKey = "QT_LINE_SEQ";
 
-  let storedDate = String(getSettingValue_(dateKey) || "").trim();
-  let qtSeq = Number(getSettingValue_(seqKey));
+  let storedDate = String(getSeqProp_(dateKey) || "").trim();
+  let qtSeq = Number(getSeqProp_(seqKey));
   if (!storedDate || isNaN(qtSeq)) {
     qtSeq = scanMaxDocSeqForDate_("QUOTATION", 1, "QT", today, ss);
     storedDate = today;
@@ -73,8 +74,8 @@ function allocateQuotationSaveIds_(lineCount, ss) {
   }
   qtSeq += 1;
 
-  let lineSeq = Number(getSettingValue_(lineKey));
-  if (getSettingValue_(lineKey) === null || isNaN(lineSeq)) lineSeq = 0;
+  let lineSeq = Number(getSeqProp_(lineKey));
+  if (getSeqProp_(lineKey) === null || isNaN(lineSeq)) lineSeq = 0;
 
   const lineIds = [];
   for (let i = 0; i < lineCount; i++) {
@@ -82,11 +83,11 @@ function allocateQuotationSaveIds_(lineCount, ss) {
     lineIds.push("QT-L-" + String(lineSeq).padStart(6, "0"));
   }
 
-  setSettingValues_([
-    [dateKey, today],
-    [seqKey, qtSeq],
-    [lineKey, lineSeq]
-  ]);
+  setSeqProps_({
+    [dateKey]: today,
+    [seqKey]: qtSeq,
+    [lineKey]: lineSeq
+  });
 
   return {
     quotationNo: "QT-" + today + "-" + String(qtSeq).padStart(4, "0"),
@@ -113,8 +114,7 @@ function saveQuotation(payload) {
   authGuard_();
   validateQuotation_(payload);
 
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
+  const lock = acquireSaveLock_("quotation");
 
   try {
     const ss = getDatabaseSpreadsheet_();
@@ -256,21 +256,34 @@ function getQuotationDetail(quotationNo) {
 }
 
 function assertQuotationConvertible_(ss, quotationNo) {
-  const detail = getQuotationDetail(quotationNo);
-  if (detail.status === "CONVERTED") {
-    throw new Error("Quotation " + quotationNo + " sudah dikonversi ke invoice " + (detail.invoiceNo || "") + ".");
+  const sh = ss.getSheetByName("QUOTATION");
+  if (!sh || sh.getLastRow() < 2) {
+    throw new Error("Quotation " + quotationNo + " tidak ditemukan.");
   }
+  const target = String(quotationNo || "").trim();
+  const lastRow = sh.getLastRow();
+  const block = sh.getRange(2, 2, lastRow - 1, 11).getValues();
+  for (let i = 0; i < block.length; i++) {
+    if (String(block[i][0] || "").trim() !== target) continue;
+    const status = String(block[i][8] || "").trim().toUpperCase();
+    const inv = String(block[i][10] || "").trim();
+    if (status === "CONVERTED") {
+      throw new Error("Quotation " + quotationNo + " sudah dikonversi ke invoice " + (inv || "") + ".");
+    }
+    return;
+  }
+  throw new Error("Quotation " + quotationNo + " tidak ditemukan.");
 }
 
 function markQuotationConverted_(ss, quotationNo, invoiceNo) {
   const sh = ss.getSheetByName("QUOTATION");
   if (!sh) return;
   const target = String(quotationNo).trim();
-  const data = sh.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][1] || "").trim() === target) {
-      sh.getRange(i + 1, 10).setValue("CONVERTED");
-      sh.getRange(i + 1, 12).setValue(invoiceNo);
-    }
+  const nos = readSheetColumnValues_(sh, 2);
+  for (let i = 0; i < nos.length; i++) {
+    if (String(nos[i][0] || "").trim() !== target) continue;
+    const rowNum = i + 2;
+    sh.getRange(rowNum, 10).setValue("CONVERTED");
+    sh.getRange(rowNum, 12).setValue(invoiceNo);
   }
 }

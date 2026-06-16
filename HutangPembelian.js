@@ -140,8 +140,7 @@ function updatePembelianLedger(poNo, nominalBayar, tanggalBayar) {
 
 function simpanPelunasanHutangWeb(payload) {
   authGuard_();
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
+  const lock = acquireSaveLock_("pelunasan hutang");
 
   try {
     const ss = getDatabaseSpreadsheet_();
@@ -201,8 +200,7 @@ function simpanPelunasanHutangWeb(payload) {
 
 function simpanPelunasanPiutangWeb(payload) {
   authGuard_();
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
+  const lock = acquireSaveLock_("pelunasan piutang");
 
   try {
     const ss = getDatabaseSpreadsheet_();

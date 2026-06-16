@@ -24,8 +24,7 @@ function getSaldoKasBank() {
 }
 function saveMutasiDana(p) {
   authGuard_();
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
+  const lock = acquireSaveLock_("mutasi");
 
   try {
     validateMutasiDana_(p);
@@ -188,8 +187,7 @@ function savePembelian(p) {
   authGuard_();
   validatePembelian_(p);
 
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
+  const lock = acquireSaveLock_("pembelian");
 
   try {
     const ss = getDatabaseSpreadsheet_();

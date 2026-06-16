@@ -55,13 +55,12 @@ function scanMaxTransactionSeqFromSheet_() {
   const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("PEMASUKAN");
   if (!sh || sh.getLastRow() < 2) return 0;
-  const data = sh.getDataRange().getValues();
+  const vals = readSheetColumnValues_(sh, 19);
   let max = 0;
-  for (let i = 1; i < data.length; i++) {
-    const raw = String(data[i][18] || "").trim();
-    const m = raw.match(/^TC-J-(\d+)$/i);
+  vals.forEach(function(r) {
+    const m = String(r[0] || "").trim().match(/^TC-J-(\d+)$/i);
     if (m) max = Math.max(max, Number(m[1]));
-  }
+  });
   return max;
 }
 
@@ -69,15 +68,15 @@ function scanMaxInvoiceSeqForDate_(dateStr) {
   const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("PEMASUKAN");
   if (!sh || sh.getLastRow() < 2) return 0;
-  const data = sh.getDataRange().getValues();
+  const vals = readSheetColumnValues_(sh, 5);
   let max = 0;
   const prefix = "INV-" + dateStr + "-";
-  for (let i = 1; i < data.length; i++) {
-    const raw = String(data[i][4] || "").trim().toUpperCase();
-    if (!raw.startsWith(prefix)) continue;
+  vals.forEach(function(r) {
+    const raw = String(r[0] || "").trim().toUpperCase();
+    if (!raw.startsWith(prefix)) return;
     const m = raw.match(/^INV-\d{8}-(\d+)-TC$/i);
     if (m) max = Math.max(max, Number(m[1]));
-  }
+  });
   return max;
 }
 
@@ -124,13 +123,14 @@ function allocateTransactionIds_(count) {
 
 /** Invoice no + transaction IDs + update counter SETTING dalam satu pass. */
 function allocateInvoiceSaveIds_(productCount) {
+  ensureSeqPropsFromSetting_();
   const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd");
   const dateKey = "INVOICE_SEQ_DATE";
   const seqKey = "INVOICE_SEQ_NUM";
   const txnKey = "TRANSACTION_SEQ";
 
-  let storedDate = String(getSettingValue_(dateKey) || "").trim();
-  let invSeq = Number(getSettingValue_(seqKey));
+  let storedDate = String(getSeqProp_(dateKey) || "").trim();
+  let invSeq = Number(getSeqProp_(seqKey));
   if (!storedDate || isNaN(invSeq)) {
     invSeq = scanMaxInvoiceSeqForDate_(today);
     storedDate = today;
@@ -140,9 +140,8 @@ function allocateInvoiceSaveIds_(productCount) {
   }
   invSeq += 1;
 
-  let txnSeq = Number(getSettingValue_(txnKey));
-  const txnEmpty = getSettingValue_(txnKey) === null || getSettingValue_(txnKey) === "";
-  if (txnEmpty || isNaN(txnSeq)) {
+  let txnSeq = Number(getSeqProp_(txnKey));
+  if (getSeqProp_(txnKey) === null || isNaN(txnSeq)) {
     txnSeq = scanMaxTransactionSeqFromSheet_();
   }
 
@@ -152,11 +151,11 @@ function allocateInvoiceSaveIds_(productCount) {
     transactionIds.push("TC-J-" + String(txnSeq).padStart(6, "0"));
   }
 
-  setSettingValues_([
-    [dateKey, today],
-    [seqKey, invSeq],
-    [txnKey, txnSeq]
-  ]);
+  setSeqProps_({
+    [dateKey]: today,
+    [seqKey]: invSeq,
+    [txnKey]: txnSeq
+  });
 
   return {
     invoiceNo: "INV-" + today + "-" + String(invSeq).padStart(4, "0") + "-TC",
@@ -185,9 +184,7 @@ function saveInvoice(invoiceData){
   authGuard_();
   validateInvoiceData_(invoiceData);
 
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
-
+  const lock = acquireSaveLock_("invoice");
   try {
     const ss = getDatabaseSpreadsheet_();
     if (invoiceData.quotationNo) {
@@ -279,8 +276,7 @@ function persistInvoice_(invoiceData, invoiceNo, ss, options) {
       const transMutasiNo = Math.max(1, shMutasi.getLastRow());
       const dateStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd");
       const transMutasiId = "TX-MB-" + dateStr + "-" + transMutasiNo;
-
-      shMutasi.appendRow([
+      writeSheetRows_(shMutasi, [[
         new Date(invoiceData.tanggal),
         "Masuk",
         "",
@@ -290,7 +286,7 @@ function persistInvoice_(invoiceData, invoiceNo, ss, options) {
         "Pembayaran " + invoiceNo,
         false,
         transMutasiId
-      ]);
+      ]]);
     }
   }
 
@@ -519,8 +515,7 @@ function updateInvoice(invoiceNo, invoiceData) {
   authGuard_();
   validateInvoiceData_(invoiceData);
 
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
+  const lock = acquireSaveLock_("update invoice");
 
   try {
     const ss = getDatabaseSpreadsheet_();
