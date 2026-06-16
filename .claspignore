@@ -1,0 +1,6 @@
+**/**
+!*.js
+!*.html
+!appsscript.json
+.git/**
+.DS_Store

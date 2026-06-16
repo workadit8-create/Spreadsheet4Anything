@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterShellExecution": [
+      {
+        "command": ".cursor/hooks/git-after-clasp.sh",
+        "matcher": "clasp (push|redeploy)"
+      }
+    ],
+    "stop": [
+      {
+        "command": ".cursor/hooks/git-auto-snapshot.sh"
+      }
+    ]
+  }
+}
