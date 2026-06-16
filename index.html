@@ -3505,78 +3505,6 @@ function loadRekeningPembelian() {
   }).getListKasBank();
 }
 
-function uploadToDrive(base64Data, fileName, mimeType) {
-  const folderId = "1FWtI29eTu4j2YSshCZQpDW_pkqhFhmLJ"; // Folder ID kamu
-  const folder = DriveApp.getFolderById(folderId);
-  const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, fileName);
-  const file = folder.createFile(blob);
-  return file.getUrl();
-}
-
-function savePembelian(p) {
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
-  const sh = ss.getSheetByName("PEMBELIAN");
-  const shMutasi = ss.getSheetByName('MUTASI_DANA');
-  
-  // 1. Upload File ke Drive (Lakukan sekali saja per PO)
-  let fileUrl = "";
-  if (p.fileBase64) {
-    fileUrl = uploadToDrive(p.fileBase64, p.fileName, p.fileMimeType);
-  }
-  
-  // 2. Generate PO Number
-  const dateStr = new Date(p.tanggal).toISOString().split('T')[0].replace(/-/g, '').substring(2); 
-  const randomNum = Math.floor(Math.random() * 9000) + 1000;
-  const poNumber = "PO-" + dateStr + "-" + randomNum;
-  
-  const tgl = new Date(p.tanggal);
-  let sisaBayar = Number(p.bayar);
-  
-  // 3. Loop Item
-  p.items.forEach((item, index) => {
-    const akun = getAccountByKategori(item.kategori, item.subKategori);
-    const trxId = "TRX-PB-" + dateStr + "-" + randomNum + "-" + (index + 1);
-    const totalBaris = (item.qty * item.harga) - item.diskon;
-    
-    let bayarItem = 0;
-    if (p.metode === "Tunai") {
-       bayarItem = Math.min(sisaBayar, totalBaris);
-       sisaBayar -= bayarItem;
-    }
-    const sisaTagihan = totalBaris - bayarItem;
-    const tglBayar = (bayarItem > 0) ? tgl : "";
-
-    // 4. Append ke Sheet (18 Kolom: A sampai R)
-    sh.appendRow([
-      tgl,           // A
-      poNumber,      // B
-      p.supplier,    // C
-      item.namaBrg,  // D
-      item.qty,      // E
-      item.satuan,   // F
-      item.harga,    // G
-      totalBaris,    // H
-      p.metode,      // I
-      akun,          // J
-      bayarItem,     // K
-      false,         // L
-      sisaTagihan,   // M
-      tglBayar,      // N
-      p.rekening,    // O
-      trxId,         // P
-      "",            // Q
-      fileUrl        // R: Link Nota
-    ]);
-    
-    // 5. Catat Mutasi
-    if (bayarItem > 0 && p.rekening) {
-      shMutasi.appendRow([tgl, "Keluar", "Pembelian", p.rekening, p.supplier, bayarItem, "Pembelian " + item.namaBrg, false, trxId]);
-    }
-  });
-  
-  return { success: true, po: poNumber };
-}
-
 // Fungsi utama untuk tombol Simpan
 function submitPembelian() {
   if (!validatePembelianForm()) return;
@@ -3605,14 +3533,17 @@ function submitPembelian() {
 function getPembelianPayload() {
   let items = [];
   document.querySelectorAll(".rowPembelian").forEach(row => {
+    const kat = row.querySelector(".katInput").value;
+    const sub = row.querySelector(".subKatInput").value;
     items.push({
-      kategori: row.querySelector(".katInput").value,
-      subKategori: row.querySelector(".subKatInput").value,
+      kategori: kat,
+      subKategori: sub,
       namaBrg: row.querySelector(".ketInput").value,
       qty: row.querySelector(".qtyInput").value,
       satuan: row.querySelector(".satInput").value,
       harga: row.querySelector(".hargaInput").value,
-      diskon: row.querySelector(".diskonInput").value
+      diskon: row.querySelector(".diskonInput").value,
+      akun: (masterDataPembelian[kat] && masterDataPembelian[kat][sub]) ? masterDataPembelian[kat][sub] : ""
     });
   });
 

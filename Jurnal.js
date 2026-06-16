@@ -70,8 +70,10 @@ function nextManualJournalMeta_(journalDate) {
   }
 
   seq += 1;
-  setSettingValue_(dateKey, dateStr);
-  setSettingValue_(seqKey, seq);
+  setSettingValues_([
+    [dateKey, dateStr],
+    [seqKey, seq]
+  ]);
 
   return {
     transactionId: "TX-JM-" + dateStr + "-" + seq,
@@ -116,7 +118,7 @@ function saveManualJournal(payload) {
   try {
     validateManualJournal_(payload);
 
-    const ss = SpreadsheetApp.openById(DATABASE_ID);
+    const ss = getDatabaseSpreadsheet_();
     const sh = ss.getSheetByName("JURNAL_MANUAL");
     if (!sh) throw new Error("Sheet JURNAL_MANUAL belum dibuat!");
 

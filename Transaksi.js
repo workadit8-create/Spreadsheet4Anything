@@ -523,7 +523,7 @@ function updateInvoice(invoiceNo, invoiceData) {
   lock.waitLock(10000);
 
   try {
-    const ss = SpreadsheetApp.openById(DATABASE_ID);
+    const ss = getDatabaseSpreadsheet_();
     const targetInvoice = String(invoiceNo).trim();
 
     if (isInvoicePosted_(ss, targetInvoice)) {

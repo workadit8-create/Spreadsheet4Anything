@@ -44,6 +44,13 @@ function loadSettingsRowMap_(sh) {
   return SETTINGS_ROW_MAP_;
 }
 
+/** Tulis banyak baris ke sheet dalam satu operasi (lebih cepat dari appendRow berulang). */
+function writeSheetRows_(sh, rows) {
+  if (!sh || !rows || !rows.length) return;
+  const startRow = sh.getLastRow() + 1;
+  sh.getRange(startRow, 1, rows.length, rows[0].length).setValues(rows);
+}
+
 // ==========================================
 // VALIDASI & HELPER INTERNAL
 // ==========================================

@@ -15,9 +15,9 @@ function ensureQuotationSheet_(ss) {
   return sh;
 }
 
-function scanMaxDocSeqForDate_(sheetName, colIndex, prefix, dateStr) {
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
-  const sh = ss.getSheetByName(sheetName);
+function scanMaxDocSeqForDate_(sheetName, colIndex, prefix, dateStr, ss) {
+  const spreadsheet = ss || getDatabaseSpreadsheet_();
+  const sh = spreadsheet.getSheetByName(sheetName);
   if (!sh || sh.getLastRow() < 2) return 0;
   const data = sh.getDataRange().getValues();
   let max = 0;
@@ -31,27 +31,67 @@ function scanMaxDocSeqForDate_(sheetName, colIndex, prefix, dateStr) {
   return max;
 }
 
-function nextDocNumber_(prefix, dateKey, seqKey, sheetName, colIndex) {
+function nextDocNumber_(prefix, dateKey, seqKey, sheetName, colIndex, ss) {
   const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd");
   let storedDate = String(getSettingValue_(dateKey) || "").trim();
   let seq = Number(getSettingValue_(seqKey));
 
   if (!storedDate || isNaN(seq)) {
-    seq = scanMaxDocSeqForDate_(sheetName, colIndex, prefix, today);
+    seq = scanMaxDocSeqForDate_(sheetName, colIndex, prefix, today, ss);
     storedDate = today;
   } else if (storedDate !== today) {
-    seq = scanMaxDocSeqForDate_(sheetName, colIndex, prefix, today);
+    seq = scanMaxDocSeqForDate_(sheetName, colIndex, prefix, today, ss);
     storedDate = today;
   }
 
   seq += 1;
-  setSettingValue_(dateKey, today);
-  setSettingValue_(seqKey, seq);
+  setSettingValues_([
+    [dateKey, today],
+    [seqKey, seq]
+  ]);
   return prefix + "-" + today + "-" + String(seq).padStart(4, "0");
 }
 
-function nextQuotationNumber_() {
-  return nextDocNumber_("QT", "QT_SEQ_DATE", "QT_SEQ_NUM", "QUOTATION", 1);
+function nextQuotationNumber_(ss) {
+  return nextDocNumber_("QT", "QT_SEQ_DATE", "QT_SEQ_NUM", "QUOTATION", 1, ss);
+}
+
+function allocateQuotationSaveIds_(lineCount, ss) {
+  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd");
+  const dateKey = "QT_SEQ_DATE";
+  const seqKey = "QT_SEQ_NUM";
+  const lineKey = "QT_LINE_SEQ";
+
+  let storedDate = String(getSettingValue_(dateKey) || "").trim();
+  let qtSeq = Number(getSettingValue_(seqKey));
+  if (!storedDate || isNaN(qtSeq)) {
+    qtSeq = scanMaxDocSeqForDate_("QUOTATION", 1, "QT", today, ss);
+    storedDate = today;
+  } else if (storedDate !== today) {
+    qtSeq = scanMaxDocSeqForDate_("QUOTATION", 1, "QT", today, ss);
+    storedDate = today;
+  }
+  qtSeq += 1;
+
+  let lineSeq = Number(getSettingValue_(lineKey));
+  if (getSettingValue_(lineKey) === null || isNaN(lineSeq)) lineSeq = 0;
+
+  const lineIds = [];
+  for (let i = 0; i < lineCount; i++) {
+    lineSeq += 1;
+    lineIds.push("QT-L-" + String(lineSeq).padStart(6, "0"));
+  }
+
+  setSettingValues_([
+    [dateKey, today],
+    [seqKey, qtSeq],
+    [lineKey, lineSeq]
+  ]);
+
+  return {
+    quotationNo: "QT-" + today + "-" + String(qtSeq).padStart(4, "0"),
+    lineIds: lineIds
+  };
 }
 
 function validateQuotation_(p) {
@@ -77,19 +117,19 @@ function saveQuotation(payload) {
   lock.waitLock(10000);
 
   try {
-    const ss = SpreadsheetApp.openById(DATABASE_ID);
+    const ss = getDatabaseSpreadsheet_();
     const sh = ensureQuotationSheet_(ss);
-    const qtNo = nextQuotationNumber_();
+    const ids = allocateQuotationSaveIds_(payload.products.length, ss);
     const tanggal = new Date(payload.tanggal + "T12:00:00");
     const keterangan = String(payload.keterangan || "").trim();
-    const lineIds = allocateQuotationLineIds_(payload.products.length);
+    const customer = String(payload.customer).trim();
 
-    payload.products.forEach(function(item, index) {
+    const rows = payload.products.map(function(item, index) {
       const total = (Number(item.qty) * Number(item.harga)) - (Number(item.diskon) || 0);
-      sh.appendRow([
+      return [
         tanggal,
-        qtNo,
-        String(payload.customer).trim(),
+        ids.quotationNo,
+        customer,
         String(item.produk).trim(),
         Number(item.qty),
         String(item.satuan || "").trim(),
@@ -97,31 +137,19 @@ function saveQuotation(payload) {
         Number(item.diskon) || 0,
         total,
         "AKTIF",
-        lineIds[index],
+        ids.lineIds[index],
         "",
         keterangan
-      ]);
+      ];
     });
 
-    return { success: true, quotationNo: qtNo };
+    writeSheetRows_(sh, rows);
+    return { success: true, quotationNo: ids.quotationNo };
   } catch (err) {
     throw new Error(err.message);
   } finally {
     lock.releaseLock();
   }
-}
-
-function allocateQuotationLineIds_(count) {
-  const seqKey = "QT_LINE_SEQ";
-  let seq = Number(getSettingValue_(seqKey));
-  if (getSettingValue_(seqKey) === null || isNaN(seq)) seq = 0;
-  const ids = [];
-  for (let i = 0; i < count; i++) {
-    seq += 1;
-    ids.push("QT-L-" + String(seq).padStart(6, "0"));
-  }
-  setSettingValue_(seqKey, seq);
-  return ids;
 }
 
 function groupQuotationRows_(data, filterFn) {
@@ -160,7 +188,7 @@ function groupQuotationRows_(data, filterFn) {
 
 function getQuotationHistory(startDate, endDate) {
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("QUOTATION");
   if (!sh || sh.getLastRow() < 2) return [];
 
@@ -180,7 +208,7 @@ function getQuotationHistory(startDate, endDate) {
 
 function getActiveQuotations() {
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("QUOTATION");
   if (!sh || sh.getLastRow() < 2) return [];
 
@@ -192,7 +220,7 @@ function getActiveQuotations() {
 
 function getQuotationDetail(quotationNo) {
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("QUOTATION");
   if (!sh) throw new Error("Sheet QUOTATION tidak ditemukan.");
 

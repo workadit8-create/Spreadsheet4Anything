@@ -144,7 +144,7 @@ function simpanPelunasanHutangWeb(payload) {
   lock.waitLock(10000);
 
   try {
-    const ss = SpreadsheetApp.openById(DATABASE_ID);
+    const ss = getDatabaseSpreadsheet_();
     const sisaHutang = getSisaHutangPO_(ss, payload.po);
     validatePelunasanHutangPayload_(payload, sisaHutang);
 
@@ -203,9 +203,9 @@ function simpanPelunasanPiutangWeb(payload) {
   authGuard_();
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
-  
+
   try {
-    const ss = SpreadsheetApp.openById(DATABASE_ID);
+    const ss = getDatabaseSpreadsheet_();
     const sisaPiutang = getSisaPiutangInvoice_(ss, payload.invoice);
     validatePelunasanPayload_(payload, sisaPiutang);
 

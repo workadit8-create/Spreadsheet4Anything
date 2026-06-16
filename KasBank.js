@@ -25,37 +25,33 @@ function getSaldoKasBank() {
 function saveMutasiDana(p) {
   authGuard_();
   const lock = LockService.getScriptLock();
-  lock.waitLock(10000); // Mengunci script 10 detik agar antre jika ada klik bersamaan
+  lock.waitLock(10000);
 
   try {
     validateMutasiDana_(p);
 
-    const ss = SpreadsheetApp.openById(DATABASE_ID);
-    let sh = ss.getSheetByName('MUTASI_DANA');
-    
+    const ss = getDatabaseSpreadsheet_();
+    const sh = ss.getSheetByName("MUTASI_DANA");
     if (!sh) throw new Error("Sheet MUTASI_DANA belum dibuat!");
-    
-    // Generate Transaction ID Unik
+
     const lastRow = sh.getLastRow();
-    const transNo = Math.max(1, lastRow); // Menjadikan baris terakhir sebagai nomor urut
+    const transNo = Math.max(1, lastRow);
     const dateStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd");
-    
-    // Format: TX-MB-20260614-1 (Transaction-MutasiBank-Tanggal-NoUrut)
     const transId = "TX-MB-" + dateStr + "-" + transNo;
-    
+
     sh.appendRow([
       new Date(p.tanggal),
-      p.jenis,      // (Masuk / Keluar / Transfer)
-      "",           // Kategori (Bisa untuk pengembangan nanti)
+      p.jenis,
+      "",
       p.sumber,
       p.tujuan,
       Number(p.nominal),
       p.keterangan,
-      false,        // Status Posted
-      transId,      // Transaction ID
-      "POST"        // AKSI — hanya mutasi manual yang diposting ke jurnal
+      false,
+      transId,
+      "POST"
     ]);
-    
+
     return { success: true, transId: transId };
   } catch (err) {
     throw new Error(err.message);
@@ -171,6 +167,23 @@ function getMasterDataPembelian() {
   return buildMasterPembelianMap_(ss);
 }
 
+let KATEGORI_ACCOUNT_MAP_ = null;
+
+function buildKategoriAccountMap_(ss) {
+  if (KATEGORI_ACCOUNT_MAP_) return KATEGORI_ACCOUNT_MAP_;
+  KATEGORI_ACCOUNT_MAP_ = {};
+  readMasterKategoriPembelian_(ss, true).forEach(function(row) {
+    KATEGORI_ACCOUNT_MAP_[row.kategori + "|" + row.subKategori] = row.akun;
+  });
+  return KATEGORI_ACCOUNT_MAP_;
+}
+
+function getAccountByKategoriFast_(kategori, subKategori, ss) {
+  const map = buildKategoriAccountMap_(ss);
+  const key = String(kategori || "").trim() + "|" + String(subKategori || "").trim();
+  return map[key] || "BIAYA LAIN-LAIN";
+}
+
 function savePembelian(p) {
   authGuard_();
   validatePembelian_(p);
@@ -179,79 +192,78 @@ function savePembelian(p) {
   lock.waitLock(10000);
 
   try {
-    const ss = SpreadsheetApp.openById(DATABASE_ID);
+    const ss = getDatabaseSpreadsheet_();
     if (p.prNo) {
       assertPurchaseRequestConvertible_(ss, p.prNo);
     }
     const sh = ss.getSheetByName("PEMBELIAN");
-    const shMutasi = ss.getSheetByName('MUTASI_DANA');
-  
-  // --- BAGIAN INI YANG TADI HILANG ---
-  let fileUrl = "";
-  if (p.fileBase64) {
-    fileUrl = uploadToDrive(p.fileBase64, p.fileName, p.fileMimeType);
-  }
-  // ------------------------------------
-  
-  // 1. Generate Nomor Dokumen (PO)
-  const dateStr = new Date(p.tanggal).toISOString().split('T')[0].replace(/-/g, '').substring(2); 
-  const randomNum = Math.floor(Math.random() * 9000) + 1000;
-  const poNumber = "PO-" + dateStr + "-" + randomNum;
-  
-  const tgl = new Date(p.tanggal);
-  let sisaBayar = Number(p.bayar); 
-  
-  // 2. Loop setiap baris barang
-  p.items.forEach((item, index) => {
-    const akun = getAccountByKategori(item.kategori, item.subKategori);
-    const trxId = "TRX-PB-" + dateStr + "-" + randomNum + "-" + (index + 1);
-    const totalBaris = (item.qty * item.harga) - item.diskon;
-    
-    // 3. Logika Bayar
-    let bayarItem = Math.min(sisaBayar, totalBaris); 
-    sisaBayar -= bayarItem; 
-    
-    const sisaTagihan = totalBaris - bayarItem;
-    const metodeBaris = sisaTagihan > 0 ? "Kredit" : "Tunai";
-    const tanggalBayar = (bayarItem > 0) ? tgl : "";
-    const rekening = (bayarItem > 0) ? p.rekening : "";
+    const shMutasi = ss.getSheetByName("MUTASI_DANA");
 
-    // 4. Append Baris ke Sheet (Pastikan ini ada 18 item di dalam array)
-    sh.appendRow([
-      tgl,           // A
-      poNumber,      // B
-      p.supplier,    // C
-      item.namaBrg,  // D
-      item.qty,      // E
-      item.satuan,   // F
-      item.harga,    // G
-      totalBaris,    // H
-      metodeBaris,   // I — otomatis per baris (mirroring pemasukan)
-      akun,          // J
-      bayarItem,     // K
-      false,         // L
-      sisaTagihan,   // M
-      tanggalBayar,  // N
-      rekening,      // O
-      trxId,         // P
-      "POST",        // Q — flag untuk syncPostingPembelian
-      fileUrl        // R: Link file masuk di sini
-    ]);
-    
-    // 5. Catat Mutasi
-    if (bayarItem > 0 && p.rekening) {
-      shMutasi.appendRow([
-        tgl, "Keluar", "Pembelian", p.rekening, p.supplier, 
-        bayarItem, "Pembelian " + item.namaBrg, false, trxId
-      ]);
+    let fileUrl = "";
+    if (p.fileBase64) {
+      fileUrl = uploadToDrive(p.fileBase64, p.fileName, p.fileMimeType);
     }
-  });
-  
-  if (p.prNo) {
-    markPurchaseRequestConverted_(ss, p.prNo, poNumber);
-  }
 
-  return { success: true, po: poNumber };
+    const dateStr = new Date(p.tanggal).toISOString().split("T")[0].replace(/-/g, "").substring(2);
+    const randomNum = Math.floor(Math.random() * 9000) + 1000;
+    const poNumber = "PO-" + dateStr + "-" + randomNum;
+    const tgl = new Date(p.tanggal);
+    let sisaBayar = Number(p.bayar);
+
+    const pembelianRows = [];
+    const mutasiRows = [];
+
+    p.items.forEach(function(item, index) {
+      const akunFromClient = String(item.akun || "").trim();
+      const akun = akunFromClient || getAccountByKategoriFast_(item.kategori, item.subKategori, ss);
+      const trxId = "TRX-PB-" + dateStr + "-" + randomNum + "-" + (index + 1);
+      const totalBaris = (item.qty * item.harga) - item.diskon;
+      const bayarItem = Math.min(sisaBayar, totalBaris);
+      sisaBayar -= bayarItem;
+      const sisaTagihan = totalBaris - bayarItem;
+      const metodeBaris = sisaTagihan > 0 ? "Kredit" : "Tunai";
+      const tanggalBayar = bayarItem > 0 ? tgl : "";
+      const rekening = bayarItem > 0 ? p.rekening : "";
+
+      pembelianRows.push([
+        tgl,
+        poNumber,
+        p.supplier,
+        item.namaBrg,
+        item.qty,
+        item.satuan,
+        item.harga,
+        totalBaris,
+        metodeBaris,
+        akun,
+        bayarItem,
+        false,
+        sisaTagihan,
+        tanggalBayar,
+        rekening,
+        trxId,
+        "POST",
+        fileUrl
+      ]);
+
+      if (bayarItem > 0 && p.rekening && shMutasi) {
+        mutasiRows.push([
+          tgl, "Keluar", "Pembelian", p.rekening, p.supplier,
+          bayarItem, "Pembelian " + item.namaBrg, false, trxId
+        ]);
+      }
+    });
+
+    writeSheetRows_(sh, pembelianRows);
+    if (mutasiRows.length && shMutasi) {
+      writeSheetRows_(shMutasi, mutasiRows);
+    }
+
+    if (p.prNo) {
+      markPurchaseRequestConverted_(ss, p.prNo, poNumber);
+    }
+
+    return { success: true, po: poNumber };
   } catch (err) {
     throw new Error(err.message);
   } finally {
@@ -259,19 +271,9 @@ function savePembelian(p) {
   }
 }
 
-// 1. Fungsi Cari Akun Otomatis
 function getAccountByKategori(kategori, subKategori) {
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
-  ensureMasterDataReady_(ss);
-  const kat = String(kategori || "").trim();
-  const sub = String(subKategori || "").trim();
-  const list = readMasterKategoriPembelian_(ss, true);
-  for (let i = 0; i < list.length; i++) {
-    if (list[i].kategori === kat && list[i].subKategori === sub) {
-      return list[i].akun;
-    }
-  }
-  return "BIAYA LAIN-LAIN";
+  const ss = getDatabaseSpreadsheet_();
+  return getAccountByKategoriFast_(kategori, subKategori, ss);
 }
 
 // 2. Generator Nomor "Keren"

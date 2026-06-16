@@ -16,8 +16,8 @@ function ensurePurchaseRequestSheet_(ss) {
   return sh;
 }
 
-function nextPRNumber_() {
-  return nextDocNumber_("PR", "PR_SEQ_DATE", "PR_SEQ_NUM", "PURCHASE_REQUEST", 1);
+function nextPRNumber_(ss) {
+  return nextDocNumber_("PR", "PR_SEQ_DATE", "PR_SEQ_NUM", "PURCHASE_REQUEST", 1, ss);
 }
 
 function validatePurchaseRequest_(p) {
@@ -42,18 +42,18 @@ function savePurchaseRequest(payload) {
   lock.waitLock(10000);
 
   try {
-    const ss = SpreadsheetApp.openById(DATABASE_ID);
+    const ss = getDatabaseSpreadsheet_();
     const sh = ensurePurchaseRequestSheet_(ss);
-    const prNo = nextPRNumber_();
+    const prNo = nextPRNumber_(ss);
     const tanggal = new Date(payload.tanggal + "T12:00:00");
     const supplier = String(payload.supplier || "").trim();
     const keterangan = String(payload.keterangan || "").trim();
 
-    payload.items.forEach(function(item, index) {
+    const rows = payload.items.map(function(item) {
       const harga = Number(item.harga) || 0;
       const diskon = Number(item.diskon) || 0;
       const total = (Number(item.qty) * harga) - diskon;
-      sh.appendRow([
+      return [
         tanggal,
         prNo,
         supplier,
@@ -68,9 +68,10 @@ function savePurchaseRequest(payload) {
         "AKTIF",
         "",
         keterangan
-      ]);
+      ];
     });
 
+    writeSheetRows_(sh, rows);
     return { success: true, prNo: prNo };
   } catch (err) {
     throw new Error(err.message);
@@ -115,7 +116,7 @@ function groupPurchaseRequestRows_(data, filterFn) {
 
 function getPurchaseRequestHistory(startDate, endDate) {
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("PURCHASE_REQUEST");
   if (!sh || sh.getLastRow() < 2) return [];
 
@@ -135,7 +136,7 @@ function getPurchaseRequestHistory(startDate, endDate) {
 
 function getActivePurchaseRequests() {
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("PURCHASE_REQUEST");
   if (!sh || sh.getLastRow() < 2) return [];
 
@@ -147,7 +148,7 @@ function getActivePurchaseRequests() {
 
 function getPurchaseRequestDetail(prNo) {
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("PURCHASE_REQUEST");
   if (!sh) throw new Error("Sheet PURCHASE_REQUEST tidak ditemukan.");
 
