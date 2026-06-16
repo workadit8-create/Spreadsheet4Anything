@@ -261,12 +261,13 @@ function assertQuotationConvertible_(ss, quotationNo) {
     throw new Error("Quotation " + quotationNo + " tidak ditemukan.");
   }
   const target = String(quotationNo || "").trim();
-  const lastRow = sh.getLastRow();
-  const block = sh.getRange(2, 2, lastRow - 1, 11).getValues();
-  for (let i = 0; i < block.length; i++) {
-    if (String(block[i][0] || "").trim() !== target) continue;
-    const status = String(block[i][8] || "").trim().toUpperCase();
-    const inv = String(block[i][10] || "").trim();
+  const nos = readSheetColumnValues_(sh, 2);
+  const statuses = readSheetColumnValues_(sh, 10);
+  const invs = readSheetColumnValues_(sh, 12);
+  for (let i = 0; i < nos.length; i++) {
+    if (String(nos[i][0] || "").trim() !== target) continue;
+    const status = String((statuses[i] && statuses[i][0]) || "").trim().toUpperCase();
+    const inv = String((invs[i] && invs[i][0]) || "").trim();
     if (status === "CONVERTED") {
       throw new Error("Quotation " + quotationNo + " sudah dikonversi ke invoice " + (inv || "") + ".");
     }
@@ -280,10 +281,22 @@ function markQuotationConverted_(ss, quotationNo, invoiceNo) {
   if (!sh) return;
   const target = String(quotationNo).trim();
   const nos = readSheetColumnValues_(sh, 2);
+  const rowNums = [];
   for (let i = 0; i < nos.length; i++) {
-    if (String(nos[i][0] || "").trim() !== target) continue;
-    const rowNum = i + 2;
-    sh.getRange(rowNum, 10).setValue("CONVERTED");
-    sh.getRange(rowNum, 12).setValue(invoiceNo);
+    if (String(nos[i][0] || "").trim() === target) rowNums.push(i + 2);
+  }
+  if (!rowNums.length) return;
+  const n = rowNums.length;
+  const contiguous = rowNums[n - 1] - rowNums[0] + 1 === n;
+  if (contiguous) {
+    const statusVals = rowNums.map(function() { return ["CONVERTED"]; });
+    const invVals = rowNums.map(function() { return [invoiceNo]; });
+    sh.getRange(rowNums[0], 10, n, 1).setValues(statusVals);
+    sh.getRange(rowNums[0], 12, n, 1).setValues(invVals);
+  } else {
+    rowNums.forEach(function(rowNum) {
+      sh.getRange(rowNum, 10).setValue("CONVERTED");
+      sh.getRange(rowNum, 12).setValue(invoiceNo);
+    });
   }
 }

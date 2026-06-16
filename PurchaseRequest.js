@@ -215,12 +215,13 @@ function assertPurchaseRequestConvertible_(ss, prNo) {
     throw new Error("Purchase Request " + prNo + " tidak ditemukan.");
   }
   const target = String(prNo || "").trim();
-  const lastRow = sh.getLastRow();
-  const block = sh.getRange(2, 2, lastRow - 1, 12).getValues();
-  for (let i = 0; i < block.length; i++) {
-    if (String(block[i][0] || "").trim() !== target) continue;
-    const status = String(block[i][10] || "").trim().toUpperCase();
-    const po = String(block[i][11] || "").trim();
+  const nos = readSheetColumnValues_(sh, 2);
+  const statuses = readSheetColumnValues_(sh, 12);
+  const pos = readSheetColumnValues_(sh, 13);
+  for (let i = 0; i < nos.length; i++) {
+    if (String(nos[i][0] || "").trim() !== target) continue;
+    const status = String((statuses[i] && statuses[i][0]) || "").trim().toUpperCase();
+    const po = String((pos[i] && pos[i][0]) || "").trim();
     if (status === "CONVERTED") {
       throw new Error("Purchase Request " + prNo + " sudah dikonversi ke PO " + (po || "") + ".");
     }
@@ -234,10 +235,22 @@ function markPurchaseRequestConverted_(ss, prNo, poNo) {
   if (!sh) return;
   const target = String(prNo).trim();
   const nos = readSheetColumnValues_(sh, 2);
+  const rowNums = [];
   for (let i = 0; i < nos.length; i++) {
-    if (String(nos[i][0] || "").trim() !== target) continue;
-    const rowNum = i + 2;
-    sh.getRange(rowNum, 12).setValue("CONVERTED");
-    sh.getRange(rowNum, 13).setValue(poNo);
+    if (String(nos[i][0] || "").trim() === target) rowNums.push(i + 2);
+  }
+  if (!rowNums.length) return;
+  const n = rowNums.length;
+  const contiguous = rowNums[n - 1] - rowNums[0] + 1 === n;
+  if (contiguous) {
+    const statusVals = rowNums.map(function() { return ["CONVERTED"]; });
+    const poVals = rowNums.map(function() { return [poNo]; });
+    sh.getRange(rowNums[0], 12, n, 1).setValues(statusVals);
+    sh.getRange(rowNums[0], 13, n, 1).setValues(poVals);
+  } else {
+    rowNums.forEach(function(rowNum) {
+      sh.getRange(rowNum, 12).setValue("CONVERTED");
+      sh.getRange(rowNum, 13).setValue(poNo);
+    });
   }
 }
