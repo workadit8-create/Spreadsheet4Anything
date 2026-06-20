@@ -59,6 +59,21 @@ source "$VENV/bin/activate"
 # shellcheck disable=SC1091
 source "$ROOT/scripts/provision/clasp_isolated.sh"
 
+resolve_deploy_id() {
+  local script_id="$1"
+  local desc="$2"
+  local from_clasp="${3:-}"
+  if [ -n "$from_clasp" ]; then
+    echo "$from_clasp"
+    return 0
+  fi
+  echo "    Buat Web App deployment via API..." >&2
+  python3 "$ROOT/scripts/provision/deploy_webapp.py" \
+    --script-id "$script_id" \
+    --description "$desc" \
+    | python3 -c "import sys,json; print(json.load(sys.stdin)['deploymentId'])"
+}
+
 API_KEY="AKUNTANSI_$(echo "$SLUG" | tr '[:lower:]' '[:upper:]')_$(openssl rand -hex 4 2>/dev/null || echo "$RANDOM")"
 
 PARTIAL_ENV="$PROVISION/instances/${SLUG}.partial.env"
@@ -133,10 +148,7 @@ if [ -z "$BE_DEPLOY_ID" ]; then
 fi
 BACKEND_SCRIPT_ID="${BACKEND_SCRIPT_ID:-$(python3 -c "import json; print(json.load(open('$BE_CLIENT_DIR/.clasp.json'))['scriptId'])")}"
 
-if [ -z "$BE_DEPLOY_ID" ]; then
-  echo "    Catat deployment ID backend manual dari output clasp deploy"
-  read -r -p "    BACKEND deployment ID (AKfycb...): " BE_DEPLOY_ID
-fi
+BE_DEPLOY_ID="$(resolve_deploy_id "$BACKEND_SCRIPT_ID" "provision backend $SLUG" "$BE_DEPLOY_ID")"
 
 BACKEND_WEBAPP_URL="https://script.google.com/macros/s/${BE_DEPLOY_ID}/exec"
 echo "    Backend URL: $BACKEND_WEBAPP_URL"
@@ -212,9 +224,7 @@ if [ -z "${WEB_DEPLOY_ID:-}" ]; then
 fi
 WEB_SCRIPT_ID="${WEB_SCRIPT_ID:-$(python3 -c "import json; print(json.load(open('$CLIENT_DIR/.clasp.json'))['scriptId'])")}"
 
-if [ -z "$WEB_DEPLOY_ID" ]; then
-  read -r -p "    WEB deployment ID (AKfycb...): " WEB_DEPLOY_ID
-fi
+WEB_DEPLOY_ID="$(resolve_deploy_id "$WEB_SCRIPT_ID" "provision web $SLUG" "${WEB_DEPLOY_ID:-}")"
 
 WEBAPP_URL="https://script.google.com/macros/s/${WEB_DEPLOY_ID}/exec"
 

@@ -15,6 +15,14 @@
       "rootFolderId": "1_4SslNXoWm3k3zPJfW8rICPxKZU2yPgK",
       "clientFolderId": "1_HfiKMNs4CoIvVRifhn9ZBYzZP0bLN0A",
       "uploadsFolderId": "1d8mtCu-af3lto_MialhLyHdXmqGXf4oF"
+    },
+    "dev": {
+      "label": "Sandbox Dev",
+      "databaseId": "1w3UNhPBi-GjEBJbIzABJu9RE0fFE65HHv0l9p7QOoi8",
+      "backendEngineId": "11JH-9HQuOPu-8mIPKKCZWqixiXDdu3DxQ0LzbknG7uM",
+      "rootFolderId": "1_4SslNXoWm3k3zPJfW8rICPxKZU2yPgK",
+      "clientFolderId": "1OSyT3CMoEHKNKjONjaudlQiTEoQJfitS",
+      "uploadsFolderId": "19g9M1HhQfDECwcjZV_COpZVfsYyz1NA8"
     }
   },
   "rootFolderName": "Akuntansi App",

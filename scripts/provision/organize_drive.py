@@ -65,11 +65,14 @@ def load_clients(slugs: list[str] | None) -> list[dict]:
             clients.append(c1)
 
     if instances.is_dir():
-        for env_file in sorted(instances.glob("*.env")):
-            if env_file.name.endswith(".partial.env"):
+        env_files = sorted(instances.glob("*.env"))
+        if slugs:
+            env_files = sorted(set(env_files) | set(instances.glob("*.partial.env")))
+        for env_file in env_files:
+            if env_file.name.endswith(".partial.env") and not slugs:
                 continue
             data = read_env(env_file)
-            slug = data.get("SLUG") or env_file.stem.replace(".env", "")
+            slug = data.get("SLUG") or env_file.stem.replace(".partial.env", "").replace(".env", "")
             if slugs and slug not in slugs:
                 continue
             if slug == "client1":

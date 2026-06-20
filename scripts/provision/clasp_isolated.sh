@@ -10,7 +10,7 @@ clasp_provision_isolated() {
   DEPLOY_OUT="$(
     cd "$WORK"
     clasp create --type standalone --title "$TITLE"
-    cp -r "$SRC_DIR/"* "$WORK/"
+    rsync -a --exclude '.clasp.json' "$SRC_DIR/" "$WORK/"
     clasp push --force
     clasp deploy --description "provision"
   )"

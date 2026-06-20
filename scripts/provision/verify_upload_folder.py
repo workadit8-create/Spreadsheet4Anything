@@ -48,11 +48,23 @@ def list_folder_files(folder_id: str, limit: int = 20) -> list[dict]:
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("--client", default="demo", choices=["demo", "client1"])
+    p.add_argument(
+        "--client",
+        default="demo",
+        help="Slug client di provision/drive-layout.json (demo, client1, dev, ...)",
+    )
     args = p.parse_args()
 
+    if not LAYOUT.exists():
+        raise SystemExit(f"Layout tidak ditemukan: {LAYOUT}")
+
     layout = json.loads(LAYOUT.read_text())
-    entry = layout["clients"][args.client]
+    entries = layout.get("clients") or {}
+    if args.client not in entries:
+        known = ", ".join(sorted(entries.keys())) or "(kosong)"
+        raise SystemExit(f"Client '{args.client}' tidak ada di drive-layout.json. Known: {known}")
+
+    entry = entries[args.client]
     database_id = entry["databaseId"]
     expected_uploads = entry["uploadsFolderId"]
     label = entry.get("label") or args.client
