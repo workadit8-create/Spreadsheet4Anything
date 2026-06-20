@@ -80,8 +80,8 @@ if [ -z "${DATABASE_ID:-}" ] || [ -z "${BACKEND_ENGINE_ID:-}" ]; then
     --database-id "$MASTER_DATABASE_ID" \
     --backend-id "$MASTER_BACKEND_ENGINE_ID" \
     --name "$DISPLAY_NAME")"
-  DATABASE_ID="$(echo "$COPY_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['databaseId'])")"
-  BACKEND_ENGINE_ID="$(echo "$COPY_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['backendEngineId'])")"
+DATABASE_ID="$(echo "$COPY_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['databaseId'])")"
+BACKEND_ENGINE_ID="$(echo "$COPY_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['backendEngineId'])")"
 else
   echo "==> [1/7] Pakai spreadsheet yang sudah disalin (partial resume)"
 fi

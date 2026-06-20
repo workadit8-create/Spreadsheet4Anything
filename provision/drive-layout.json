@@ -1,0 +1,22 @@
+{
+  "clients": {
+    "client1": {
+      "label": "Client 1",
+      "databaseId": "1pX_pzST75hGieG3u4xlQOlAKJyp1gvhd-nBB1YdulRc",
+      "backendEngineId": "171xtAp4xRNhXwLHQorHoLWi9DpxfE6lm8oG1FQwfG0k",
+      "rootFolderId": "1_4SslNXoWm3k3zPJfW8rICPxKZU2yPgK",
+      "clientFolderId": "15GpcwdyYy5gLklTGL-uF2lfSbSsc3sF9",
+      "uploadsFolderId": "1Zii9z6RMW6lTJ-v2FPem3Z4J8Fifr678"
+    },
+    "demo": {
+      "label": "Akun Demo",
+      "databaseId": "1pPX9l5ag6ASB-W-eRgEcxrW2dRitgaA-EBPzrOl7HqM",
+      "backendEngineId": "1ERRUrN-u-60A2QrnQ4MimIxY0S96F8JE_veKPuHccAg",
+      "rootFolderId": "1_4SslNXoWm3k3zPJfW8rICPxKZU2yPgK",
+      "clientFolderId": "1_HfiKMNs4CoIvVRifhn9ZBYzZP0bLN0A",
+      "uploadsFolderId": "1d8mtCu-af3lto_MialhLyHdXmqGXf4oF"
+    }
+  },
+  "rootFolderName": "Akuntansi App",
+  "rootFolderId": "1_4SslNXoWm3k3zPJfW8rICPxKZU2yPgK"
+}
