@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from drive_folders import organize_client_files  # noqa: E402
+from patch_setting import patch_upload_folder  # noqa: E402
 
 LAYOUT_PATH = ROOT / "provision" / "drive-layout.json"
 
@@ -119,6 +120,8 @@ def main() -> None:
         results.append(entry)
         print(f"    Folder: Akuntansi App / {folder_label}")
         print(f"    Uploads ID: {folders['uploadsFolderId']}")
+        patch_upload_folder(item["DATABASE_ID"], folders["uploadsFolderId"])
+        print(f"    SETTING: UPLOAD_FOLDER_ID diperbarui")
 
     layout["rootFolderName"] = "Akuntansi App"
     if results:

@@ -141,14 +141,30 @@ fi
 BACKEND_WEBAPP_URL="https://script.google.com/macros/s/${BE_DEPLOY_ID}/exec"
 echo "    Backend URL: $BACKEND_WEBAPP_URL"
 
-echo "==> [4/7] Update sheet SETTING (database client)..."
-python3 "$ROOT/scripts/provision/patch_setting.py" \
-  --database-id "$DATABASE_ID" \
-  --backend-engine-id "$BACKEND_ENGINE_ID" \
-  --backend-url "$BACKEND_WEBAPP_URL" \
-  --api-key "$API_KEY"
+echo "==> [4/7] Rapikan folder Drive + update SETTING..."
+python3 "$ROOT/scripts/provision/organize_drive.py" --client "$SLUG"
+UPLOADS_FOLDER_ID=""
+if [ -f "$ROOT/provision/drive-layout.json" ]; then
+  UPLOADS_FOLDER_ID="$(python3 -c "
+import json
+d = json.load(open('$ROOT/provision/drive-layout.json'))
+print((d.get('clients') or {}).get('$SLUG', {}).get('uploadsFolderId', ''))
+")"
+fi
 
-echo "==> [5/7] Siapkan folder web app clients/$SLUG ..."
+echo "==> [5/7] Update sheet SETTING (database client)..."
+PATCH_ARGS=(
+  --database-id "$DATABASE_ID"
+  --backend-engine-id "$BACKEND_ENGINE_ID"
+  --backend-url "$BACKEND_WEBAPP_URL"
+  --api-key "$API_KEY"
+)
+if [ -n "$UPLOADS_FOLDER_ID" ]; then
+  PATCH_ARGS+=(--upload-folder-id "$UPLOADS_FOLDER_ID")
+fi
+python3 "$ROOT/scripts/provision/patch_setting.py" "${PATCH_ARGS[@]}"
+
+echo "==> [6/7] Siapkan folder web app clients/$SLUG ..."
 mkdir -p "$CLIENT_DIR"
 cp "$ROOT/clients/_template/Config.js" "$CLIENT_DIR/Config.js"
 cp "$ROOT/clients/_template/deploy.sh" "$CLIENT_DIR/deploy.sh"
@@ -170,7 +186,7 @@ for lib in d.get("dependencies", {}).get("libraries", []):
 json.dump(d, open(p, "w"), indent=2)
 PY
 
-echo "==> [6/7] Buat Apps Script web app + push..."
+echo "==> [7/8] Buat Apps Script web app + push..."
 if [ ! -f "$CLIENT_DIR/.clasp.json" ]; then
   "$ROOT/scripts/sync-client-code.sh" "clients/$SLUG"
   python3 - <<PY
@@ -232,7 +248,7 @@ BACKEND_DEPLOY_ID=$BE_DEPLOY_ID
 EOF
 
 echo ""
-echo "==> [7/7] SELESAI"
+echo "==> [8/8] SELESAI"
 echo ""
 echo "  Nama       : $DISPLAY_NAME"
 echo "  URL app    : $WEBAPP_URL"

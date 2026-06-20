@@ -81,7 +81,7 @@ function getHistoryMutasi() {
 }
 
 function pancingIzinDrive() {
-  const folder = DriveApp.getFolderById("1fQSokPZUT_FdqNwXunH8s_0b5ZcrAC7E");
+  const folder = getUploadFolder_();
   Logger.log("Folder berhasil diakses: " + folder.getName());
 }
 
@@ -285,8 +285,7 @@ function generatePurchaseIDs() {
 }
 
 function uploadToDrive(base64Data, fileName, mimeType) {
-  const folderId = "1FWtI29eTu4j2YSshCZQpDW_pkqhFhmLJ"; // Folder ID kamu
-  const folder = DriveApp.getFolderById(folderId);
+  const folder = getUploadFolder_();
   const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, fileName);
   const file = folder.createFile(blob);
   return file.getUrl();

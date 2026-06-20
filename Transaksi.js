@@ -220,8 +220,7 @@ function persistInvoice_(invoiceData, invoiceNo, ss, options) {
 
   let fileUrl = "";
   if (invoiceData.fileBase64) {
-    const folderId = "1fQSokPZUT_FdqNwXunH8s_0b5ZcrAC7E";
-    const folder = DriveApp.getFolderById(folderId);
+    const folder = getUploadFolder_();
     const blob = Utilities.newBlob(Utilities.base64Decode(invoiceData.fileBase64), invoiceData.fileMimeType, invoiceData.fileName);
     const file = folder.createFile(blob);
     fileUrl = file.getUrl();

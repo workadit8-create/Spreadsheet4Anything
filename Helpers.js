@@ -33,6 +33,14 @@ function invalidateSettingsCache_() {
   SETTINGS_ROW_MAP_ = null;
 }
 
+/** Folder upload per client — dari SETTING UPLOAD_FOLDER_ID, fallback legacy Client 1. */
+function getUploadFolder_() {
+  const legacyId = "1fQSokPZUT_FdqNwXunH8s_0b5ZcrAC7E";
+  const fromSetting = String(getSettingValue_("UPLOAD_FOLDER_ID") || "").trim();
+  const folderId = fromSetting || legacyId;
+  return DriveApp.getFolderById(folderId);
+}
+
 function loadSettingsRowMap_(sh) {
   if (SETTINGS_ROW_MAP_) return SETTINGS_ROW_MAP_;
   SETTINGS_ROW_MAP_ = {};

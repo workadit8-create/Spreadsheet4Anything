@@ -152,7 +152,7 @@ function simpanPelunasanHutangWeb(payload) {
 
     let fileUrl = "";
     if (payload.fileBase64) {
-      const folder = DriveApp.getFolderById("1fQSokPZUT_FdqNwXunH8s_0b5ZcrAC7E");
+      const folder = getUploadFolder_();
       const blob = Utilities.newBlob(
         Utilities.base64Decode(payload.fileBase64),
         payload.fileMimeType,
@@ -212,7 +212,7 @@ function simpanPelunasanPiutangWeb(payload) {
     // 1. Upload File ke Drive (jika ada)
     let fileUrl = "";
     if (payload.fileBase64) {
-      const folder = DriveApp.getFolderById("1fQSokPZUT_FdqNwXunH8s_0b5ZcrAC7E"); 
+      const folder = getUploadFolder_();
       const blob = Utilities.newBlob(Utilities.base64Decode(payload.fileBase64), payload.fileMimeType, payload.fileName);
       fileUrl = folder.createFile(blob).getUrl();
     }

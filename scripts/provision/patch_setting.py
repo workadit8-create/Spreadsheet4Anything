@@ -47,21 +47,45 @@ def upsert_setting(spreadsheet_id: str, key: str, value: str, row_map: dict[str,
         ).execute()
 
 
+def patch_backend_settings(
+    database_id: str,
+    backend_engine_id: str,
+    backend_url: str,
+    api_key: str,
+) -> None:
+    row_map = find_setting_rows(database_id)
+    upsert_setting(database_id, "BACKEND_ENGINE_ID", backend_engine_id, row_map)
+    row_map = find_setting_rows(database_id)
+    upsert_setting(database_id, "BACKEND_WEBAPP_URL", backend_url, row_map)
+    row_map = find_setting_rows(database_id)
+    upsert_setting(database_id, "BACKEND_API_KEY", api_key, row_map)
+
+
+def patch_upload_folder(database_id: str, upload_folder_id: str) -> None:
+    row_map = find_setting_rows(database_id)
+    upsert_setting(database_id, "UPLOAD_FOLDER_ID", upload_folder_id, row_map)
+
+
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--database-id", required=True)
     p.add_argument("--backend-engine-id", required=True)
     p.add_argument("--backend-url", required=True)
     p.add_argument("--api-key", required=True)
+    p.add_argument("--upload-folder-id", default="")
     args = p.parse_args()
 
-    row_map = find_setting_rows(args.database_id)
-    upsert_setting(args.database_id, "BACKEND_ENGINE_ID", args.backend_engine_id, row_map)
-    row_map = find_setting_rows(args.database_id)
-    upsert_setting(args.database_id, "BACKEND_WEBAPP_URL", args.backend_url, row_map)
-    row_map = find_setting_rows(args.database_id)
-    upsert_setting(args.database_id, "BACKEND_API_KEY", args.api_key, row_map)
-    print("SETTING updated: BACKEND_ENGINE_ID, BACKEND_WEBAPP_URL, BACKEND_API_KEY")
+    patch_backend_settings(
+        args.database_id,
+        args.backend_engine_id,
+        args.backend_url,
+        args.api_key,
+    )
+    keys = ["BACKEND_ENGINE_ID", "BACKEND_WEBAPP_URL", "BACKEND_API_KEY"]
+    if args.upload_folder_id:
+        patch_upload_folder(args.database_id, args.upload_folder_id)
+        keys.append("UPLOAD_FOLDER_ID")
+    print("SETTING updated: " + ", ".join(keys))
 
 
 if __name__ == "__main__":
