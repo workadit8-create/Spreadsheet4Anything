@@ -1,11 +1,46 @@
 /**
  * CARA PAKAI (DevTools Console, tab production yang sudah login):
- * 1. Buka file ini di Cursor/editor → Select All (Cmd+A) → Copy (Cmd+C)
+ * 1. Cmd+A → Cmd+C isi file ini (JANGAN paste path file!)
  * 2. Paste di Console → Enter
- * JANGAN paste path file (/Users/...) — itu bukan JavaScript!
+ * 3. Jika 0/16: dropdown Console pilih frame "googleusercontent.com" lalu jalankan lagi
  */
 (async function browserUiCheck() {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  function findAppWindow(win, depth) {
+    if (!win || depth > 6) return null;
+    try {
+      if (typeof win.loadDashboardPage === "function") return win;
+    } catch (e) {}
+    try {
+      const frames = win.frames;
+      for (let i = 0; i < frames.length; i++) {
+        const hit = findAppWindow(frames[i], depth + 1);
+        if (hit) return hit;
+      }
+    } catch (e) {}
+    try {
+      const iframes = win.document.querySelectorAll("iframe");
+      for (let i = 0; i < iframes.length; i++) {
+        const hit = findAppWindow(iframes[i].contentWindow, depth + 1);
+        if (hit) return hit;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  const appWin = findAppWindow(window, 0);
+  if (!appWin) {
+    console.error(
+      "Fungsi loadDashboardPage tidak ditemukan di frame ini.\n" +
+        "Solusi: DevTools → Console → dropdown 'top' → pilih frame googleusercontent.com\n" +
+        "Lalu paste & jalankan script lagi."
+    );
+    return { error: "wrong_frame", passed: 0, total: 0, results: [] };
+  }
+
+  const doc = appWin.document;
+  console.log("Browser UI Check — frame app ditemukan:", appWin.location.href);
 
   const menus = [
     { fn: "loadDashboardPage", title: "Dashboard", wait: 4000 },
@@ -26,76 +61,67 @@
   ];
 
   const results = [];
-  console.log("🧪 Browser UI Check — mulai…");
 
-  // Sidebar scroll test
-  const sidebar = document.querySelector(".sidebar");
-  const laporanMenu = document.querySelector('.menu-item[data-menu="laporan"]');
+  const sidebar = doc.querySelector(".sidebar");
+  const laporanMenu = doc.querySelector('.menu-item[data-menu="laporan"]');
   let sidebarScrollOk = false;
   if (sidebar && laporanMenu) {
     sidebar.scrollTop = sidebar.scrollHeight;
     await sleep(300);
     const rect = laporanMenu.getBoundingClientRect();
-    sidebarScrollOk = rect.top >= 0 && rect.bottom <= window.innerHeight;
+    sidebarScrollOk = rect.top >= 0 && rect.bottom <= appWin.innerHeight;
   }
   results.push({
-    test: "Sidebar scroll → Laporan terlihat",
+    test: "Sidebar scroll → Laporan",
     pass: sidebarScrollOk,
-    note: sidebarScrollOk ? "OK" : "Menu Laporan mungkin terpotong — sidebar tidak scroll",
+    note: sidebarScrollOk ? "OK" : "Menu terpotong / sidebar tidak scroll",
   });
 
   for (const m of menus) {
-    if (typeof window[m.fn] !== "function") {
-      results.push({ test: m.title, pass: false, note: "Fungsi " + m.fn + " tidak ditemukan" });
+    if (typeof appWin[m.fn] !== "function") {
+      results.push({ test: m.title, pass: false, note: m.fn + " tidak ditemukan" });
       continue;
     }
-    window[m.fn]();
+    appWin[m.fn]();
     await sleep(m.wait);
-    const main = document.getElementById("mainContent");
+    const main = doc.getElementById("mainContent");
     const text = main ? main.innerText : "";
     const hasTitle = text.indexOf(m.title) >= 0;
     const hasError =
       text.indexOf("Gagal memuat") >= 0 ||
       text.indexOf("Error:") >= 0 ||
       (text.indexOf("Memuat") >= 0 && m.fn !== "loadDashboardPage" && m.fn !== "loadLaporanPage");
-    const pass = hasTitle && !hasError;
     results.push({
       test: m.title,
-      pass: pass,
-      note: !hasTitle ? "Judul tidak ditemukan" : hasError ? "Masih loading/error" : "OK",
+      pass: hasTitle && !hasError,
+      note: !hasTitle ? "Judul tidak ditemukan" : hasError ? "Loading/error" : "OK",
     });
   }
 
-  // Laporan tabs
-  if (typeof switchLaporanTab === "function") {
+  if (typeof appWin.switchLaporanTab === "function") {
     for (const tab of ["neraca", "labaRugi", "arusKas"]) {
-      switchLaporanTab(tab);
+      appWin.switchLaporanTab(tab);
       await sleep(3500);
-      const lap = document.getElementById("laporanContainer");
+      const lap = doc.getElementById("laporanContainer");
       const lapText = lap ? lap.innerText : "";
-      const err = lapText.indexOf("color:#dc2626") >= 0 || lapText.indexOf("Gagal") >= 0;
-      const empty = lapText.indexOf("Tidak ada data") >= 0;
+      const err = lapText.indexOf("Gagal") >= 0;
       results.push({
         test: "Laporan tab " + tab,
         pass: !err,
-        note: err ? "Error load" : empty ? "Kosong (OK struktural)" : "Data tampil",
+        note: err ? "Error load" : lapText.indexOf("Tidak ada data") >= 0 ? "Kosong (OK)" : "Data tampil",
       });
     }
   }
 
-  // Mobile viewport simulation
-  const origW = window.innerWidth;
-  const mobileNote = origW <= 700 ? "viewport sudah mobile" : "desktop — resize manual untuk 375px";
   results.push({
-    test: "Viewport info",
+    test: "Viewport",
     pass: true,
-    note: origW + "px · " + mobileNote,
+    note: appWin.innerWidth + "px",
   });
 
   const passed = results.filter((r) => r.pass).length;
-  const total = results.length;
   console.log("\n=== HASIL BROWSER UI CHECK ===");
   console.table(results);
-  console.log("\n📊 " + passed + "/" + total + " PASS");
-  return { passed, total, results };
+  console.log("\n" + passed + "/" + results.length + " PASS");
+  return { passed, total: results.length, results };
 })();
