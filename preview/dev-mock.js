@@ -50,7 +50,32 @@
     warmUpSession: { ok: true },
     getDashboardV2Ops: PREVIEW_DASH_OPS,
     getDashboardV2Keuangan: PREVIEW_DASH_KEU,
-    getSettings: {}
+    getSettings: {},
+    getLaporanMeta: { bulan: 6, tahun: 2026, backendId: "preview-local" },
+    getDaftarAkunLaporan: ["Kas", "Bank BCA", "Pendapatan", "Beban Operasional"],
+    getLaporanTabel: {
+      label: "Neraca (preview)",
+      sheetName: "NERACA",
+      bulan: 6,
+      tahun: 2026,
+      rows: [
+        ["AKTIVA", "", ""],
+        ["Kas & Bank", "", "125000000"],
+        ["Piutang Usaha", "", "8500000"],
+        ["Total Aktiva", "", "133500000"],
+        ["PASSIVA", "", ""],
+        ["Utang Usaha", "", "3200000"],
+        ["Modal", "", "130300000"],
+        ["Total Passiva", "", "133500000"]
+      ]
+    },
+    getBukuBesarJurnal: {
+      akun: "Kas",
+      rows: [
+        ["2026-06-01", "Saldo awal", "0", "0", "100000000"],
+        ["2026-06-15", "Penerimaan invoice", "2500000", "0", "102500000"]
+      ]
+    }
   };
 
   function createRunChain() {

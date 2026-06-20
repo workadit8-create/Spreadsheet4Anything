@@ -5,13 +5,13 @@
   <base target="_top">
   <style>
     *{ margin:0; padding:0; box-sizing:border-box; font-family:Arial,sans-serif; }
-    body{ background:#f4f6f9; }
-    .container{ display:flex; height:100vh; }
-    .sidebar{ width:220px; background:#1f2937; color:white; position:fixed; top:0; left:0; bottom:0; padding-top:20px; box-sizing:border-box; }
+    body{ background:#f4f6f9; overflow:hidden; }
+    .container{ display:flex; height:100vh; overflow:hidden; }
+    .sidebar{ width:220px; background:#1f2937; color:white; position:fixed; top:0; left:0; bottom:0; padding-top:20px; padding-bottom:16px; box-sizing:border-box; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; }
     .logo, .sidebar h2{ color:white; padding-left:20px; margin-bottom:30px; }
     .menu-item{ padding:12px; border-radius:8px; margin-bottom:8px; cursor:pointer; margin: 0 10px; }
     .menu-item:hover{ background:#374151; }
-    .content{ flex:1; padding:25px; margin-left:220px; overflow-y:auto; }
+    .content{ flex:1; min-height:0; height:100vh; padding:25px; margin-left:220px; overflow-y:auto; overflow-x:hidden; box-sizing:border-box; -webkit-overflow-scrolling:touch; }
     .header{ background:white; padding:20px; border-radius:12px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,.08); }
     .cards{ display:grid; grid-template-columns:repeat(4,1fr); gap:20px; }
     .card{ background:white; border-radius:12px; padding:20px; box-shadow:0 2px 8px rgba(0,0,0,.08); margin-bottom:20px;}
