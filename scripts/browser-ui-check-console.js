@@ -1,6 +1,8 @@
 /**
- * Paste di DevTools Console pada tab production yang sudah login.
- * Tidak mengubah script deploy — hanya uji navigasi UI.
+ * CARA PAKAI (DevTools Console, tab production yang sudah login):
+ * 1. Buka file ini di Cursor/editor → Select All (Cmd+A) → Copy (Cmd+C)
+ * 2. Paste di Console → Enter
+ * JANGAN paste path file (/Users/...) — itu bukan JavaScript!
  */
 (async function browserUiCheck() {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
