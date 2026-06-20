@@ -76,6 +76,22 @@
     });
   }
 
+  window.previewDashOps_ = function () {
+    var now = new Date();
+    var m = now.getMonth() + 1;
+    var y = now.getFullYear();
+    var bulanEl = document.getElementById("dashBulan");
+    var tahunEl = document.getElementById("dashTahun");
+    if (bulanEl && bulanEl.value) m = Number(bulanEl.value);
+    if (tahunEl && tahunEl.value) y = Number(tahunEl.value);
+    var d = JSON.parse(JSON.stringify(PREVIEW_DASH_OPS));
+    d.periode = { bulan: m, tahun: y };
+    return d;
+  };
+  window.previewDashKeu_ = function () {
+    return PREVIEW_DASH_KEU;
+  };
+
   window.google = {
     script: {
       get run() {

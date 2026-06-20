@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
   <base target="_top">
   <style>
     *{ margin:0; padding:0; box-sizing:border-box; font-family:Arial,sans-serif; }
@@ -555,6 +556,23 @@ function loadDashboardV2Debounced() {
 }
 
 function loadDashboardV2(forceRefresh) {
+  if (/localhost|127\.0\.0\.1/.test(location.hostname) && typeof previewDashOps_ === "function") {
+    const container = document.getElementById("dashContent");
+    const data = previewDashOps_();
+    dashState.data = data;
+    if (data && data.periode) {
+      const b = document.getElementById("dashBulan");
+      const t = document.getElementById("dashTahun");
+      if (b) b.value = String(data.periode.bulan).padStart(2, "0");
+      if (t) t.value = String(data.periode.tahun);
+      const el = document.getElementById("dashMetaInfo");
+      if (el) el.innerText = "Periode " + formatLaporanPeriodeLabel_(data.periode.bulan, data.periode.tahun) + " · preview UI lokal";
+    }
+    renderDashboardV2(data, true);
+    patchDashboardKeuangan(previewDashKeu_());
+    return;
+  }
+
   const bulanEl = document.getElementById("dashBulan");
   const tahunEl = document.getElementById("dashTahun");
   const bulan = bulanEl ? Number(bulanEl.value) : 0;
