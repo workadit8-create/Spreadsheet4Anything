@@ -36,6 +36,13 @@ clients/*/appsscript.json
 clients/*/.claspignore
 clients/*/client.env
 
+# Provision Level 3 (secrets)
+provision/master.env
+provision/token.json
+provision/oauth-client.json
+provision/instances/
+scripts/provision/.venv/
+
 
 # Editor
 .idea/
