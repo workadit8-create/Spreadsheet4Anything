@@ -355,7 +355,9 @@ function onSessionReady_(res) {
   updateSidebarUser_(res.user);
   document.getElementById("authGate").style.display = "none";
   document.getElementById("appContainer").style.display = "flex";
-  google.script.run.withFailureHandler(function() {}).warmUpSession();
+  if (!/localhost|127\.0\.0\.1/.test(location.hostname)) {
+    google.script.run.withFailureHandler(function() {}).warmUpSession();
+  }
   loadDashboardPage();
 }
 

@@ -2,6 +2,6 @@
   "name": "spreadsheet4anything-ui-preview",
   "private": true,
   "scripts": {
-    "dev": "npx --yes serve -l 5173 --no-port-switching ."
+    "dev": "./scripts/dev-ui.sh"
   }
 }

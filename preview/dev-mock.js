@@ -2,7 +2,58 @@
 (function () {
   if (!/localhost|127\.0\.0\.1/.test(location.hostname)) return;
 
-  function runChain() {
+  var PREVIEW_DASH_OPS = {
+    periode: { bulan: new Date().getMonth() + 1, tahun: new Date().getFullYear() },
+    kpi: {
+      penjualan: 45000000,
+      pembelian: 28000000,
+      labaBersih: null,
+      kasTotal: 125000000,
+      piutang: 8500000,
+      hutang: 3200000,
+      margin: null,
+      invoiceCount: 12,
+      quotationAktif: 3
+    },
+    piutang: { total: 8500000, count: 2, top: [] },
+    hutang: { total: 3200000, count: 1, top: [] },
+    charts: {
+      bulanan: [
+        { label: "Jan", penjualan: 32000000, pembelian: 18000000 },
+        { label: "Feb", penjualan: 28000000, pembelian: 22000000 },
+        { label: "Mar", penjualan: 35000000, pembelian: 19000000 },
+        { label: "Apr", penjualan: 41000000, pembelian: 25000000 },
+        { label: "Mei", penjualan: 38000000, pembelian: 21000000 },
+        { label: "Jun", penjualan: 45000000, pembelian: 28000000 }
+      ]
+    },
+    aktivitas: [
+      { tanggal: "20/06/2025", jenis: "Penjualan", ref: "INV-20250620-0001-TC", deskripsi: "Preview customer", nominal: 2500000, posted: true, menu: "loadInvoiceBaruPage" },
+      { tanggal: "19/06/2025", jenis: "Pembelian", ref: "PO-250620-1234", deskripsi: "Preview supplier", nominal: 1800000, posted: false, menu: "loadPembelianPage" }
+    ],
+    alerts: [{ level: "info", text: "Mode preview UI — data dummy untuk Design Mode." }],
+    keuanganPending: true
+  };
+
+  var PREVIEW_DASH_KEU = {
+    keuangan: { available: false, error: "Preview lokal — deploy ke GAS untuk snapshot backend" },
+    kpi: { labaBersih: 8500000, margin: 18.9 },
+    alerts: []
+  };
+
+  var HANDLERS = {
+    getSessionUser: {
+      ok: true,
+      user: { nama: "Preview Owner", email: "preview@local.dev", role: "owner", roleLabel: "Owner" },
+      menus: null
+    },
+    warmUpSession: { ok: true },
+    getDashboardV2Ops: PREVIEW_DASH_OPS,
+    getDashboardV2Keuangan: PREVIEW_DASH_KEU,
+    getSettings: {}
+  };
+
+  function createRunChain() {
     var ok = function () {};
     var chain = {
       withSuccessHandler: function (fn) {
@@ -18,34 +69,19 @@
         if (method in t) return t[method];
         return function () {
           setTimeout(function () {
-            var mock = {
-              getSessionUser: {
-                ok: true,
-                user: { nama: "Preview Owner", email: "preview@local.dev", role: "owner", roleLabel: "Owner" },
-                menus: null
-              },
-              warmUpSession: { ok: true },
-              getDashboardV2Ops: {
-                periode: { bulan: 6, tahun: 2025 },
-                omzet: 128000000,
-                transaksi: 42,
-                piutang: 8500000,
-                hutang: 3200000,
-                recentInvoices: []
-              },
-              getDashboardV2Keuangan: {
-                labaBersih: 24000000,
-                omzet: 128000000,
-                beban: 104000000
-              }
-            };
-            ok(mock[method] !== undefined ? mock[method] : {});
-          }, 60);
+            ok(HANDLERS[method] !== undefined ? HANDLERS[method] : {});
+          }, 40);
         };
       }
     });
   }
 
-  window.google = { script: { run: runChain() } };
-  console.info("[UI Preview] google.script.run dimock — untuk Design Mode lokal.");
+  window.google = {
+    script: {
+      get run() {
+        return createRunChain();
+      }
+    }
+  };
+  console.info("[UI Preview] google.script.run dimock — dashboard dummy data.");
 })();
