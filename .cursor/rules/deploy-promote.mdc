@@ -1,0 +1,53 @@
+---
+description: Setelah ubah kode GAS/web app, selalu beri instruksi deploy yang jelas ke user
+alwaysApply: true
+---
+
+# Alur deploy multi-client (Akuntansi App)
+
+Satu repo kode di root. Data spreadsheet **tidak** ikut sync — hanya kode.
+
+## Urutan promote (wajib diingatkan ke user)
+
+1. **Sandbox dev** — uji dulu
+2. **Demo** — setelah sandbox OK
+3. **Client 1** — hanya setelah demo OK / user minta production
+
+Jangan sarankan deploy ke client1/demo tanpa uji sandbox kecuali user explicitly minta hotfix production.
+
+## Perintah deploy (push + redeploy otomatis)
+
+User cukup jalankan **satu perintah** — tidak perlu clasp push/redeploy terpisah:
+
+```bash
+./scripts/deploy-to.sh dev "deskripsi singkat"
+./scripts/deploy-to.sh demo "deskripsi singkat"
+./scripts/deploy-to.sh client1 "deskripsi singkat"
+```
+
+Backend engine terpisah (jika ubah file di BACKENDengine):
+
+```bash
+./scripts/deploy-to.sh backend-dev "deskripsi"
+./scripts/deploy-to.sh backend-demo "deskripsi"
+```
+
+## Setelah selesai mengubah kode
+
+Akhiri respons dengan blok **Deploy** jika ada perubahan pada `*.js`, `index.html`, atau BACKENDengine:
+
+```
+## Deploy (jalankan setelah uji)
+
+1. Sandbox: `./scripts/deploy-to.sh dev "..."`
+2. Jika OK → Demo: `./scripts/deploy-to.sh demo "..."`
+3. Jika OK → Client 1: `./scripts/deploy-to.sh client1 "..."`
+```
+
+Sesuaikan langkah — skip dev jika sandbox belum ada; skip client1 jika user hanya minta demo.
+
+## Yang tidak otomatis
+
+- Edit file di laptop ≠ deploy ke Google
+- User atau agent (dengan izin) harus menjalankan `deploy-to.sh`
+- `Config.js` / `client.env` per client tidak di-overwrite saat sync
