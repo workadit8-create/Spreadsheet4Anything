@@ -1,17 +1,16 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
   <base target="_top">
   <style>
     *{ margin:0; padding:0; box-sizing:border-box; font-family:Arial,sans-serif; }
-    body{ background:#f4f6f9; overflow:hidden; }
-    .container{ display:flex; height:100vh; overflow:hidden; }
-    .sidebar{ width:220px; background:#1f2937; color:white; position:fixed; top:0; left:0; bottom:0; padding-top:20px; padding-bottom:16px; box-sizing:border-box; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; }
+    body{ background:#f4f6f9; }
+    .container{ display:flex; height:100vh; }
+    .sidebar{ width:220px; background:#1f2937; color:white; position:fixed; top:0; left:0; bottom:0; padding-top:20px; box-sizing:border-box; }
     .logo, .sidebar h2{ color:white; padding-left:20px; margin-bottom:30px; }
     .menu-item{ padding:12px; border-radius:8px; margin-bottom:8px; cursor:pointer; margin: 0 10px; }
     .menu-item:hover{ background:#374151; }
-    .content{ flex:1; min-height:0; height:100vh; padding:25px; margin-left:220px; overflow-y:auto; overflow-x:hidden; box-sizing:border-box; -webkit-overflow-scrolling:touch; }
+    .content{ flex:1; padding:25px; margin-left:220px; overflow-y:auto; }
     .header{ background:white; padding:20px; border-radius:12px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,.08); }
     .cards{ display:grid; grid-template-columns:repeat(4,1fr); gap:20px; }
     .card{ background:white; border-radius:12px; padding:20px; box-shadow:0 2px 8px rgba(0,0,0,.08); margin-bottom:20px;}
@@ -312,16 +311,6 @@ let appSession = { user: null, menus: null, role: "owner" };
 // AUTH & ROLE
 // ==========================================
 function initApp() {
-  if (/localhost|127\.0\.0\.1/.test(location.hostname)) {
-    setTimeout(function() {
-      onSessionReady_({
-        ok: true,
-        user: { nama: "Preview Owner", email: "preview@local.dev", role: "owner", roleLabel: "Owner" },
-        menus: null
-      });
-    }, 50);
-    return;
-  }
   google.script.run
     .withSuccessHandler(onSessionReady_)
     .withFailureHandler(function(err) {
@@ -356,9 +345,7 @@ function onSessionReady_(res) {
   updateSidebarUser_(res.user);
   document.getElementById("authGate").style.display = "none";
   document.getElementById("appContainer").style.display = "flex";
-  if (!/localhost|127\.0\.0\.1/.test(location.hostname)) {
-    google.script.run.withFailureHandler(function() {}).warmUpSession();
-  }
+  google.script.run.withFailureHandler(function() {}).warmUpSession();
   loadDashboardPage();
 }
 
@@ -556,23 +543,6 @@ function loadDashboardV2Debounced() {
 }
 
 function loadDashboardV2(forceRefresh) {
-  if (/localhost|127\.0\.0\.1/.test(location.hostname) && typeof previewDashOps_ === "function") {
-    const container = document.getElementById("dashContent");
-    const data = previewDashOps_();
-    dashState.data = data;
-    if (data && data.periode) {
-      const b = document.getElementById("dashBulan");
-      const t = document.getElementById("dashTahun");
-      if (b) b.value = String(data.periode.bulan).padStart(2, "0");
-      if (t) t.value = String(data.periode.tahun);
-      const el = document.getElementById("dashMetaInfo");
-      if (el) el.innerText = "Periode " + formatLaporanPeriodeLabel_(data.periode.bulan, data.periode.tahun) + " · preview UI lokal";
-    }
-    renderDashboardV2(data, true);
-    patchDashboardKeuangan(previewDashKeu_());
-    return;
-  }
-
   const bulanEl = document.getElementById("dashBulan");
   const tahunEl = document.getElementById("dashTahun");
   const bulan = bulanEl ? Number(bulanEl.value) : 0;
@@ -5119,9 +5089,6 @@ function exportLaporanExcel() {
 }
 
 // Inisialisasi awal — verifikasi user & role dulu
-</script>
-<script src="preview/dev-mock.js"></script>
-<script>
 initApp();
 </script>
 </body>

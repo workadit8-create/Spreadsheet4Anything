@@ -1,7 +1,0 @@
-{
-  "name": "spreadsheet4anything-ui-preview",
-  "private": true,
-  "scripts": {
-    "dev": "./scripts/dev-ui.sh"
-  }
-}
