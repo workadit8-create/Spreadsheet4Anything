@@ -311,6 +311,16 @@ let appSession = { user: null, menus: null, role: "owner" };
 // AUTH & ROLE
 // ==========================================
 function initApp() {
+  if (/localhost|127\.0\.0\.1/.test(location.hostname)) {
+    setTimeout(function() {
+      onSessionReady_({
+        ok: true,
+        user: { nama: "Preview Owner", email: "preview@local.dev", role: "owner", roleLabel: "Owner" },
+        menus: null
+      });
+    }, 50);
+    return;
+  }
   google.script.run
     .withSuccessHandler(onSessionReady_)
     .withFailureHandler(function(err) {
