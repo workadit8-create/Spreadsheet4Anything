@@ -7,10 +7,10 @@ clasp_provision_isolated() {
   local TITLE="$2"
   local WORK DEPLOY_OUT SCRIPT_ID DEPLOY_ID
   WORK="$(mktemp -d "/tmp/clasp-provision.XXXXXX")"
-  cp -r "$SRC_DIR/"* "$WORK/"
   DEPLOY_OUT="$(
     cd "$WORK"
     clasp create --type standalone --title "$TITLE"
+    cp -r "$SRC_DIR/"* "$WORK/"
     clasp push --force
     clasp deploy --description "provision"
   )"
