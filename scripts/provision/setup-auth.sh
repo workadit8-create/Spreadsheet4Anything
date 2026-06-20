@@ -40,6 +40,10 @@ source "$VENV/bin/activate"
 pip install -q -r "$ROOT/scripts/provision/requirements.txt"
 
 echo "==> Login Google (browser akan terbuka)"
+if [ -f "$PROVISION/token.json" ]; then
+  echo "    (hapus token lama — scope mungkin berubah)"
+  rm -f "$PROVISION/token.json"
+fi
 cd "$ROOT/scripts/provision"
 python3 - <<'PY'
 from google_client import get_credentials
