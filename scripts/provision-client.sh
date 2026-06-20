@@ -28,17 +28,24 @@ source "$MASTER_ENV"
 
 CLIENT_DIR="$ROOT/clients/$SLUG"
 BACKEND_REPO="${BACKEND_REPO:-../BACKENDengine}"
-BACKEND_DIR="$(cd "$ROOT/$BACKEND_REPO" 2>/dev/null && pwd || cd "$BACKEND_REPO" 2>/dev/null && pwd || true)"
+if [[ "$BACKEND_REPO" != /* ]]; then
+  BACKEND_DIR="$(cd "$ROOT" && cd "$BACKEND_REPO" 2>/dev/null && pwd || true)"
+fi
+if [ -z "${BACKEND_DIR:-}" ]; then
+  BACKEND_DIR="$(cd "$BACKEND_REPO" 2>/dev/null && pwd || true)"
+fi
 
 if [ -z "${BACKEND_DIR:-}" ] || [ ! -d "$BACKEND_DIR" ]; then
   echo "BACKENDengine tidak ditemukan di: $BACKEND_REPO" >&2
   exit 1
 fi
 
-if [ -d "$CLIENT_DIR" ]; then
-  echo "Folder sudah ada: $CLIENT_DIR" >&2
+if [ -d "$CLIENT_DIR" ] && [ -f "$CLIENT_DIR/client.env" ]; then
+  echo "Client sudah provision penuh: $CLIENT_DIR/client.env" >&2
   exit 1
 fi
+
+mkdir -p "$CLIENT_DIR"
 
 command -v clasp >/dev/null || { echo "clasp belum terinstall (npm i -g @google/clasp)" >&2; exit 1; }
 
@@ -49,8 +56,17 @@ fi
 
 # shellcheck disable=SC1091
 source "$VENV/bin/activate"
+# shellcheck disable=SC1091
+source "$ROOT/scripts/provision/clasp_isolated.sh"
 
 API_KEY="AKUNTANSI_$(echo "$SLUG" | tr '[:lower:]' '[:upper:]')_$(openssl rand -hex 4 2>/dev/null || echo "$RANDOM")"
+
+PARTIAL_ENV="$PROVISION/instances/${SLUG}.partial.env"
+if [ -f "$PARTIAL_ENV" ]; then
+  # shellcheck disable=SC1090
+  source "$PARTIAL_ENV"
+  echo "==> Lanjut dari partial env: $PARTIAL_ENV"
+fi
 
 echo ""
 echo "=========================================="
@@ -58,39 +74,64 @@ echo " Provision: $DISPLAY_NAME ($SLUG)"
 echo "=========================================="
 echo ""
 
-echo "==> [1/7] Salin spreadsheet database + backend..."
-COPY_JSON="$(python3 "$ROOT/scripts/provision/copy_sheets.py" \
-  --database-id "$MASTER_DATABASE_ID" \
-  --backend-id "$MASTER_BACKEND_ENGINE_ID" \
-  --name "$DISPLAY_NAME")"
-
-DATABASE_ID="$(echo "$COPY_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['databaseId'])")"
-BACKEND_ENGINE_ID="$(echo "$COPY_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['backendEngineId'])")"
+if [ -z "${DATABASE_ID:-}" ] || [ -z "${BACKEND_ENGINE_ID:-}" ]; then
+  echo "==> [1/7] Salin spreadsheet database + backend..."
+  COPY_JSON="$(python3 "$ROOT/scripts/provision/copy_sheets.py" \
+    --database-id "$MASTER_DATABASE_ID" \
+    --backend-id "$MASTER_BACKEND_ENGINE_ID" \
+    --name "$DISPLAY_NAME")"
+  DATABASE_ID="$(echo "$COPY_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['databaseId'])")"
+  BACKEND_ENGINE_ID="$(echo "$COPY_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['backendEngineId'])")"
+else
+  echo "==> [1/7] Pakai spreadsheet yang sudah disalin (partial resume)"
+fi
 echo "    Database: $DATABASE_ID"
 echo "    Backend sheet: $BACKEND_ENGINE_ID"
 
-echo "==> [2/7] Siapkan folder backend GAS..."
-BE_CLIENT_DIR="$(python3 "$ROOT/scripts/provision/prepare_backend.py" \
-  --slug "$SLUG" \
-  --database-id "$DATABASE_ID" \
-  --backend-engine-id "$BACKEND_ENGINE_ID" \
-  --api-key "$API_KEY" \
-  --master-env "$MASTER_ENV" \
-  --backend-repo "$BACKEND_DIR")"
+mkdir -p "$PROVISION/instances"
+cat > "$PARTIAL_ENV" <<EOF
+DATABASE_ID=$DATABASE_ID
+BACKEND_ENGINE_ID=$BACKEND_ENGINE_ID
+API_KEY=$API_KEY
+DISPLAY_NAME=$DISPLAY_NAME
+SLUG=$SLUG
+EOF
 
-echo "    $BE_CLIENT_DIR"
+BE_CLIENT_DIR="$CLIENT_DIR/backend"
 
-echo "==> [3/7] Buat Apps Script backend + push..."
-(
-  cd "$BE_CLIENT_DIR"
-  clasp create --type standalone --title "Backend Engine — $DISPLAY_NAME" --rootDir .
-  clasp push --force
-)
+if [ ! -d "$BE_CLIENT_DIR" ]; then
+  echo "==> [2/7] Siapkan folder backend GAS..."
+  mkdir -p "$CLIENT_DIR"
+  BE_CLIENT_DIR="$(python3 "$ROOT/scripts/provision/prepare_backend.py" \
+    --slug "$SLUG" \
+    --dest-dir "$BE_CLIENT_DIR" \
+    --database-id "$DATABASE_ID" \
+    --backend-engine-id "$BACKEND_ENGINE_ID" \
+    --api-key "$API_KEY" \
+    --master-env "$MASTER_ENV" \
+    --backend-repo "$BACKEND_DIR")"
+  echo "    $BE_CLIENT_DIR"
+else
+  echo "==> [2/7] Folder backend sudah ada, lanjut..."
+fi
 
-echo "    Deploy backend web app (pertama kali)..."
-BE_DEPLOY_OUT="$(cd "$BE_CLIENT_DIR" && clasp deploy --description "provision $SLUG")"
-BE_DEPLOY_ID="$(echo "$BE_DEPLOY_OUT" | grep -oE 'AKfycb[^ @]+' | head -1 || true)"
-BACKEND_SCRIPT_ID="$(python3 -c "import json; print(json.load(open('$BE_CLIENT_DIR/.clasp.json'))['scriptId'])")"
+if [ ! -f "$BE_CLIENT_DIR/.clasp.json" ]; then
+  echo "==> [3/7] Buat Apps Script backend + push..."
+  BE_RESULT="$(clasp_provision_isolated "$BE_CLIENT_DIR" "Backend Engine — $DISPLAY_NAME")"
+  BACKEND_SCRIPT_ID="${BE_RESULT%%|*}"
+  BE_DEPLOY_ID="${BE_RESULT##*|}"
+else
+  echo "==> [3/7] Backend GAS sudah ada, skip create..."
+  BACKEND_SCRIPT_ID="$(python3 -c "import json; print(json.load(open('$BE_CLIENT_DIR/.clasp.json'))['scriptId'])")"
+  BE_DEPLOY_ID=""
+fi
+
+if [ -z "$BE_DEPLOY_ID" ]; then
+  echo "    Deploy backend web app..."
+  BE_DEPLOY_OUT="$(cd "$BE_CLIENT_DIR" && clasp deploy --description "provision $SLUG")"
+  BE_DEPLOY_ID="$(echo "$BE_DEPLOY_OUT" | grep -oE 'AKfycb[^ @]+' | head -1 || true)"
+fi
+BACKEND_SCRIPT_ID="${BACKEND_SCRIPT_ID:-$(python3 -c "import json; print(json.load(open('$BE_CLIENT_DIR/.clasp.json'))['scriptId'])")}"
 
 if [ -z "$BE_DEPLOY_ID" ]; then
   echo "    Catat deployment ID backend manual dari output clasp deploy"
@@ -130,26 +171,30 @@ json.dump(d, open(p, "w"), indent=2)
 PY
 
 echo "==> [6/7] Buat Apps Script web app + push..."
-(
-  cd "$CLIENT_DIR"
-  clasp create --type standalone --title "Akuntansi App — $DISPLAY_NAME" --rootDir .
+if [ ! -f "$CLIENT_DIR/.clasp.json" ]; then
   "$ROOT/scripts/sync-client-code.sh" "clients/$SLUG"
-  # Restore library id setelah sync (sync menimpa appsscript.json dari root)
   python3 - <<PY
 import json
-p = "appsscript.json"
+p = "$CLIENT_DIR/appsscript.json"
 d = json.load(open(p))
 for lib in d.get("dependencies", {}).get("libraries", []):
     if lib.get("userSymbol") == "BackendEngine":
         lib["libraryId"] = "$BACKEND_SCRIPT_ID"
 json.dump(d, open(p, "w"), indent=2)
 PY
-  clasp push --force
-)
+  WEB_RESULT="$(clasp_provision_isolated "$CLIENT_DIR" "Akuntansi App — $DISPLAY_NAME")"
+  WEB_SCRIPT_ID="${WEB_RESULT%%|*}"
+  WEB_DEPLOY_ID="${WEB_RESULT##*|}"
+else
+  WEB_SCRIPT_ID="$(python3 -c "import json; print(json.load(open('$CLIENT_DIR/.clasp.json'))['scriptId'])")"
+  WEB_DEPLOY_ID=""
+fi
 
-WEB_DEPLOY_OUT="$(cd "$CLIENT_DIR" && clasp deploy --description "provision $SLUG")"
-WEB_DEPLOY_ID="$(echo "$WEB_DEPLOY_OUT" | grep -oE 'AKfycb[^ @]+' | head -1 || true)"
-WEB_SCRIPT_ID="$(python3 -c "import json; print(json.load(open('$CLIENT_DIR/.clasp.json'))['scriptId'])")"
+if [ -z "${WEB_DEPLOY_ID:-}" ]; then
+  WEB_DEPLOY_OUT="$(cd "$CLIENT_DIR" && clasp deploy --description "provision $SLUG")"
+  WEB_DEPLOY_ID="$(echo "$WEB_DEPLOY_OUT" | grep -oE 'AKfycb[^ @]+' | head -1 || true)"
+fi
+WEB_SCRIPT_ID="${WEB_SCRIPT_ID:-$(python3 -c "import json; print(json.load(open('$CLIENT_DIR/.clasp.json'))['scriptId'])")}"
 
 if [ -z "$WEB_DEPLOY_ID" ]; then
   read -r -p "    WEB deployment ID (AKfycb...): " WEB_DEPLOY_ID

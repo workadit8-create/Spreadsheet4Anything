@@ -48,6 +48,7 @@ def patch_allowed(path: Path, database_id: str) -> None:
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--slug", required=True)
+    p.add_argument("--dest-dir", required=True)
     p.add_argument("--database-id", required=True)
     p.add_argument("--backend-engine-id", required=True)
     p.add_argument("--api-key", required=True)
@@ -62,7 +63,7 @@ def main() -> None:
         raise SystemExit("MASTER_DATABASE_ID / MASTER_BACKEND_ENGINE_ID kosong di master.env")
 
     backend_repo = Path(args.backend_repo).resolve()
-    dest = backend_repo / "clients" / args.slug
+    dest = Path(args.dest_dir).resolve()
     if dest.exists():
         raise SystemExit(f"Folder backend sudah ada: {dest}")
 

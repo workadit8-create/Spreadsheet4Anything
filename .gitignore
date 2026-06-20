@@ -42,6 +42,7 @@ provision/token.json
 provision/oauth-client.json
 provision/instances/
 scripts/provision/.venv/
+clients/*/backend/
 
 
 # Editor
