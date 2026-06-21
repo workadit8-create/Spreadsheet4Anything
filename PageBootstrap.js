@@ -1,32 +1,9 @@
 // Bootstrap data halaman — satu round-trip google.script.run per form.
 // ==========================================
 
-function suppliersFromSpreadsheet_(ss) {
-  ensureMasterDataReady_(ss);
-  const seen = {};
-  readMasterSuppliers_(ss, true).forEach(function(s) {
-    if (s.nama) seen[s.nama] = true;
-  });
-
-  const sh = ss.getSheetByName("PEMBELIAN");
-  if (sh && sh.getLastRow() >= 2) {
-    sh.getRange(2, 3, sh.getLastRow(), 3).getValues().forEach(function(r) {
-      const name = String(r[0] || "").trim();
-      if (name) seen[name] = true;
-    });
-  }
-
-  return Object.keys(seen).sort(function(a, b) { return a.localeCompare(b, "id"); });
-}
-
 function getPembelianPageBootstrap() {
   authGuard_();
   const ss = getDatabaseSpreadsheet_();
-  ensureMasterDataReady_(ss);
-
-  const rekening = readMasterKasBank_(ss, true).map(function(k) {
-    return { kode: k.kode, nama: k.nama };
-  });
 
   let purchaseRequests = [];
   const shPr = ss.getSheetByName("PURCHASE_REQUEST");
@@ -37,9 +14,9 @@ function getPembelianPageBootstrap() {
   }
 
   return {
-    masterPembelian: buildMasterPembelianMap_(ss),
-    rekening: rekening,
-    suppliers: suppliersFromSpreadsheet_(ss),
+    masterPembelian: getMasterDataPembelian(),
+    rekening: getListKasBank(),
+    suppliers: getSuppliers(),
     purchaseRequests: purchaseRequests
   };
 }
@@ -47,15 +24,6 @@ function getPembelianPageBootstrap() {
 function getInvoiceFormBootstrap() {
   authGuard_();
   const ss = getDatabaseSpreadsheet_();
-  ensureMasterDataReady_(ss);
-
-  const customers = readMasterCustomers_(ss, true).map(function(c) { return c.nama; });
-  const products = readMasterProduk_(ss, true).map(function(p) {
-    return { kode: p.kode, nama: p.nama, harga: p.harga, akun: p.akun };
-  });
-  const rekening = readMasterKasBank_(ss, true).map(function(k) {
-    return { kode: k.kode, nama: k.nama };
-  });
 
   let quotations = [];
   const shQt = ss.getSheetByName("QUOTATION");
@@ -66,9 +34,9 @@ function getInvoiceFormBootstrap() {
   }
 
   return {
-    customers: customers,
-    products: products,
-    rekening: rekening,
+    customers: getCustomers(),
+    products: getProducts(),
+    rekening: getListKasBank(),
     quotations: quotations
   };
 }

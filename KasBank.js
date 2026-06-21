@@ -162,11 +162,17 @@ function debugCariInvoice(invoiceToFind) {
 // Fungsi untuk mengambil list Kategori dan Sub-Kategori dari Master
 function getMasterDataPembelian() {
   authGuard_();
-  const ss = getDatabaseSpreadsheet_();
-  return buildMasterPembelianMap_(ss);
+  return masterListCached_("pembelian_map", function() {
+    const ss = getDatabaseSpreadsheet_();
+    return buildMasterPembelianMap_(ss);
+  });
 }
 
 let KATEGORI_ACCOUNT_MAP_ = null;
+
+function resetKategoriAccountMap_() {
+  KATEGORI_ACCOUNT_MAP_ = null;
+}
 
 function buildKategoriAccountMap_(ss) {
   if (KATEGORI_ACCOUNT_MAP_) return KATEGORI_ACCOUNT_MAP_;
@@ -261,6 +267,7 @@ function savePembelian(p) {
       markPurchaseRequestConverted_(ss, p.prNo, poNumber);
     }
 
+    invalidateMasterDataCache_();
     return { success: true, po: poNumber };
   } catch (err) {
     throw new Error(err.message);

@@ -5,22 +5,24 @@
 
 function getSuppliers() {
   authGuard_();
-  const ss = getDatabaseSpreadsheet_();
-  ensureMasterDataReady_(ss);
-  const seen = {};
-  readMasterSuppliers_(ss, true).forEach(function(s) {
-    if (s.nama) seen[s.nama] = true;
-  });
-
-  const sh = ss.getSheetByName("PEMBELIAN");
-  if (sh && sh.getLastRow() >= 2) {
-    sh.getRange(2, 3, sh.getLastRow(), 3).getValues().forEach(function(r) {
-      const name = String(r[0] || "").trim();
-      if (name) seen[name] = true;
+  return masterListCached_("suppliers_names", function() {
+    const ss = getDatabaseSpreadsheet_();
+    ensureMasterDataReady_(ss);
+    const seen = {};
+    readMasterSuppliers_(ss, true).forEach(function(s) {
+      if (s.nama) seen[s.nama] = true;
     });
-  }
 
-  return Object.keys(seen).sort(function(a, b) { return a.localeCompare(b, "id"); });
+    const sh = ss.getSheetByName("PEMBELIAN");
+    if (sh && sh.getLastRow() >= 2) {
+      sh.getRange(2, 3, sh.getLastRow(), 3).getValues().forEach(function(r) {
+        const name = String(r[0] || "").trim();
+        if (name) seen[name] = true;
+      });
+    }
+
+    return Object.keys(seen).sort(function(a, b) { return a.localeCompare(b, "id"); });
+  });
 }
 
 function getSisaHutangPO_(ss, poNo) {

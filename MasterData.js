@@ -3,6 +3,51 @@
 // MASTER DATA (Fase 1: Customer, Produk, Kas/Bank)
 // ==========================================
 
+var MASTER_DATA_CACHE_TTL_ = 600;
+
+function masterCacheKey_(name) {
+  return "master_" + name;
+}
+
+function getMasterDataCache_(key) {
+  try {
+    const raw = CacheService.getScriptCache().get(key);
+    if (raw) return JSON.parse(raw);
+  } catch (ignore) {}
+  return null;
+}
+
+function setMasterDataCache_(key, value) {
+  try {
+    CacheService.getScriptCache().put(key, JSON.stringify(value), MASTER_DATA_CACHE_TTL_);
+  } catch (ignore) {}
+}
+
+function invalidateMasterDataCache_() {
+  try {
+    const cache = CacheService.getScriptCache();
+    [
+      "customers_active", "customers_all", "customers_names",
+      "produk_active", "produk_all", "products_dto",
+      "kasbank_active", "kasbank_all", "kasbank_dto",
+      "supplier_active", "supplier_all", "suppliers_names",
+      "kategori_active", "kategori_all", "pembelian_map",
+      "coa_active", "coa_all"
+    ].forEach(function(k) { cache.remove(masterCacheKey_(k)); });
+  } catch (ignore) {}
+  try {
+    resetKategoriAccountMap_();
+  } catch (ignore) {}
+}
+
+function masterListCached_(key, loader) {
+  const cached = getMasterDataCache_(masterCacheKey_(key));
+  if (cached) return cached;
+  const result = loader();
+  setMasterDataCache_(masterCacheKey_(key), result);
+  return result;
+}
+
 function masterIsActive_(val) {
   if (val === false) return false;
   const s = String(val || "").trim().toUpperCase();
@@ -377,9 +422,12 @@ function findMasterRowById_(sh, id, colCount) {
 
 function listMasterCustomers(includeInactive) {
   authGuard_();
+  const key = includeInactive ? "customers_all" : "customers_active";
   try {
-    const ss = getDatabaseSpreadsheet_();
-    return readMasterCustomers_(ss, !includeInactive);
+    return masterListCached_(key, function() {
+      const ss = getDatabaseSpreadsheet_();
+      return readMasterCustomers_(ss, !includeInactive);
+    });
   } catch (e) {
     throw new Error("Gagal memuat customer: " + (e.message || e));
   }
@@ -387,9 +435,12 @@ function listMasterCustomers(includeInactive) {
 
 function listMasterProduk(includeInactive) {
   authGuard_();
+  const key = includeInactive ? "produk_all" : "produk_active";
   try {
-    const ss = getDatabaseSpreadsheet_();
-    return readMasterProduk_(ss, !includeInactive);
+    return masterListCached_(key, function() {
+      const ss = getDatabaseSpreadsheet_();
+      return readMasterProduk_(ss, !includeInactive);
+    });
   } catch (e) {
     throw new Error("Gagal memuat produk: " + (e.message || e));
   }
@@ -397,9 +448,12 @@ function listMasterProduk(includeInactive) {
 
 function listMasterKasBank(includeInactive) {
   authGuard_();
+  const key = includeInactive ? "kasbank_all" : "kasbank_active";
   try {
-    const ss = getDatabaseSpreadsheet_();
-    return readMasterKasBank_(ss, !includeInactive);
+    return masterListCached_(key, function() {
+      const ss = getDatabaseSpreadsheet_();
+      return readMasterKasBank_(ss, !includeInactive);
+    });
   } catch (e) {
     throw new Error("Gagal memuat kas/bank: " + (e.message || e));
   }
@@ -407,9 +461,12 @@ function listMasterKasBank(includeInactive) {
 
 function listMasterSuppliers(includeInactive) {
   authGuard_();
+  const key = includeInactive ? "supplier_all" : "supplier_active";
   try {
-    const ss = getDatabaseSpreadsheet_();
-    return readMasterSuppliers_(ss, !includeInactive);
+    return masterListCached_(key, function() {
+      const ss = getDatabaseSpreadsheet_();
+      return readMasterSuppliers_(ss, !includeInactive);
+    });
   } catch (e) {
     throw new Error("Gagal memuat supplier: " + (e.message || e));
   }
@@ -417,9 +474,12 @@ function listMasterSuppliers(includeInactive) {
 
 function listMasterKategoriPembelian(includeInactive) {
   authGuard_();
+  const key = includeInactive ? "kategori_all" : "kategori_active";
   try {
-    const ss = getDatabaseSpreadsheet_();
-    return readMasterKategoriPembelian_(ss, !includeInactive);
+    return masterListCached_(key, function() {
+      const ss = getDatabaseSpreadsheet_();
+      return readMasterKategoriPembelian_(ss, !includeInactive);
+    });
   } catch (e) {
     throw new Error("Gagal memuat kategori pembelian: " + (e.message || e));
   }
@@ -450,6 +510,7 @@ function saveMasterCustomer(payload) {
     row[0] = masterNextId_("CUST", sh);
     sh.appendRow(row);
   }
+  invalidateMasterDataCache_();
   return { success: true, id: row[0] };
 }
 
@@ -481,6 +542,7 @@ function saveMasterProduk(payload) {
     row[0] = masterNextId_("PRD", sh);
     sh.appendRow(row);
   }
+  invalidateMasterDataCache_();
   return { success: true, id: row[0] };
 }
 
@@ -509,6 +571,7 @@ function saveMasterKasBank(payload) {
     row[0] = masterNextId_("KB", sh);
     sh.appendRow(row);
   }
+  invalidateMasterDataCache_();
   return { success: true, id: row[0] };
 }
 
@@ -537,6 +600,7 @@ function saveMasterSupplier(payload) {
     row[0] = masterNextId_("SUP", sh);
     sh.appendRow(row);
   }
+  invalidateMasterDataCache_();
   return { success: true, id: row[0] };
 }
 
@@ -570,6 +634,7 @@ function saveMasterKategoriPembelian(payload) {
     row[0] = masterNextId_("KAT", sh);
     sh.appendRow(row);
   }
+  invalidateMasterDataCache_();
   return { success: true, id: row[0] };
 }
 
@@ -580,6 +645,7 @@ function setMasterCustomerStatus(id, aktif) {
   const rowNum = findMasterRowById_(sh, id, 6);
   if (!rowNum) throw new Error("Customer tidak ditemukan.");
   sh.getRange(rowNum, 6).setValue(aktif ? "YA" : "TIDAK");
+  invalidateMasterDataCache_();
   return { success: true };
 }
 
@@ -590,6 +656,7 @@ function setMasterProdukStatus(id, aktif) {
   const rowNum = findMasterRowById_(sh, id, 7);
   if (!rowNum) throw new Error("Produk tidak ditemukan.");
   sh.getRange(rowNum, 7).setValue(aktif ? "YA" : "TIDAK");
+  invalidateMasterDataCache_();
   return { success: true };
 }
 
@@ -600,6 +667,7 @@ function setMasterKasBankStatus(id, aktif) {
   const rowNum = findMasterRowById_(sh, id, 5);
   if (!rowNum) throw new Error("Rekening tidak ditemukan.");
   sh.getRange(rowNum, 5).setValue(aktif ? "YA" : "TIDAK");
+  invalidateMasterDataCache_();
   return { success: true };
 }
 
@@ -610,6 +678,7 @@ function setMasterSupplierStatus(id, aktif) {
   const rowNum = findMasterRowById_(sh, id, 6);
   if (!rowNum) throw new Error("Supplier tidak ditemukan.");
   sh.getRange(rowNum, 6).setValue(aktif ? "YA" : "TIDAK");
+  invalidateMasterDataCache_();
   return { success: true };
 }
 
@@ -620,6 +689,7 @@ function setMasterKategoriPembelianStatus(id, aktif) {
   const rowNum = findMasterRowById_(sh, id, 5);
   if (!rowNum) throw new Error("Kategori pembelian tidak ditemukan.");
   sh.getRange(rowNum, 5).setValue(aktif ? "YA" : "TIDAK");
+  invalidateMasterDataCache_();
   return { success: true };
 }
 
@@ -773,9 +843,12 @@ function readMasterCoa_(ss, includeInactive) {
 
 function listMasterCoa(includeInactive) {
   authGuard_();
+  const key = includeInactive ? "coa_all" : "coa_active";
   try {
-    const ss = openBackendSpreadsheet_();
-    return readMasterCoa_(ss, !!includeInactive);
+    return masterListCached_(key, function() {
+      const ss = openBackendSpreadsheet_();
+      return readMasterCoa_(ss, !!includeInactive);
+    });
   } catch (e) {
     throw new Error("Gagal memuat COA: " + (e.message || e));
   }
@@ -825,6 +898,8 @@ function saveMasterCoa(payload) {
   }
 
   const sync = syncBackendLaporanFromCoa_();
+  invalidateMasterDataCache_();
+  dashClearKeuanganCache_();
   return { success: true, id: no, syncOk: !!(sync && sync.ok) };
 }
 
@@ -836,6 +911,8 @@ function setMasterCoaStatus(id, aktif) {
   if (!rowNum) throw new Error("Akun COA tidak ditemukan.");
   sh.getRange(rowNum, 8).setValue(aktif ? "YA" : "TIDAK");
   const sync = syncBackendLaporanFromCoa_();
+  invalidateMasterDataCache_();
+  dashClearKeuanganCache_();
   return { success: true, syncOk: !!(sync && sync.ok) };
 }
 
@@ -902,22 +979,28 @@ function syncBackendLaporanViaApi_() {
 
 function getCustomers() {
   authGuard_();
-  const ss = getDatabaseSpreadsheet_();
-  return readMasterCustomers_(ss, true).map(function(c) { return c.nama; });
+  return masterListCached_("customers_names", function() {
+    const ss = getDatabaseSpreadsheet_();
+    return readMasterCustomers_(ss, true).map(function(c) { return c.nama; });
+  });
 }
 
 function getProducts() {
   authGuard_();
-  const ss = getDatabaseSpreadsheet_();
-  return readMasterProduk_(ss, true).map(function(p) {
-    return { kode: p.kode, nama: p.nama, harga: p.harga, akun: p.akun };
+  return masterListCached_("products_dto", function() {
+    const ss = getDatabaseSpreadsheet_();
+    return readMasterProduk_(ss, true).map(function(p) {
+      return { kode: p.kode, nama: p.nama, harga: p.harga, akun: p.akun };
+    });
   });
 }
 
 function getListKasBank() {
   authGuard_();
-  const ss = getDatabaseSpreadsheet_();
-  return readMasterKasBank_(ss, true).map(function(k) {
-    return { kode: k.kode, nama: k.nama };
+  return masterListCached_("kasbank_dto", function() {
+    const ss = getDatabaseSpreadsheet_();
+    return readMasterKasBank_(ss, true).map(function(k) {
+      return { kode: k.kode, nama: k.nama };
+    });
   });
 }
