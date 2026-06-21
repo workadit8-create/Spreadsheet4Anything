@@ -1,6 +1,6 @@
 // Entry point — logic dipisah per modul (R1 refactor)
 // Config, Auth, Helpers, Dashboard, MasterData, Transaksi, HutangPembelian,
-// KasBank, Jurnal, Quotation, PurchaseRequest, Laporan, Posting, QaSmokeTest*
+// KasBank, Jurnal, Quotation, PurchaseRequest, Laporan, Posting, PageBootstrap, QaSmokeTest*
 
 function doGet() {
   try {

@@ -918,11 +918,58 @@ function loadInvoiceBaruPage(){
     <div style="text-align:right"><button id="btnSimpanUpdate" class="btn-primary" onclick="saveInvoice()">Simpan Invoice</button></div>
   </div>
   `;
-  loadCustomers(); 
-  loadProducts();
-  loadRekeningOptions();
-  loadQuotationOptions();
+  bootstrapInvoiceFormPage();
   document.getElementById("invoiceDate").value = new Date().toISOString().split("T")[0];
+}
+
+function bootstrapInvoiceFormPage(callback) {
+  google.script.run
+    .withSuccessHandler(function(data) {
+      applyInvoiceFormBootstrap_(data);
+      if (callback) callback();
+    })
+    .withFailureHandler(function(err) {
+      showCustomAlert("Gagal memuat data invoice: " + (err.message || err));
+    })
+    .getInvoiceFormBootstrap();
+}
+
+function applyInvoiceFormBootstrap_(data) {
+  data = data || {};
+  customerList = data.customers || [];
+  let custHtml = '<option value="">Pilih Customer</option>';
+  customerList.forEach(function(customer) {
+    custHtml += `<option value="${customer}">${customer}</option>`;
+  });
+  const custSel = document.getElementById("customerSelect");
+  if (custSel) custSel.innerHTML = custHtml;
+
+  productList = data.products || [];
+  productOptions = '<option value="">Pilih Produk</option>';
+  productList.forEach(function(product) {
+    productOptions += `<option value="${product.nama}">${product.nama}</option>`;
+  });
+  document.querySelectorAll(".productSelect").forEach(function(sel) {
+    sel.innerHTML = productOptions;
+  });
+
+  const rekSel = document.getElementById("rekeningSelect");
+  if (rekSel) {
+    let rekHtml = '<option value="">-- Pilih Rekening --</option>';
+    (data.rekening || []).forEach(function(item) {
+      rekHtml += `<option value="${item.nama}">${item.nama}</option>`;
+    });
+    rekSel.innerHTML = rekHtml;
+  }
+
+  const qtSel = document.getElementById("quotationSelect");
+  if (qtSel) {
+    let qtHtml = '<option value="">-- Buat Invoice Manual --</option>';
+    (data.quotations || []).forEach(function(q) {
+      qtHtml += `<option value="${q.quotationNo}">${q.quotationNo} — ${q.customer} (${formatRupiah(q.total)})</option>`;
+    });
+    qtSel.innerHTML = qtHtml;
+  }
 }
 
 function addProductRow(){
@@ -3385,10 +3432,61 @@ function loadPembelianPage() {
     </div>
   `;
   
-  loadMasterPembelian(); 
-  loadRekeningPembelian();
-  loadPROptions();
-  loadSupplierOptionsPembelian();
+  bootstrapPembelianPage();
+}
+
+function bootstrapPembelianPage() {
+  google.script.run
+    .withSuccessHandler(applyPembelianBootstrap_)
+    .withFailureHandler(function(err) {
+      showCustomAlert("Gagal memuat data pembelian: " + (err.message || err));
+    })
+    .getPembelianPageBootstrap();
+}
+
+function applyPembelianBootstrap_(data) {
+  data = data || {};
+  masterDataPembelian = data.masterPembelian || {};
+  let katOptions = '<option value="">Pilih</option>';
+  Object.keys(masterDataPembelian).forEach(function(k) {
+    katOptions += `<option value="${k}">${k}</option>`;
+  });
+  document.querySelectorAll(".katInput").forEach(function(input) {
+    input.innerHTML = katOptions;
+  });
+
+  const rekSel = document.getElementById("rekPembelian");
+  if (rekSel) {
+    let rekHtml = '<option value="">-- Pilih Rekening Pengeluaran --</option>';
+    (data.rekening || []).forEach(function(item) {
+      rekHtml += `<option value="${item.nama}">${item.nama}</option>`;
+    });
+    rekSel.innerHTML = rekHtml;
+  }
+
+  const prSel = document.getElementById("prSelect");
+  if (prSel) {
+    let prHtml = '<option value="">-- Buat PO Manual --</option>';
+    (data.purchaseRequests || []).forEach(function(pr) {
+      const sup = pr.supplier ? pr.supplier + " — " : "";
+      prHtml += `<option value="${pr.prNo}">${pr.prNo} — ${sup}${pr.lineCount} item (${formatRupiah(pr.totalEstimasi)})</option>`;
+    });
+    prSel.innerHTML = prHtml;
+  }
+
+  let supHtml = "";
+  (data.suppliers || []).forEach(function(s) {
+    supHtml += '<option value="' + escAttr(s) + '">';
+  });
+  let dl = document.getElementById("supplierDatalist");
+  if (!dl) {
+    dl = document.createElement("datalist");
+    dl.id = "supplierDatalist";
+    document.body.appendChild(dl);
+  }
+  dl.innerHTML = supHtml;
+  const supInp = document.getElementById("supPembelian");
+  if (supInp) supInp.setAttribute("list", "supplierDatalist");
 }
 
 function loadSupplierOptionsPembelian() {
