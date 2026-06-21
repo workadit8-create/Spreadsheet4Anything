@@ -121,19 +121,19 @@ function saveManualJournal(payload) {
     if (!sh) throw new Error("Sheet JURNAL_MANUAL belum dibuat!");
 
     const meta = nextManualJournalMeta_(payload.tanggal);
-    const noBukti = String(payload.noBukti || "").trim() || meta.noBukti;
+    const noBukti = normalizeRecordText_(payload.noBukti || "") || meta.noBukti;
     const transId = meta.transactionId;
     const tanggal = new Date(payload.tanggal + "T12:00:00");
-    const keteranganUmum = String(payload.keterangan || "").trim();
+    const keteranganUmum = normalizeRecordText_(payload.keterangan || "");
 
     const rows = payload.lines.map(function(line) {
       return [
         tanggal,
         noBukti,
-        String(line.akun || "").trim(),
+        normalizeRecordText_(line.akun || ""),
         Number(line.debit) || 0,
         Number(line.kredit) || 0,
-        String(line.keterangan || keteranganUmum || "").trim(),
+        normalizeRecordText_(line.keterangan || keteranganUmum || ""),
         false,
         transId,
         "POST"

@@ -25,6 +25,12 @@
     #recentTable td{ padding:12px; border-bottom:1px solid #e5e7eb; }
     #recentTable tbody tr:hover{ background:#f9fafb; }
     input, select{ width:100%; padding:10px; border:1px solid #d1d5db; border-radius:8px; font-size:14px; background:white; }
+    input[type="text"], input:not([type]), textarea, input[type="search"]{
+      text-transform:uppercase;
+    }
+    input[data-preserve-case="true"], textarea[data-preserve-case="true"]{
+      text-transform:none;
+    }
     input:focus, select:focus{ outline:none; border-color:#2563eb; }
     .btn-primary{ background:#2563eb; color:white; border:none; padding:10px 16px; border-radius:8px; cursor:pointer; font-weight:600; }
     .btn-primary:hover{ opacity:.9; }
@@ -537,6 +543,56 @@ let customerList = [], productList = [], productOptions = '', currentSubtotal = 
 let masterDataPembelian = {};
 let currentGrandTotalPembelian = 0;
 let appSession = { user: null, menus: null, role: "owner" };
+
+// ==========================================
+// AUTO UPPERCASE — semua input teks operasional
+// ==========================================
+var UPPERCASE_SKIP_TYPES_ = {
+  number: 1, date: 1, "datetime-local": 1, month: 1, week: 1, time: 1,
+  email: 1, tel: 1, password: 1, file: 1, hidden: 1, color: 1, range: 1,
+  checkbox: 1, radio: 1, button: 1, submit: 1, reset: 1
+};
+
+function shouldUppercaseInput_(el) {
+  if (!el || el.disabled || el.readOnly) return false;
+  if (el.dataset && el.dataset.preserveCase === "true") return false;
+  const tag = el.tagName;
+  if (tag !== "INPUT" && tag !== "TEXTAREA") return false;
+  if (tag === "INPUT") {
+    const type = String(el.type || "text").toLowerCase();
+    if (UPPERCASE_SKIP_TYPES_[type]) return false;
+  }
+  return true;
+}
+
+function applyUppercaseToInput_(el) {
+  if (!shouldUppercaseInput_(el)) return;
+  const raw = el.value;
+  if (!raw) return;
+  const upper = raw.toUpperCase();
+  if (raw === upper) return;
+  const start = el.selectionStart;
+  const end = el.selectionEnd;
+  el.value = upper;
+  try {
+    if (typeof start === "number" && typeof end === "number") {
+      el.setSelectionRange(start, end);
+    }
+  } catch (ignore) {}
+}
+
+function initUppercaseInputs_() {
+  if (window.__uppercaseInputsBound) return;
+  window.__uppercaseInputsBound = true;
+  document.addEventListener("input", function(e) {
+    applyUppercaseToInput_(e.target);
+  }, true);
+  document.addEventListener("blur", function(e) {
+    applyUppercaseToInput_(e.target);
+  }, true);
+}
+
+initUppercaseInputs_();
 
 // ==========================================
 // AUTH & ROLE
@@ -1785,7 +1841,7 @@ function openMasterForm(editId) {
     html += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">';
     html += '<div><label>Nama *</label><input id="mfNama" value="' + escAttr(row ? row.nama : "") + '" style="margin-top:5px;"></div>';
     html += '<div><label>Telepon</label><input id="mfTelepon" value="' + escAttr(row ? row.telepon : "") + '" style="margin-top:5px;"></div>';
-    html += '<div><label>Email</label><input id="mfEmail" value="' + escAttr(row ? row.email : "") + '" style="margin-top:5px;"></div>';
+    html += '<div><label>Email</label><input id="mfEmail" data-preserve-case="true" value="' + escAttr(row ? row.email : "") + '" style="margin-top:5px;"></div>';
     html += '<div style="grid-column:1/-1;"><label>Alamat</label><textarea id="mfAlamat" rows="2" style="margin-top:5px;">' + escHtml(row ? row.alamat : "") + '</textarea></div>';
     html += '</div>';
   } else if (masterState.tab === "produk") {
@@ -2050,7 +2106,7 @@ function renderSettingsForms() {
       <div><label style="font-weight:bold;">Nama Perusahaan</label><input id="setCompanyName" value="${escAttr(s.COMPANY_NAME || "")}" style="margin-top:5px;"></div>
       <div><label style="font-weight:bold;">Telepon</label><input id="setCompanyPhone" value="${escAttr(s.COMPANY_PHONE || "")}" style="margin-top:5px;"></div>
       <div style="grid-column:1/-1;"><label style="font-weight:bold;">Alamat</label><textarea id="setCompanyAddress" rows="2" style="margin-top:5px;">${escHtml(s.COMPANY_ADDRESS || "")}</textarea></div>
-      <div><label style="font-weight:bold;">Email</label><input id="setCompanyEmail" value="${escAttr(s.COMPANY_EMAIL || "")}" style="margin-top:5px;"></div>
+      <div><label style="font-weight:bold;">Email</label><input id="setCompanyEmail" data-preserve-case="true" value="${escAttr(s.COMPANY_EMAIL || "")}" style="margin-top:5px;"></div>
       <div><label style="font-weight:bold;">URL Logo (Google Drive)</label><input id="setCompanyLogo" value="${escAttr(s.COMPANY_LOGO_URL || "")}" placeholder="https://drive.google.com/file/d/..." style="margin-top:5px;"></div>
     </div>
     <h3 style="margin:25px 0 15px;">Informasi Rekening</h3>
@@ -2646,7 +2702,7 @@ function renderUserForm_(row) {
 
   let html = '<h4 style="margin:0 0 12px;">' + (row ? "Edit Pengguna" : "Tambah Pengguna") + '</h4>';
   html += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">';
-  html += '<div><label>Email Google *</label><input id="ufEmail" value="' + escAttr(row ? row.email : "") + '" placeholder="nama@perusahaan.com" style="margin-top:5px;"></div>';
+  html += '<div><label>Email Google *</label><input id="ufEmail" data-preserve-case="true" value="' + escAttr(row ? row.email : "") + '" placeholder="nama@perusahaan.com" style="margin-top:5px;"></div>';
   html += '<div><label>Nama</label><input id="ufNama" value="' + escAttr(row ? row.nama : "") + '" style="margin-top:5px;"></div>';
   html += '<div><label>Role *</label><select id="ufRole" style="margin-top:5px;">' + roleOpts + '</select></div>';
   html += '<div><label>Catatan</label><input id="ufCatatan" value="' + escAttr(row ? row.catatan : "") + '" style="margin-top:5px;"></div>';

@@ -488,7 +488,7 @@ function listMasterKategoriPembelian(includeInactive) {
 
 function saveMasterCustomer(payload) {
   assertMasterEntityRole_("customer");
-  const nama = String(payload.nama || "").trim();
+  const nama = normalizeRecordText_(payload.nama);
   if (!nama) throw new Error("Nama customer wajib diisi.");
 
   const ss = getDatabaseSpreadsheet_();
@@ -499,8 +499,8 @@ function saveMasterCustomer(payload) {
     String(payload.id || "").trim(),
     nama,
     String(payload.telepon || "").trim(),
-    String(payload.email || "").trim(),
-    String(payload.alamat || "").trim(),
+    String(payload.email || "").trim().toLowerCase(),
+    normalizeRecordText_(payload.alamat),
     aktif
   ];
 
@@ -517,7 +517,7 @@ function saveMasterCustomer(payload) {
 
 function saveMasterProduk(payload) {
   assertMasterEntityRole_("produk");
-  const nama = String(payload.nama || "").trim();
+  const nama = normalizeRecordText_(payload.nama);
   if (!nama) throw new Error("Nama produk wajib diisi.");
   const harga = Number(payload.harga);
   if (isNaN(harga) || harga < 0) throw new Error("Harga tidak valid.");
@@ -528,11 +528,11 @@ function saveMasterProduk(payload) {
   const aktif = payload.aktif === false ? "TIDAK" : "YA";
   const row = [
     String(payload.id || "").trim(),
-    String(payload.kode || "").trim(),
+    normalizeRecordText_(payload.kode),
     nama,
-    String(payload.satuan || "").trim(),
+    normalizeRecordText_(payload.satuan),
     harga,
-    String(payload.akun || "PENDAPATAN").trim() || "PENDAPATAN",
+    normalizeRecordText_(payload.akun || "PENDAPATAN") || "PENDAPATAN",
     aktif
   ];
 
@@ -549,17 +549,17 @@ function saveMasterProduk(payload) {
 
 function saveMasterKasBank(payload) {
   assertMasterEntityRole_("kasBank");
-  const nama = String(payload.nama || "").trim();
+  const nama = normalizeRecordText_(payload.nama);
   if (!nama) throw new Error("Nama rekening wajib diisi.");
 
   const ss = getDatabaseSpreadsheet_();
   ensureMasterDataReady_(ss);
   const sh = ensureMasterKasBankSheet_(ss);
   const aktif = payload.aktif === false ? "TIDAK" : "YA";
-  const akunCoa = String(payload.akunCoa || nama).trim() || nama;
+  const akunCoa = normalizeRecordText_(payload.akunCoa || nama) || nama;
   const row = [
     String(payload.id || "").trim(),
-    String(payload.kode || "").trim(),
+    normalizeRecordText_(payload.kode),
     nama,
     akunCoa,
     aktif
@@ -578,7 +578,7 @@ function saveMasterKasBank(payload) {
 
 function saveMasterSupplier(payload) {
   assertMasterEntityRole_("supplier");
-  const nama = String(payload.nama || "").trim();
+  const nama = normalizeRecordText_(payload.nama);
   if (!nama) throw new Error("Nama supplier wajib diisi.");
 
   const ss = getDatabaseSpreadsheet_();
@@ -589,8 +589,8 @@ function saveMasterSupplier(payload) {
     String(payload.id || "").trim(),
     nama,
     String(payload.telepon || "").trim(),
-    String(payload.email || "").trim(),
-    String(payload.alamat || "").trim(),
+    String(payload.email || "").trim().toLowerCase(),
+    normalizeRecordText_(payload.alamat),
     aktif
   ];
 
@@ -607,8 +607,8 @@ function saveMasterSupplier(payload) {
 
 function saveMasterKategoriPembelian(payload) {
   assertMasterEntityRole_("kategoriPembelian");
-  const kategori = String(payload.kategori || "").trim();
-  const subKategori = String(payload.subKategori || "").trim();
+  const kategori = normalizeRecordText_(payload.kategori);
+  const subKategori = normalizeRecordText_(payload.subKategori);
   if (!kategori) throw new Error("Kategori wajib diisi.");
   if (!subKategori) throw new Error("Sub-kategori wajib diisi.");
 
@@ -624,7 +624,7 @@ function saveMasterKategoriPembelian(payload) {
     id,
     kategori,
     subKategori,
-    String(payload.akun || "BIAYA LAIN-LAIN").trim() || "BIAYA LAIN-LAIN",
+    normalizeRecordText_(payload.akun || "BIAYA LAIN-LAIN") || "BIAYA LAIN-LAIN",
     aktif
   ];
 
@@ -857,7 +857,7 @@ function listMasterCoa(includeInactive) {
 
 function saveMasterCoa(payload) {
   assertMasterEntityRole_("coa");
-  const nama = String(payload.nama || "").trim();
+  const nama = normalizeRecordText_(payload.nama);
   const tipe = String(payload.tipe || "").trim();
   if (!nama) throw new Error("Nama akun wajib diisi.");
   if (!tipe) throw new Error("Tipe akun wajib dipilih.");
@@ -869,7 +869,7 @@ function saveMasterCoa(payload) {
   const dup = findCoaByNama_(sh, nama, no);
   if (dup) throw new Error("Nama akun \"" + nama + "\" sudah dipakai (No " + dup.no + ").");
 
-  let sub = String(payload.sub || "").trim();
+  let sub = normalizeRecordText_(payload.sub);
   if (!sub) sub = coaGuessSubkelompok_(nama, tipe);
   let saldo = String(payload.saldoNormal || "").trim();
   if (saldo !== "Debit" && saldo !== "Kredit") saldo = coaSaldoDefaultFromTipe_(tipe);

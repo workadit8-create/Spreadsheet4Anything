@@ -140,12 +140,22 @@ function readSheetColumnValues_(sh, col, startRow) {
 // VALIDASI & HELPER INTERNAL
 // ==========================================
 
+/** Normalisasi teks operasional — trim + huruf besar (pencatatan konsisten). */
+function normalizeRecordText_(val) {
+  if (val == null) return "";
+  return String(val).trim().toUpperCase();
+}
+
 function validateInvoiceData_(invoiceData) {
   if (!invoiceData.tanggal) {
     throw new Error("Tanggal invoice wajib diisi.");
   }
-  if (!invoiceData.customer || !String(invoiceData.customer).trim()) {
+  invoiceData.customer = normalizeRecordText_(invoiceData.customer);
+  if (!invoiceData.customer) {
     throw new Error("Customer wajib dipilih.");
+  }
+  if (invoiceData.keterangan) {
+    invoiceData.keterangan = normalizeRecordText_(invoiceData.keterangan);
   }
   if (!invoiceData.products || invoiceData.products.length === 0) {
     throw new Error("Minimal harus ada 1 produk.");
@@ -154,7 +164,8 @@ function validateInvoiceData_(invoiceData) {
   let grandTotal = 0;
   invoiceData.products.forEach(function(item, idx) {
     const baris = idx + 1;
-    if (!item.produk || !String(item.produk).trim()) {
+    if (item.produk) item.produk = normalizeRecordText_(item.produk);
+    if (!item.produk) {
       throw new Error("Produk baris " + baris + " wajib dipilih.");
     }
     const qty = Number(item.qty);
@@ -208,6 +219,7 @@ function validatePelunasanPayload_(payload, sisaPiutang) {
   if (!payload.rekening || !String(payload.rekening).trim()) {
     throw new Error("Rekening tujuan wajib dipilih.");
   }
+  if (payload.keterangan) payload.keterangan = normalizeRecordText_(payload.keterangan);
   payload.nominal = nominal;
 }
 
@@ -228,6 +240,7 @@ function validatePelunasanHutangPayload_(payload, sisaHutang) {
   if (!payload.sdAlokasi && payload.sdMode !== "fifo") {
     payload.sdMode = "fifo";
   }
+  if (payload.keterangan) payload.keterangan = normalizeRecordText_(payload.keterangan);
   payload.nominal = nominal;
 }
 
@@ -235,6 +248,11 @@ function validateMutasiDana_(p) {
   if (!p.tanggal) {
     throw new Error("Tanggal mutasi wajib diisi.");
   }
+  if (p.keterangan) p.keterangan = normalizeRecordText_(p.keterangan);
+  if (p.sdUntukPembelian) p.sdUntukPembelian = normalizeRecordText_(p.sdUntukPembelian);
+  if (p.sdPetugas) p.sdPetugas = normalizeRecordText_(p.sdPetugas);
+  if (p.sumber) p.sumber = normalizeRecordText_(p.sumber);
+  if (p.tujuan) p.tujuan = normalizeRecordText_(p.tujuan);
   const nominal = Number(p.nominal);
   if (!nominal || nominal <= 0) {
     throw new Error("Nominal mutasi harus lebih dari 0.");
@@ -275,9 +293,11 @@ function validatePembelian_(p) {
   if (!p.tanggal) {
     throw new Error("Tanggal pembelian wajib diisi.");
   }
-  if (!p.supplier || !String(p.supplier).trim()) {
+  p.supplier = normalizeRecordText_(p.supplier);
+  if (!p.supplier) {
     throw new Error("Nama supplier wajib diisi.");
   }
+  if (p.keterangan) p.keterangan = normalizeRecordText_(p.keterangan);
   if (!p.items || p.items.length === 0) {
     throw new Error("Minimal harus ada 1 barang.");
   }
@@ -285,13 +305,17 @@ function validatePembelian_(p) {
   let grandTotal = 0;
   p.items.forEach(function(item, idx) {
     const baris = idx + 1;
-    if (!item.kategori || !String(item.kategori).trim()) {
+    if (item.kategori) item.kategori = normalizeRecordText_(item.kategori);
+    if (item.subKategori) item.subKategori = normalizeRecordText_(item.subKategori);
+    if (item.namaBrg) item.namaBrg = normalizeRecordText_(item.namaBrg);
+    if (item.akun) item.akun = normalizeRecordText_(item.akun);
+    if (!item.kategori) {
       throw new Error("Kategori baris " + baris + " wajib dipilih.");
     }
-    if (!item.subKategori || !String(item.subKategori).trim()) {
+    if (!item.subKategori) {
       throw new Error("Sub-kategori baris " + baris + " wajib dipilih.");
     }
-    if (!item.namaBrg || !String(item.namaBrg).trim()) {
+    if (!item.namaBrg) {
       throw new Error("Nama barang baris " + baris + " wajib diisi.");
     }
     const qty = Number(item.qty);
