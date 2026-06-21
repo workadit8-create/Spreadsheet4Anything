@@ -253,3 +253,178 @@ function updateProyekStatus(kode, status) {
     lock.releaseLock();
   }
 }
+
+function proyekDateInRange_(dateVal, startDate, endDate) {
+  if (!startDate && !endDate) return true;
+  const d = dateVal instanceof Date ? dateVal : new Date(dateVal);
+  if (isNaN(d.getTime())) return false;
+  const t = d.getTime();
+  if (startDate) {
+    const s = new Date(startDate + "T00:00:00").getTime();
+    if (t < s) return false;
+  }
+  if (endDate) {
+    const e = new Date(endDate + "T23:59:59").getTime();
+    if (t > e) return false;
+  }
+  return true;
+}
+
+function proyekPeriodFromMonthYear_(bulan, tahun) {
+  const m = Number(bulan);
+  const y = Number(tahun);
+  if (!(m >= 1 && m <= 12) || !(y >= 2000)) return { start: "", end: "" };
+  const lastDay = new Date(y, m, 0).getDate();
+  const mm = String(m).padStart(2, "0");
+  return {
+    start: y + "-" + mm + "-01",
+    end: y + "-" + mm + "-" + String(lastDay).padStart(2, "0")
+  };
+}
+
+function buildProyekLrRows_(ss, startDate, endDate, options) {
+  options = options || {};
+  const pendapatanMap = {};
+  const bebanMap = {};
+
+  const shIn = ss.getSheetByName("PEMASUKAN");
+  if (shIn && shIn.getLastRow() >= 2) {
+    const cols = Math.max(shIn.getLastColumn(), PROYEK_COL_PEMASUKAN_);
+    const data = shIn.getRange(2, 1, shIn.getLastRow() - 1, cols).getValues();
+    data.forEach(function(row) {
+      const kode = readRowKodeProyek_(row, PROYEK_COL_PEMASUKAN_);
+      if (!kode) return;
+      if (!proyekDateInRange_(row[1], startDate, endDate)) return;
+      pendapatanMap[kode] = (pendapatanMap[kode] || 0) + (Number(row[11]) || 0);
+    });
+  }
+
+  const shPb = ss.getSheetByName("PEMBELIAN");
+  if (shPb && shPb.getLastRow() >= 2) {
+    const cols = Math.max(shPb.getLastColumn(), PROYEK_COL_PEMBELIAN_);
+    const data = shPb.getRange(2, 1, shPb.getLastRow() - 1, cols).getValues();
+    data.forEach(function(row) {
+      const kode = readRowKodeProyek_(row, PROYEK_COL_PEMBELIAN_);
+      if (!kode) return;
+      if (!proyekDateInRange_(row[0], startDate, endDate)) return;
+      bebanMap[kode] = (bebanMap[kode] || 0) + (Number(row[7]) || 0);
+    });
+  }
+
+  const master = readMasterProyek_(ss, { activeOnly: false });
+  const masterMap = {};
+  master.forEach(function(p) { masterMap[p.kode] = p; });
+
+  const allKodes = {};
+  Object.keys(pendapatanMap).forEach(function(k) { allKodes[k] = true; });
+  Object.keys(bebanMap).forEach(function(k) { allKodes[k] = true; });
+  if (options.includeEmpty !== false) {
+    master.forEach(function(p) { allKodes[p.kode] = true; });
+  }
+
+  const statusFilter = options.status ? String(options.status).trim().toUpperCase() : "";
+  const kodeFilter = normalizeKodeProyek_(options.kodeProyek);
+
+  const rows = [];
+  Object.keys(allKodes).forEach(function(kode) {
+    const meta = masterMap[kode] || {
+      kode: kode,
+      nama: kode,
+      customer: "",
+      status: "",
+      tanggalEvent: "",
+      lokasi: "",
+      pic: ""
+    };
+    if (statusFilter && statusFilter !== "ALL" && meta.status !== statusFilter) return;
+    if (kodeFilter && kode !== kodeFilter) return;
+
+    const pendapatan = pendapatanMap[kode] || 0;
+    const beban = bebanMap[kode] || 0;
+    if (options.includeEmpty === false && pendapatan === 0 && beban === 0) return;
+
+    const margin = pendapatan - beban;
+    rows.push({
+      kode: kode,
+      nama: meta.nama,
+      customer: meta.customer,
+      tanggalEvent: meta.tanggalEvent,
+      status: meta.status,
+      lokasi: meta.lokasi,
+      pic: meta.pic,
+      pendapatan: pendapatan,
+      beban: beban,
+      margin: margin,
+      marginPct: pendapatan > 0 ? Math.round((margin / pendapatan) * 1000) / 10 : 0
+    });
+  });
+
+  rows.sort(function(a, b) {
+    if (b.margin !== a.margin) return b.margin - a.margin;
+    return a.kode.localeCompare(b.kode, "id");
+  });
+
+  let totalPendapatan = 0;
+  let totalBeban = 0;
+  rows.forEach(function(r) {
+    totalPendapatan += r.pendapatan;
+    totalBeban += r.beban;
+  });
+  const totalMargin = totalPendapatan - totalBeban;
+
+  return {
+    rows: rows,
+    totals: {
+      pendapatan: totalPendapatan,
+      beban: totalBeban,
+      margin: totalMargin,
+      marginPct: totalPendapatan > 0 ? Math.round((totalMargin / totalPendapatan) * 1000) / 10 : 0
+    },
+    periode: { start: startDate || "", end: endDate || "" }
+  };
+}
+
+function getLaporanLrProyek(filters) {
+  authGuard_();
+  assertAddonProject_();
+  const ss = getDatabaseSpreadsheet_();
+  filters = filters || {};
+  return buildProyekLrRows_(ss, filters.startDate || "", filters.endDate || "", {
+    status: filters.status || "",
+    kodeProyek: filters.kodeProyek || "",
+    includeEmpty: false
+  });
+}
+
+function getDashboardProyekSummary_(ss, bulan, tahun) {
+  if (!isAddonProjectEnabled_()) return null;
+
+  const period = proyekPeriodFromMonthYear_(bulan, tahun);
+  const lr = buildProyekLrRows_(ss, period.start, period.end, { includeEmpty: false });
+  const upcoming = readMasterProyek_(ss, { activeOnly: true, upcomingOnly: true });
+  const lrMap = {};
+  lr.rows.forEach(function(r) { lrMap[r.kode] = r; });
+
+  return {
+    periode: period,
+    upcomingCount: upcoming.length,
+    activeWithTag: lr.rows.length,
+    lrTotals: lr.totals,
+    upcoming: upcoming.slice(0, 5).map(function(p) {
+      const fin = lrMap[p.kode] || { pendapatan: 0, beban: 0, margin: 0, marginPct: 0 };
+      return {
+        kode: p.kode,
+        nama: p.nama,
+        customer: p.customer,
+        tanggalEvent: p.tanggalEvent,
+        lokasi: p.lokasi,
+        status: p.status,
+        pic: p.pic,
+        pendapatan: fin.pendapatan,
+        beban: fin.beban,
+        margin: fin.margin,
+        marginPct: fin.marginPct
+      };
+    })
+  };
+}

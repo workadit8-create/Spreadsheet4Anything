@@ -1163,7 +1163,7 @@ function buildDashboardProyekHtml_(proyek) {
       html += '</tr>';
     });
     html += '</tbody></table>';
-    html += '<p style="font-size:12px; color:#6b7280; margin-top:10px;">Angka keuangan = transaksi tagged proyek di ' + escHtml(periodeLabel) + ' · ' + (proyek.activeWithTag || 0) + ' proyek ada transaksi.</p>';
+    html += '<p style="font-size:12px; color:#6b7280; margin-top:10px;">Angka keuangan = transaksi tagged proyek di ' + escHtml(periodeLabel) + ' · ' + (proyek.activeWithTag || 0) + ' proyek ada transaksi. Buka <strong>Proyek Event → L/R Proyek</strong> untuk rincian per baris.</p>';
   }
 
   html += '<div style="display:flex; gap:16px; flex-wrap:wrap; margin-top:16px; padding-top:12px; border-top:1px solid #e5e7eb; font-size:13px;">';
@@ -5967,7 +5967,7 @@ function renderProyekLrTable(data) {
 
   html += '<table class="history-table"><thead><tr>';
   html += '<th>Kode</th><th>Event</th><th>Customer</th><th>Tgl Event</th><th>Status</th>';
-  html += '<th style="text-align:right">Pendapatan</th><th style="text-align:right">Beban</th><th style="text-align:right">Margin</th><th style="text-align:right">%</th>';
+  html += '<th style="text-align:right">Pendapatan</th><th style="text-align:right">Beban</th><th style="text-align:right">Margin</th><th style="text-align:right">%</th><th style="width:90px;">Aksi</th>';
   html += '</tr></thead><tbody>';
 
   rows.forEach(function(row) {
@@ -5982,6 +5982,7 @@ function renderProyekLrTable(data) {
     html += '<td style="text-align:right">' + formatRupiah(row.beban) + '</td>';
     html += '<td style="text-align:right; font-weight:bold; color:' + mc + '">' + formatRupiah(row.margin) + '</td>';
     html += '<td style="text-align:right">' + (row.marginPct || 0) + '%</td>';
+    html += '<td><button class="detail-btn" onclick="openProyekLrDetail(\'' + escAttr(row.kode) + '\')">Detail</button></td>';
     html += '</tr>';
   });
 
@@ -5991,8 +5992,126 @@ function renderProyekLrTable(data) {
   html += '<td style="text-align:right">' + formatRupiah(totals.beban || 0) + '</td>';
   html += '<td style="text-align:right">' + formatRupiah(totals.margin || 0) + '</td>';
   html += '<td style="text-align:right">' + (totals.marginPct || 0) + '%</td>';
+  html += '<td></td>';
   html += '</tr></tbody></table>';
   container.innerHTML = html;
+}
+
+function getProyekLrFilters_() {
+  return {
+    startDate: (document.getElementById("proyekLrStart") || {}).value || "",
+    endDate: (document.getElementById("proyekLrEnd") || {}).value || ""
+  };
+}
+
+function closeProyekLrDetailModal() {
+  const modal = document.getElementById("proyekLrDetailModal");
+  if (modal) modal.remove();
+}
+
+function openProyekLrDetail(kode) {
+  const filters = getProyekLrFilters_();
+  closeProyekLrDetailModal();
+
+  const modal = document.createElement("div");
+  modal.id = "proyekLrDetailModal";
+  modal.style.cssText = "display:flex; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99999; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;";
+  modal.innerHTML =
+    '<div style="background:#fff; border-radius:12px; width:100%; max-width:920px; max-height:90vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 20px 40px rgba(0,0,0,0.2);">' +
+      '<div style="padding:18px 20px; border-bottom:1px solid #e5e7eb; display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">' +
+        '<div><h3 style="margin:0 0 4px 0;">Rincian L/R Proyek</h3><p id="proyekLrDetailSubtitle" style="margin:0; font-size:13px; color:#6b7280;">⏳ Memuat...</p></div>' +
+        '<button class="btn-secondary" onclick="closeProyekLrDetailModal()" style="padding:6px 12px;">✕ Tutup</button>' +
+      '</div>' +
+      '<div id="proyekLrDetailBody" style="padding:20px; overflow-y:auto; flex:1;"><p style="text-align:center; color:#6b7280;">⏳ Memuat rincian transaksi...</p></div>' +
+    '</div>';
+  document.body.appendChild(modal);
+
+  google.script.run
+    .withSuccessHandler(renderProyekLrDetailModal)
+    .withFailureHandler(function(err) {
+      const body = document.getElementById("proyekLrDetailBody");
+      if (body) body.innerHTML = '<div class="dash-alert error">' + escHtml(String(err && err.message ? err.message : err)) + '</div>';
+    })
+    .getLaporanLrProyekDetail({ kode: kode, startDate: filters.startDate, endDate: filters.endDate });
+}
+
+function renderProyekLrDetailModal(data) {
+  const body = document.getElementById("proyekLrDetailBody");
+  const subtitle = document.getElementById("proyekLrDetailSubtitle");
+  if (!body || !data) return;
+
+  const p = data.proyek || {};
+  const totals = data.totals || {};
+  let sub = escHtml(p.nama || data.kode) + ' · <code>' + escHtml(data.kode) + '</code>';
+  if (data.periode && data.periode.start) {
+    sub += ' · Periode transaksi: ' + escHtml(data.periode.start) + ' s/d ' + escHtml(data.periode.end);
+  }
+  if (subtitle) subtitle.innerHTML = sub;
+
+  const marginColor = (totals.margin || 0) >= 0 ? "#059669" : "#dc2626";
+
+  let html = '<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px;">';
+  html += '<div style="background:#f0fdf4; border-radius:8px; padding:12px;"><div style="font-size:12px;color:#166534;">Pendapatan</div><strong style="font-size:18px;">' + formatRupiah(totals.pendapatan || 0) + '</strong><div style="font-size:11px;color:#6b7280;">' + (data.pemasukan || []).length + ' baris pemasukan</div></div>';
+  html += '<div style="background:#fef2f2; border-radius:8px; padding:12px;"><div style="font-size:12px;color:#991b1b;">Beban Direct</div><strong style="font-size:18px;">' + formatRupiah(totals.beban || 0) + '</strong><div style="font-size:11px;color:#6b7280;">' + (data.pembelian || []).length + ' baris pembelian</div></div>';
+  html += '<div style="background:#f8fafc; border-radius:8px; padding:12px;"><div style="font-size:12px;color:#475569;">Margin</div><strong style="font-size:18px; color:' + marginColor + ';">' + formatRupiah(totals.margin || 0) + '</strong><div style="font-size:11px;color:#6b7280;">' + (totals.marginPct || 0) + '% dari pendapatan</div></div>';
+  html += '</div>';
+
+  html += '<div style="font-size:13px; color:#6b7280; margin-bottom:16px;">';
+  html += 'Customer event: <strong>' + escHtml(p.customer || "-") + '</strong>';
+  if (p.tanggalEvent) html += ' · Tanggal event: <strong>' + escHtml(p.tanggalEvent) + '</strong>';
+  if (p.status) html += ' · Status: ' + proyekStatusBadge_(p.status);
+  html += '</div>';
+
+  html += '<h4 style="margin:0 0 10px 0;">💰 Pemasukan (Pendapatan)</h4>';
+  if (!(data.pemasukan || []).length) {
+    html += '<p style="color:#9ca3af; font-size:13px; margin-bottom:20px;">Tidak ada pemasukan tagged ke proyek ini di periode tersebut.</p>';
+  } else {
+    html += '<table class="history-table" style="margin-bottom:24px;"><thead><tr>';
+    html += '<th>Tanggal</th><th>Invoice</th><th>Customer</th><th>Produk</th><th>Qty</th><th style="text-align:right">Total</th><th>Akun</th>';
+    html += '</tr></thead><tbody>';
+    data.pemasukan.forEach(function(r) {
+      html += '<tr>';
+      html += '<td>' + escHtml(r.tanggal) + '</td>';
+      html += '<td><code>' + escHtml(r.invoiceNo) + '</code></td>';
+      html += '<td>' + escHtml(r.customer) + '</td>';
+      html += '<td>' + escHtml(r.produk) + '</td>';
+      html += '<td>' + escHtml(String(r.qty)) + (r.satuan ? ' ' + escHtml(r.satuan) : '') + '</td>';
+      html += '<td style="text-align:right; font-weight:bold;">' + formatRupiah(r.total) + '</td>';
+      html += '<td style="font-size:12px;">' + escHtml(r.akun || "-") + '</td>';
+      html += '</tr>';
+    });
+    html += '<tr style="background:#f0fdf4; font-weight:bold;"><td colspan="5">Subtotal Pendapatan</td><td style="text-align:right">' + formatRupiah(totals.pendapatan || 0) + '</td><td></td></tr>';
+    html += '</tbody></table>';
+  }
+
+  html += '<h4 style="margin:0 0 10px 0;">🛒 Pembelian (Beban Direct)</h4>';
+  if (!(data.pembelian || []).length) {
+    html += '<p style="color:#9ca3af; font-size:13px;">Tidak ada pembelian tagged ke proyek ini di periode tersebut.</p>';
+  } else {
+    html += '<table class="history-table"><thead><tr>';
+    html += '<th>Tanggal</th><th>PO</th><th>Supplier</th><th>Barang</th><th>Qty</th><th style="text-align:right">Total</th><th>Akun</th>';
+    html += '</tr></thead><tbody>';
+    data.pembelian.forEach(function(r) {
+      html += '<tr>';
+      html += '<td>' + escHtml(r.tanggal) + '</td>';
+      html += '<td><code>' + escHtml(r.poNo) + '</code></td>';
+      html += '<td>' + escHtml(r.supplier) + '</td>';
+      html += '<td>' + escHtml(r.barang) + '</td>';
+      html += '<td>' + escHtml(String(r.qty)) + (r.satuan ? ' ' + escHtml(r.satuan) : '') + '</td>';
+      html += '<td style="text-align:right; font-weight:bold;">' + formatRupiah(r.total) + '</td>';
+      html += '<td style="font-size:12px;">' + escHtml(r.akun || "-") + '</td>';
+      html += '</tr>';
+    });
+    html += '<tr style="background:#fef2f2; font-weight:bold;"><td colspan="5">Subtotal Beban</td><td style="text-align:right">' + formatRupiah(totals.beban || 0) + '</td><td></td></tr>';
+    html += '</tbody></table>';
+  }
+
+  html += '<div style="margin-top:20px; padding:14px; background:#f8fafc; border-radius:8px; font-weight:bold; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">';
+  html += '<span>Margin = Pendapatan − Beban</span>';
+  html += '<span style="color:' + marginColor + ';">' + formatRupiah(totals.margin || 0) + ' (' + (totals.marginPct || 0) + '%)</span>';
+  html += '</div>';
+
+  body.innerHTML = html;
 }
 
 function exportProyekLrExcel() {
