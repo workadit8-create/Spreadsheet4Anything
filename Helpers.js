@@ -225,8 +225,8 @@ function validatePelunasanHutangPayload_(payload, sisaHutang) {
   if (nominal > sisaHutang) {
     throw new Error("Nominal bayar tidak boleh melebihi sisa hutang.");
   }
-  if (!payload.rekening || !String(payload.rekening).trim()) {
-    throw new Error("Rekening sumber pembayaran wajib dipilih.");
+  if (!payload.sdAlokasi && payload.sdMode !== "fifo") {
+    payload.sdMode = "fifo";
   }
   payload.nominal = nominal;
 }
@@ -251,6 +251,14 @@ function validateMutasiDana_(p) {
     }
     if (p.sumber === p.tujuan) {
       throw new Error("Rekening sumber dan tujuan tidak boleh sama.");
+    }
+    if (p.buatSumberDana === true) {
+      if (!p.sdUntukPembelian || !String(p.sdUntukPembelian).trim()) {
+        throw new Error("Untuk pembelian wajib diisi saat membuat Sumber Dana.");
+      }
+      if (!p.sdPetugas || !String(p.sdPetugas).trim()) {
+        throw new Error("Petugas wajib diisi saat membuat Sumber Dana.");
+      }
     }
   } else if (jenis === "Masuk") {
     if (!p.tujuan || !String(p.tujuan).trim()) {
@@ -309,8 +317,10 @@ function validatePembelian_(p) {
   if (bayar > grandTotal) {
     throw new Error("Nominal bayar tidak boleh melebihi total pembelian.");
   }
-  if (bayar > 0 && (!p.rekening || !String(p.rekening).trim())) {
-    throw new Error("Rekening pengeluaran wajib dipilih jika ada pembayaran.");
+  if (bayar > 0) {
+    if (!p.sdAlokasi && p.sdMode !== "fifo") {
+      p.sdMode = "fifo";
+    }
   }
   p.bayar = bayar;
 }

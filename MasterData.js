@@ -277,6 +277,7 @@ function ensureMasterDataReady_(ss) {
   migrateLegacyMasterKasBank_(ss);
   migrateLegacyMasterSuppliers_(ss);
   migrateLegacyMasterKategoriPembelian_(ss);
+  ensureSumberDanaSheets_(ss);
 }
 
 function readMasterCustomers_(ss, activeOnly) {

@@ -295,11 +295,238 @@ function validatePembelianForm() {
     showCustomAlert("Nominal bayar tidak boleh melebihi total pembelian (" + formatRupiah(currentGrandTotalPembelian) + ").");
     return false;
   }
-  if (bayar > 0 && !document.getElementById("rekPembelian").value) {
-    showCustomAlert("Rekening pengeluaran wajib dipilih jika ada pembayaran.");
+  if (bayar > 0 && !pembelianSdAlokasiReady_()) {
+    showCustomAlert("Alokasi Sumber Dana wajib valid jika ada pembayaran.");
     return false;
   }
   return true;
+}
+
+let pembelianSdMode = "fifo";
+let pembelianSdPreview = { alokasi: [], rekening: "", error: "" };
+let hutangSdMode = "fifo";
+let hutangSdPreview = { alokasi: [], rekening: "", error: "" };
+let sdAktifListCache = [];
+
+function pembelianSdAlokasiReady_() {
+  if (pembelianSdPreview.error) return false;
+  const bayar = Number(document.getElementById("bayarPembelian")?.value) || 0;
+  if (bayar <= 0) return true;
+  return pembelianSdPreview.alokasi && pembelianSdPreview.alokasi.length > 0 && pembelianSdPreview.rekening;
+}
+
+function hutangSdAlokasiReady_() {
+  if (hutangSdPreview.error) return false;
+  const nominal = Number(document.getElementById("payHutangNominal")?.value) || 0;
+  if (nominal <= 0) return true;
+  return hutangSdPreview.alokasi && hutangSdPreview.alokasi.length > 0 && hutangSdPreview.rekening;
+}
+
+function setPembelianSdMode(mode) {
+  pembelianSdMode = mode === "manual" ? "manual" : "fifo";
+  const fifoEl = document.getElementById("sdModeFifoPembelian");
+  const manualEl = document.getElementById("sdModeManualPembelian");
+  if (fifoEl) fifoEl.checked = pembelianSdMode === "fifo";
+  if (manualEl) manualEl.checked = pembelianSdMode === "manual";
+  const manualBox = document.getElementById("sdManualBoxPembelian");
+  if (manualBox) manualBox.style.display = pembelianSdMode === "manual" ? "block" : "none";
+  if (pembelianSdMode === "manual") initManualSdRows_("Pembelian");
+  else refreshPembelianSdPreview();
+}
+
+function setHutangSdMode(mode) {
+  hutangSdMode = mode === "manual" ? "manual" : "fifo";
+  const fifoEl = document.getElementById("sdModeFifoHutang");
+  const manualEl = document.getElementById("sdModeManualHutang");
+  if (fifoEl) fifoEl.checked = hutangSdMode === "fifo";
+  if (manualEl) manualEl.checked = hutangSdMode === "manual";
+  const manualBox = document.getElementById("sdManualBoxHutang");
+  if (manualBox) manualBox.style.display = hutangSdMode === "manual" ? "block" : "none";
+  if (hutangSdMode === "manual") initManualSdRows_("Hutang");
+  else refreshHutangSdPreview();
+}
+
+function renderSdPreviewHtml_(preview, rekeningInputId) {
+  const rekEl = document.getElementById(rekeningInputId);
+  if (preview.error) {
+    if (rekEl) { rekEl.value = ""; }
+    return `<div style="color:#b91c1c; font-size:13px; padding:8px; background:#fef2f2; border-radius:6px;">${preview.error}</div>`;
+  }
+  if (rekEl) {
+    rekEl.value = preview.rekening || "";
+  }
+  if (!preview.alokasi || !preview.alokasi.length) {
+    return `<div style="color:#64748b; font-size:13px;">Tidak ada alokasi (nominal bayar 0).</div>`;
+  }
+  let html = '<table style="width:100%; font-size:13px; border-collapse:collapse;">';
+  preview.alokasi.forEach(function(a) {
+    html += `<tr><td style="padding:6px 4px; border-bottom:1px solid #e2e8f0;">${a.label || a.sdId}</td><td style="padding:6px 4px; text-align:right; border-bottom:1px solid #e2e8f0; font-weight:600;">${formatRupiah(a.nominal)}</td></tr>`;
+  });
+  html += `<tr><td style="padding:8px 4px; font-weight:bold;">Total</td><td style="padding:8px 4px; text-align:right; font-weight:bold;">${formatRupiah(preview.total || preview.alokasi.reduce(function(s,x){return s+(Number(x.nominal)||0);},0))}</td></tr></table>`;
+  return html;
+}
+
+function refreshPembelianSdPreview() {
+  const box = document.getElementById("sdPreviewPembelian");
+  if (!box) return;
+  const bayar = Number(document.getElementById("bayarPembelian")?.value) || 0;
+  if (bayar <= 0) {
+    pembelianSdPreview = { alokasi: [], rekening: "", error: "", total: 0 };
+    box.innerHTML = '<div style="color:#64748b; font-size:13px;">Tidak perlu SD jika bayar 0 (kredit penuh).</div>';
+    const rekEl = document.getElementById("rekPembelian");
+    if (rekEl) rekEl.value = "";
+    return;
+  }
+  if (pembelianSdMode === "manual") {
+    applyManualSdPreview_("Pembelian", bayar, "rekPembelian", function(p) { pembelianSdPreview = p; box.innerHTML = renderSdPreviewHtml_(p, "rekPembelian"); });
+    return;
+  }
+  box.innerHTML = '<div style="color:#64748b; font-size:13px;">Menghitung alokasi FIFO...</div>';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      res = res || {};
+      if (res.error) pembelianSdPreview = { alokasi: [], rekening: "", error: res.error, total: 0 };
+      else pembelianSdPreview = { alokasi: res.alokasi || [], rekening: res.rekening || "", error: "", total: res.total || bayar };
+      box.innerHTML = renderSdPreviewHtml_(pembelianSdPreview, "rekPembelian");
+    })
+    .withFailureHandler(function(err) {
+      pembelianSdPreview = { alokasi: [], rekening: "", error: err.message || String(err), total: 0 };
+      box.innerHTML = renderSdPreviewHtml_(pembelianSdPreview, "rekPembelian");
+    })
+    .previewSdAllocationFifo(bayar, "");
+}
+
+function refreshHutangSdPreview() {
+  const box = document.getElementById("sdPreviewHutang");
+  if (!box) return;
+  const nominal = Number(document.getElementById("payHutangNominal")?.value) || 0;
+  if (nominal <= 0) {
+    hutangSdPreview = { alokasi: [], rekening: "", error: "", total: 0 };
+    box.innerHTML = '<div style="color:#64748b; font-size:13px;">Nominal harus > 0.</div>';
+    return;
+  }
+  if (hutangSdMode === "manual") {
+    applyManualSdPreview_("Hutang", nominal, "payHutangRekening", function(p) { hutangSdPreview = p; box.innerHTML = renderSdPreviewHtml_(p, "payHutangRekening"); });
+    return;
+  }
+  box.innerHTML = '<div style="color:#64748b; font-size:13px;">Menghitung alokasi FIFO...</div>';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      res = res || {};
+      if (res.error) hutangSdPreview = { alokasi: [], rekening: "", error: res.error, total: 0 };
+      else hutangSdPreview = { alokasi: res.alokasi || [], rekening: res.rekening || "", error: "", total: res.total || nominal };
+      box.innerHTML = renderSdPreviewHtml_(hutangSdPreview, "payHutangRekening");
+    })
+    .withFailureHandler(function(err) {
+      hutangSdPreview = { alokasi: [], rekening: "", error: err.message || String(err), total: 0 };
+      box.innerHTML = renderSdPreviewHtml_(hutangSdPreview, "payHutangRekening");
+    })
+    .previewSdAllocationFifo(nominal, "");
+}
+
+function loadSdAktifCache_(callback) {
+  google.script.run
+    .withSuccessHandler(function(list) {
+      sdAktifListCache = list || [];
+      if (callback) callback();
+    })
+    .withFailureHandler(function(err) {
+      showCustomAlert("Gagal memuat Sumber Dana: " + (err.message || err));
+    })
+    .getSumberDanaAktif();
+}
+
+function initManualSdRows_(prefix) {
+  const box = document.getElementById("sdManualRows" + prefix);
+  if (!box) return;
+  loadSdAktifCache_(function() {
+    if (!box.children.length) addManualSdRow_(prefix);
+    if (prefix === "Pembelian") refreshPembelianSdPreview();
+    else if (prefix === "Hutang") refreshHutangSdPreview();
+  });
+}
+
+function addManualSdRow_(prefix) {
+  const box = document.getElementById("sdManualRows" + prefix);
+  if (!box) return;
+  let opts = '<option value="">-- Pilih SD --</option>';
+  sdAktifListCache.forEach(function(sd) {
+    opts += `<option value="${sd.sdId}">${sd.label}</option>`;
+  });
+  const row = document.createElement("div");
+  row.className = "sdManualRow";
+  row.style.cssText = "display:grid; grid-template-columns: 1fr 140px 40px; gap:8px; margin-bottom:8px; align-items:center;";
+  row.innerHTML = `<select class="sdManualSelect" onchange="onManualSdChange_('${prefix}')">${opts}</select><input type="number" class="sdManualNominal" min="0" placeholder="Nominal" oninput="onManualSdChange_('${prefix}')"><button type="button" class="btn-secondary" onclick="this.parentElement.remove(); onManualSdChange_('${prefix}')" style="padding:6px;">✕</button>`;
+  box.appendChild(row);
+  onManualSdChange_(prefix);
+}
+
+function onManualSdChange_(prefix) {
+  if (prefix === "Pembelian") refreshPembelianSdPreview();
+  else refreshHutangSdPreview();
+}
+
+function applyManualSdPreview_(prefix, totalRequired, rekeningInputId, setter) {
+  const rows = document.querySelectorAll("#sdManualRows" + prefix + " .sdManualRow");
+  const alokasi = [];
+  let rekening = "";
+  let total = 0;
+  let error = "";
+  rows.forEach(function(row) {
+    const sdId = row.querySelector(".sdManualSelect")?.value;
+    const nominal = Number(row.querySelector(".sdManualNominal")?.value) || 0;
+    if (!sdId && nominal <= 0) return;
+    if (!sdId) { error = "Pilih SD untuk setiap baris nominal."; return; }
+    if (nominal <= 0) { error = "Nominal setiap baris SD harus > 0."; return; }
+    const meta = sdAktifListCache.find(function(s) { return s.sdId === sdId; });
+    if (!meta) { error = "SD tidak ditemukan."; return; }
+    if (nominal > meta.sisa + 0.01) { error = "Nominal melebihi sisa " + sdId; return; }
+    if (!rekening) rekening = meta.rekening;
+    if (meta.rekening !== rekening) { error = "Semua SD harus rekening yang sama."; return; }
+    alokasi.push({ sdId: sdId, nominal: nominal, rekening: meta.rekening, label: meta.label, untukPembelian: meta.untukPembelian, petugas: meta.petugas });
+    total += nominal;
+  });
+  if (!error && totalRequired > 0 && Math.abs(total - totalRequired) > 0.01) {
+    error = "Total alokasi (" + formatRupiah(total) + ") harus sama dengan nominal bayar (" + formatRupiah(totalRequired) + ").";
+  }
+  setter({ alokasi: error ? [] : alokasi, rekening: error ? "" : rekening, error: error, total: total });
+  const rekEl = document.getElementById(rekeningInputId);
+  if (rekEl && !error) rekEl.value = rekening;
+}
+
+function getSdPayloadFromPreview_(preview, mode) {
+  return {
+    sdMode: mode,
+    sdAlokasi: (preview.alokasi || []).map(function(a) {
+      return { sdId: a.sdId, nominal: Number(a.nominal) || 0 };
+    })
+  };
+}
+
+function toggleMutasiSdFields_() {
+  const jenis = document.getElementById("mutJenis")?.value;
+  const block = document.getElementById("mutSdBlock");
+  const fields = document.getElementById("mutSdFields");
+  const chk = document.getElementById("mutBuatSd");
+  if (!block) return;
+  block.style.display = jenis === "Transfer" ? "block" : "none";
+  if (jenis !== "Transfer" && chk) chk.checked = false;
+  if (fields) fields.style.display = chk && chk.checked ? "block" : "none";
+}
+
+function renderSdDashboardPanel_(data) {
+  const el = document.getElementById("sdDashboardPanel");
+  if (!el) return;
+  data = data || { outstanding: 0, items: [] };
+  if (!data.items.length) {
+    el.innerHTML = `<div class="card" style="grid-column:1/-1; font-size:13px; color:#64748b;">Belum ada Sumber Dana aktif. Centang saat transfer ke rekening purchasing.</div>`;
+    return;
+  }
+  let html = `<div class="card" style="grid-column:1/-1; background:#ecfdf5; border-left:4px solid #059669; margin-bottom:10px;"><div class="card-title">Dana Purchasing Outstanding</div><div class="card-value">${formatRupiah(data.outstanding)}</div><div style="font-size:12px; color:#047857;">${data.items.length} SD aktif</div></div>`;
+  data.items.slice(0, 8).forEach(function(item) {
+    html += `<div class="card" style="font-size:12px;"><div class="card-title">${item.sdId}</div><div class="card-value" style="font-size:16px;">${formatRupiah(item.sisa)}</div><div style="color:#64748b;">${item.untukPembelian}<br>👤 ${item.petugas}</div></div>`;
+  });
+  el.innerHTML = html;
 }
 
 let customerList = [], productList = [], productOptions = '', currentSubtotal = 0, lastInvoiceData = null, appSettings = {}, salesChart, dashMainChart, dashState = { filter: "all", data: null };
@@ -3046,7 +3273,11 @@ function validatePelunasanHutangForm(sisaHutangLama) {
   }
 
   if (!document.getElementById("payHutangRekening").value) {
-    showCustomAlert("Rekening sumber pembayaran wajib dipilih.");
+    showCustomAlert("Alokasi Sumber Dana belum valid.");
+    return false;
+  }
+  if (!hutangSdAlokasiReady_()) {
+    showCustomAlert("Alokasi Sumber Dana wajib valid.");
     return false;
   }
   return true;
@@ -3173,39 +3404,52 @@ function bukaModalPelunasanHutang(poNo, supplierName, sisaHutang) {
   const today = new Date().toISOString().split("T")[0];
 
   modal.innerHTML = `
-    <div style="background:#fff; width:450px; border-radius:12px; padding:25px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+    <div style="background:#fff; width:520px; max-height:90vh; overflow-y:auto; border-radius:12px; padding:25px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
       <h3 style="margin-bottom: 5px;">Pelunasan Hutang</h3>
       <p style="color:#666; font-size:14px; margin-bottom: 20px;">PO: <strong>${poNo}</strong><br>Supplier: ${supplierName}</p>
 
       <div style="margin-bottom:15px;">
         <label style="font-size:14px; font-weight:bold;">Sisa Hutang</label>
-        <input type="text" value="${formatRupiah(sisaHutang)}" readonly style="background:#fef3c7; font-weight:bold; color:#b45309; margin-top:5px; border:none;">
+        <input type="text" value="${formatRupiah(sisaHutang)}" readonly style="background:#fef3c7; font-weight:bold; color:#b45309; margin-top:5px; border:none; width:100%;">
       </div>
 
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:15px;">
         <div>
           <label style="font-size:14px; font-weight:bold;">Tanggal Bayar</label>
-          <input type="date" id="payHutangTanggal" value="${today}" style="margin-top:5px;">
+          <input type="date" id="payHutangTanggal" value="${today}" style="margin-top:5px; width:100%;">
         </div>
         <div>
-          <label style="font-size:14px; font-weight:bold;">Bayar Dari Rekening</label>
-          <select id="payHutangRekening" style="margin-top:5px;"></select>
+          <label style="font-size:14px; font-weight:bold;">Rekening <small>(dari SD)</small></label>
+          <input type="text" id="payHutangRekening" readonly style="margin-top:5px; width:100%; background:#f1f5f9;" placeholder="Dari alokasi SD">
         </div>
       </div>
 
       <div style="margin-bottom:15px;">
         <label style="font-size:14px; font-weight:bold;">Nominal Dibayar</label>
-        <input type="number" id="payHutangNominal" max="${sisaHutang}" value="${sisaHutang}" style="margin-top:5px; font-weight:bold; font-size:16px;">
+        <input type="number" id="payHutangNominal" max="${sisaHutang}" value="${sisaHutang}" oninput="refreshHutangSdPreview()" style="margin-top:5px; font-weight:bold; font-size:16px; width:100%;">
+      </div>
+
+      <div style="margin-bottom:15px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px;">
+        <label style="font-weight:bold; font-size:14px;">Alokasi Sumber Dana</label>
+        <div style="margin:8px 0; font-size:13px;">
+          <label style="margin-right:14px;"><input type="radio" name="sdModeHutang" id="sdModeFifoHutang" checked onchange="setHutangSdMode('fifo')"> FIFO</label>
+          <label><input type="radio" name="sdModeHutang" id="sdModeManualHutang" onchange="setHutangSdMode('manual')"> Manual</label>
+        </div>
+        <div id="sdManualBoxHutang" style="display:none; margin-bottom:8px;">
+          <div id="sdManualRowsHutang"></div>
+          <button type="button" class="btn-secondary" onclick="addManualSdRow_('Hutang')" style="font-size:12px; padding:4px 8px;">+ SD</button>
+        </div>
+        <div id="sdPreviewHutang" style="font-size:13px;">Memuat...</div>
       </div>
 
       <div style="margin-bottom:15px;">
         <label style="font-size:14px; font-weight:bold;">Bukti Transfer</label>
-        <input type="file" id="payHutangBukti" style="margin-top:5px; border:none;">
+        <input type="file" id="payHutangBukti" style="margin-top:5px; border:none; width:100%;">
       </div>
 
       <div style="margin-bottom:25px;">
         <label style="font-size:14px; font-weight:bold;">Keterangan</label>
-        <input type="text" id="payHutangKeterangan" placeholder="Contoh: Cicilan pembelian bahan baku" style="margin-top:5px;">
+        <input type="text" id="payHutangKeterangan" placeholder="Contoh: Cicilan pembelian bahan baku" style="margin-top:5px; width:100%;">
       </div>
 
       <div style="display:flex; gap:10px; justify-content:flex-end;">
@@ -3216,12 +3460,8 @@ function bukaModalPelunasanHutang(poNo, supplierName, sisaHutang) {
   `;
   document.body.appendChild(modal);
 
-  google.script.run.withSuccessHandler(function(list) {
-    const sel = document.getElementById("payHutangRekening");
-    let options = '<option value="">-- Pilih Rekening --</option>';
-    list.forEach(function(item) { options += `<option value="${item.nama}">${item.nama}</option>`; });
-    sel.innerHTML = options;
-  }).getListKasBank();
+  hutangSdMode = "fifo";
+  loadSdAktifCache_(function() { refreshHutangSdPreview(); });
 }
 
 function prosesPelunasanHutang(po, supplier, sisaHutangLama) {
@@ -3239,7 +3479,11 @@ function prosesPelunasanHutang(po, supplier, sisaHutangLama) {
     tanggal: document.getElementById("payHutangTanggal").value,
     rekening: document.getElementById("payHutangRekening").value,
     nominal: nominal,
-    keterangan: document.getElementById("payHutangKeterangan").value
+    keterangan: document.getElementById("payHutangKeterangan").value,
+    sdMode: hutangSdMode,
+    sdAlokasi: (hutangSdPreview.alokasi || []).map(function(a) {
+      return { sdId: a.sdId, nominal: Number(a.nominal) || 0 };
+    })
   };
 
   if (fileInput.files.length > 0) {
@@ -3282,17 +3526,34 @@ function loadMutasiPage() {
        <div class="card">Memuat Saldo...</div>
     </div>
 
+    <div id="sdDashboardPanel" class="cards" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom:20px;"></div>
+
     <div style="display:grid; grid-template-columns: 350px 1fr; gap:20px;">
       <div class="card">
         <h3>Input Mutasi</h3><br>
         <div class="form-group"><label>Tanggal</label><input type="date" id="mutTanggal" value="${new Date().toISOString().split('T')[0]}" style="margin-top:5px; margin-bottom:15px;"></div>
-        <div class="form-group"><label>Jenis</label><select id="mutJenis" style="margin-top:5px; margin-bottom:15px;"><option value="Transfer">Transfer</option><option value="Masuk">Setoran</option><option value="Keluar">Penarikan</option></select></div>
+        <div class="form-group"><label>Jenis</label><select id="mutJenis" onchange="toggleMutasiSdFields_()" style="margin-top:5px; margin-bottom:15px;"><option value="Transfer">Transfer</option><option value="Masuk">Setoran</option><option value="Keluar">Penarikan</option></select></div>
         <div class="row" style="display:flex; gap:10px; margin-bottom:15px;">
             <div class="col" style="flex:1;"><label>Dari</label><select id="mutSumber" style="margin-top:5px;"></select></div>
             <div class="col" style="flex:1;"><label>Ke</label><select id="mutTujuan" style="margin-top:5px;"></select></div>
         </div>
         <div class="form-group"><label>Nominal</label><input type="number" id="mutNominal" placeholder="0" style="margin-top:5px; margin-bottom:15px;"></div>
         <div class="form-group"><label>Keterangan</label><input type="text" id="mutKet" placeholder="Keterangan..." style="margin-top:5px;"></div>
+        <div id="mutSdBlock" style="display:block; margin-top:15px; padding:12px; background:#eff6ff; border-radius:8px; border:1px solid #bfdbfe;">
+          <label style="font-size:13px; font-weight:bold; display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" id="mutBuatSd" onchange="toggleMutasiSdFields_()"> Jadikan Sumber Dana Purchasing
+          </label>
+          <div id="mutSdFields" style="display:none; margin-top:12px;">
+            <div style="margin-bottom:10px;">
+              <label style="font-size:12px; font-weight:bold;">Untuk pembelian apa</label>
+              <input type="text" id="mutSdUntuk" class="form-control" placeholder="Contoh: Material proyek A" style="margin-top:4px;">
+            </div>
+            <div>
+              <label style="font-size:12px; font-weight:bold;">Petugas</label>
+              <input type="text" id="mutSdPetugas" class="form-control" placeholder="Contoh: Budi" style="margin-top:4px;">
+            </div>
+          </div>
+        </div>
         <button class="btn-primary" onclick="simpanMutasi()" style="width:100%; margin-top:20px;">Simpan Mutasi</button>
       </div>
 
@@ -3329,7 +3590,10 @@ function loadMutasiPage() {
     list.forEach(item => { options += `<option value="${item.nama}">${item.nama}</option>`; });
     s.innerHTML = options;
     t.innerHTML = options;
+    toggleMutasiSdFields_();
   }).getListKasBank();
+
+  google.script.run.withSuccessHandler(renderSdDashboardPanel_).getSumberDanaDashboard();
 }
 
 function simpanMutasi() {
@@ -3341,11 +3605,16 @@ function simpanMutasi() {
     sumber: document.getElementById("mutSumber").value,
     tujuan: document.getElementById("mutTujuan").value,
     nominal: document.getElementById("mutNominal").value,
-    keterangan: document.getElementById("mutKet").value
+    keterangan: document.getElementById("mutKet").value,
+    buatSumberDana: document.getElementById("mutBuatSd") ? document.getElementById("mutBuatSd").checked : false,
+    sdUntukPembelian: document.getElementById("mutSdUntuk") ? document.getElementById("mutSdUntuk").value : "",
+    sdPetugas: document.getElementById("mutSdPetugas") ? document.getElementById("mutSdPetugas").value : ""
   };
   
-  google.script.run.withSuccessHandler(() => {
-    showCustomAlert("Mutasi dana berhasil disimpan ke sistem.");
+  google.script.run.withSuccessHandler((res) => {
+    let msg = "Mutasi dana berhasil disimpan ke sistem.";
+    if (res && res.sdId) msg += " Sumber Dana: " + res.sdId;
+    showCustomAlert(msg);
     loadMutasiPage();
   }).withFailureHandler((err) => {
     showCustomAlert("Gagal menyimpan mutasi: " + err.message);
@@ -3434,12 +3703,28 @@ function loadPembelianPage() {
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
         <div>
           <label style="font-weight:bold; font-size:14px;">Nominal Dibayar</label><br>
-          <input type="number" id="bayarPembelian" class="form-control" value="0" oninput="kalkulasiBarisPembelian()" style="margin-top:5px; font-weight:bold; font-size:16px;">
+          <input type="number" id="bayarPembelian" class="form-control" value="0" oninput="kalkulasiBarisPembelian(); refreshPembelianSdPreview();" style="margin-top:5px; font-weight:bold; font-size:16px;">
         </div>
         <div>
-          <label style="font-weight:bold; font-size:14px;">Dari Rekening Pengeluaran <small style="color:#888;">(wajib jika ada bayar)</small></label><br>
-          <select id="rekPembelian" class="form-control" style="margin-top:5px;"></select>
+          <label style="font-weight:bold; font-size:14px;">Rekening Pengeluaran <small style="color:#888;">(dari SD, read-only)</small></label><br>
+          <input type="text" id="rekPembelian" class="form-control" readonly style="margin-top:5px; background:#f1f5f9;" placeholder="Pilih alokasi SD">
         </div>
+      </div>
+
+      <div style="margin-top:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
+        <label style="font-weight:bold; font-size:14px;">Alokasi Sumber Dana</label>
+        <div style="margin:10px 0; font-size:13px;">
+          <label style="margin-right:16px;"><input type="radio" name="sdModePembelian" id="sdModeFifoPembelian" checked onchange="setPembelianSdMode('fifo')"> Otomatis (FIFO)</label>
+          <label><input type="radio" name="sdModePembelian" id="sdModeManualPembelian" onchange="setPembelianSdMode('manual')"> Manual</label>
+        </div>
+        <div id="sdManualBoxPembelian" style="display:none; margin-bottom:10px;">
+          <div id="sdManualRowsPembelian"></div>
+          <button type="button" class="btn-secondary" onclick="addManualSdRow_('Pembelian')" style="font-size:12px; padding:6px 10px;">+ Tambah baris SD</button>
+        </div>
+        <div id="sdPreviewPembelian" style="font-size:13px; color:#475569;">Memuat...</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top:16px;">
         <div>
           <label style="font-weight:bold; font-size:14px;">Lampirkan Bukti Nota (Foto/PDF)</label><br>
           <input type="file" id="fileNotaPembelian" class="form-control" style="margin-top:5px;">
@@ -3482,13 +3767,7 @@ function applyPembelianBootstrap_(data) {
   });
 
   const rekSel = document.getElementById("rekPembelian");
-  if (rekSel) {
-    let rekHtml = '<option value="">-- Pilih Rekening Pengeluaran --</option>';
-    (data.rekening || []).forEach(function(item) {
-      rekHtml += `<option value="${item.nama}">${item.nama}</option>`;
-    });
-    rekSel.innerHTML = rekHtml;
-  }
+  if (rekSel) rekSel.value = "";
 
   const prSel = document.getElementById("prSelect");
   if (prSel) {
@@ -3513,6 +3792,9 @@ function applyPembelianBootstrap_(data) {
   dl.innerHTML = supHtml;
   const supInp = document.getElementById("supPembelian");
   if (supInp) supInp.setAttribute("list", "supplierDatalist");
+
+  pembelianSdMode = "fifo";
+  loadSdAktifCache_(function() { refreshPembelianSdPreview(); });
 }
 
 function loadSupplierOptionsPembelian() {
@@ -3678,7 +3960,11 @@ function getPembelianPayload() {
     rekening: document.getElementById("rekPembelian").value,
     bayar: document.getElementById("bayarPembelian").value || 0,
     prNo: document.getElementById("prSelect") ? document.getElementById("prSelect").value : "",
-    items: items
+    items: items,
+    sdMode: pembelianSdMode,
+    sdAlokasi: (pembelianSdPreview.alokasi || []).map(function(a) {
+      return { sdId: a.sdId, nominal: Number(a.nominal) || 0 };
+    })
   };
 }
 

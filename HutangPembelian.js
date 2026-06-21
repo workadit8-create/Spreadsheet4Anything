@@ -163,6 +163,11 @@ function simpanPelunasanHutangWeb(payload) {
       fileUrl = folder.createFile(blob).getUrl();
     }
 
+    const sdResolved = resolveSdAlokasiForSave_(ss, payload, "nominal");
+    payload.rekening = sdResolved.rekening;
+
+    const txPu = "TX-PU-" + new Date().getTime();
+
     sh.appendRow([
       new Date(payload.tanggal),       // A: Tanggal
       payload.po,                      // B: No PO
@@ -171,7 +176,7 @@ function simpanPelunasanHutangWeb(payload) {
       payload.rekening || "",          // E: Metode / Rekening
       payload.keterangan,              // F: Keterangan
       false,                           // G: POSTED
-      "TX-PU-" + new Date().getTime(), // H: TransID
+      txPu,                            // H: TransID
       "POST",                          // I: Aksi
       payload.rekening,                // J: Rekening
       fileUrl                          // K: Bukti Bayar
@@ -191,6 +196,10 @@ function simpanPelunasanHutangWeb(payload) {
       false,
       "TX-PU-MB-" + new Date().getTime()
     ]);
+
+    if (sdResolved.alokasi.length) {
+      saveSdAlokasi_(ss, "PELUNASAN_UTANG", payload.po, payload.tanggal, sdResolved.alokasi);
+    }
 
     return { success: true };
   } catch (err) {

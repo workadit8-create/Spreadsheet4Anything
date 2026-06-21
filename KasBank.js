@@ -51,7 +51,13 @@ function saveMutasiDana(p) {
       "POST"
     ]);
 
-    return { success: true, transId: transId };
+    let sdId = "";
+    if (p.buatSumberDana === true && String(p.jenis || "").trim() === "Transfer") {
+      sdId = createSumberDanaFromMutasi_(ss, p, transId);
+    }
+
+    invalidateMasterDataCache_();
+    return { success: true, transId: transId, sdId: sdId };
   } catch (err) {
     throw new Error(err.message);
   } finally {
@@ -214,6 +220,11 @@ function savePembelian(p) {
     const tgl = new Date(p.tanggal);
     let sisaBayar = Number(p.bayar);
 
+    const sdResolved = resolveSdAlokasiForSave_(ss, p, "bayar");
+    if (sisaBayar > 0) {
+      p.rekening = sdResolved.rekening;
+    }
+
     const pembelianRows = [];
     const mutasiRows = [];
 
@@ -252,7 +263,7 @@ function savePembelian(p) {
 
       if (bayarItem > 0 && p.rekening && shMutasi) {
         mutasiRows.push([
-          tgl, "Keluar", "Pembelian", p.rekening, p.supplier,
+          tgl, "Keluar", "", p.rekening, p.supplier,
           bayarItem, "Pembelian " + item.namaBrg, false, trxId
         ]);
       }
@@ -261,6 +272,10 @@ function savePembelian(p) {
     writeSheetRows_(sh, pembelianRows);
     if (mutasiRows.length && shMutasi) {
       writeSheetRows_(shMutasi, mutasiRows);
+    }
+
+    if (sisaBayar > 0 && sdResolved.alokasi.length) {
+      saveSdAlokasi_(ss, "PEMBELIAN", poNumber, p.tanggal, sdResolved.alokasi);
     }
 
     if (p.prNo) {
