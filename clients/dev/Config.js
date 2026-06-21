@@ -9,9 +9,12 @@ const ALLOWED_EMAILS = [];
 const USER_ROLES_ = ["owner", "staff", "akuntan"];
 const ROLE_MENUS_ = {
   owner: null,
-  staff: ["dashboard", "mutasi", "quotation", "pemasukan", "invoice", "piutang", "pr", "pembelian", "po", "hutang", "master"],
-  akuntan: ["dashboard", "mutasi", "piutang", "hutang", "jurnal", "posting", "master", "laporan"]
+  staff: ["dashboard", "mutasi", "quotation", "proyek", "pemasukan", "invoice", "piutang", "pr", "pembelian", "po", "hutang", "master"],
+  akuntan: ["dashboard", "mutasi", "piutang", "hutang", "jurnal", "posting", "master", "laporan", "proyek"]
 };
+
+/** Add-on Manajemen Proyek — hanya dev untuk uji. */
+const ENABLE_ADDON_PROJECT = true;
 
 /** Role yang boleh mengubah tiap entitas master (save / nonaktifkan). */
 const MASTER_ENTITY_ROLES_ = {

@@ -127,6 +127,7 @@
     <div class="menu-item" data-menu="dashboard" onclick="loadDashboardPage()">🏠 Dashboard</div>
     <div class="menu-item" data-menu="mutasi" onclick="loadMutasiPage()">🏦 Kas & Bank</div>
     <div class="menu-item" data-menu="quotation" onclick="loadQuotationPage()">📋 Quotation</div>
+    <div class="menu-item hidden-menu" data-menu="proyek" data-addon="project" onclick="loadProyekPage()">📁 Proyek Event</div>
     <div class="menu-item" data-menu="pemasukan" onclick="loadPemasukanPage()">💰 Pemasukan</div>
     <div class="menu-item" data-menu="invoice" onclick="loadInvoiceHistoryPage()">🧾 Invoice</div>
     <div class="menu-item" data-menu="piutang" onclick="loadPiutangPage()">📄 Piutang</div>
@@ -576,7 +577,7 @@ function renderSdDashboardPanel_(data) {
 let customerList = [], productList = [], productOptions = '', currentSubtotal = 0, lastInvoiceData = null, appSettings = {}, salesChart, dashMainChart, dashState = { filter: "all", data: null };
 let masterDataPembelian = {};
 let currentGrandTotalPembelian = 0;
-let appSession = { user: null, menus: null, role: "owner" };
+let appSession = { user: null, menus: null, role: "owner", addons: { project: false } };
 
 // ==========================================
 // AUTO UPPERCASE — semua input teks operasional
@@ -671,7 +672,9 @@ function onSessionReady_(res) {
   appSession.user = res.user;
   appSession.menus = res.menus;
   appSession.role = res.user.role;
+  appSession.addons = (res && res.addons) || { project: false };
   applyRoleMenus_(res.menus);
+  applyAddonMenus_();
   updateSidebarUser_(res.user);
   document.getElementById("authGate").style.display = "none";
   document.getElementById("appContainer").style.display = "flex";
@@ -711,12 +714,31 @@ function submitInitialOwner() {
 
 function applyRoleMenus_(menus) {
   document.querySelectorAll(".menu-item[data-menu]").forEach(function(el) {
+    if (el.getAttribute("data-addon")) return;
     const key = el.getAttribute("data-menu");
     if (!menus) {
       el.classList.remove("hidden-menu");
       return;
     }
     if (menus.indexOf(key) >= 0) el.classList.remove("hidden-menu");
+    else el.classList.add("hidden-menu");
+  });
+}
+
+function applyAddonMenus_() {
+  const projectOn = !!(appSession.addons && appSession.addons.project);
+  document.querySelectorAll(".menu-item[data-addon]").forEach(function(el) {
+    const addonKey = el.getAttribute("data-addon");
+    if (addonKey === "project" && !projectOn) {
+      el.classList.add("hidden-menu");
+      return;
+    }
+    const key = el.getAttribute("data-menu");
+    if (!appSession.menus) {
+      el.classList.remove("hidden-menu");
+      return;
+    }
+    if (appSession.menus.indexOf(key) >= 0) el.classList.remove("hidden-menu");
     else el.classList.add("hidden-menu");
   });
 }
@@ -5605,6 +5627,290 @@ function exportLaporanExcel() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, laporanState.lastTable.label.substring(0, 31));
   XLSX.writeFile(wb, laporanState.lastTable.label.replace(/\s+/g, "_") + ".xlsx");
+}
+
+// ==========================================
+// ADD-ON: MANAJEMEN PROYEK (EVENT CATERING)
+// ==========================================
+
+let proyekState = { rows: [], customers: [], statuses: [], editing: null, filterStatus: "ALL", filterSearch: "" };
+
+function proyekCanEdit_() {
+  return appSession.role === "owner" || appSession.role === "staff";
+}
+
+function proyekStatusBadge_(status) {
+  const s = String(status || "").toUpperCase();
+  const colors = {
+    DRAFT: "#6b7280",
+    CONFIRMED: "#2563eb",
+    BERJALAN: "#d97706",
+    SELESAI: "#059669",
+    BATAL: "#dc2626"
+  };
+  const bg = colors[s] || "#6b7280";
+  return '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;color:#fff;background:' + bg + ';">' + escHtml(s) + '</span>';
+}
+
+function loadProyekPage() {
+  if (!assertPageRole_("proyek")) return;
+  if (!(appSession.addons && appSession.addons.project)) {
+    document.getElementById("mainContent").innerHTML = '<div class="dash-alert error">Add-on Proyek tidak aktif untuk client ini.</div>';
+    return;
+  }
+
+  proyekState = { rows: [], customers: [], statuses: [], editing: null, filterStatus: "ALL", filterSearch: "" };
+
+  document.getElementById("mainContent").innerHTML = `
+    <div class="header">
+      <h2>Proyek Event</h2>
+      <p>1 proyek = 1 event catering — kelola jadwal, PIC, dan status event</p>
+    </div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; align-items:flex-end;">
+      <div>
+        <label style="font-size:12px; color:#6b7280;">Status</label>
+        <select id="proyekFilterStatus" class="form-control" onchange="reloadProyekTable()">
+          <option value="ALL">Semua</option>
+        </select>
+      </div>
+      <div style="flex:1; min-width:180px;">
+        <label style="font-size:12px; color:#6b7280;">Cari</label>
+        <input type="text" id="proyekFilterSearch" class="form-control" placeholder="Nama, customer, lokasi..." oninput="debounceReloadProyek_()">
+      </div>
+      <label style="display:flex; align-items:center; gap:6px; font-size:13px; margin-bottom:8px;">
+        <input type="checkbox" id="proyekFilterUpcoming" onchange="reloadProyekTable()"> Hanya event mendatang
+      </label>
+    </div>
+    <div id="proyekFormCard" class="card" style="display:none; margin-bottom:20px;"></div>
+    <div class="table-box" id="proyekTableContainer">
+      <p style="text-align:center; padding:40px; color:#6b7280;">⏳ Memuat...</p>
+    </div>
+  `;
+
+  google.script.run
+    .withSuccessHandler(function(meta) {
+      proyekState.statuses = (meta && meta.statuses) || [];
+      const sel = document.getElementById("proyekFilterStatus");
+      if (sel) {
+        proyekState.statuses.forEach(function(st) {
+          const opt = document.createElement("option");
+          opt.value = st;
+          opt.textContent = st;
+          sel.appendChild(opt);
+        });
+      }
+      reloadProyekTable();
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById("proyekTableContainer").innerHTML =
+        '<div class="dash-alert error">' + escHtml(String(err && err.message ? err.message : err)) + '</div>';
+    })
+    .getProyekMeta();
+
+  google.script.run
+    .withSuccessHandler(function(list) { proyekState.customers = list || []; })
+    .withFailureHandler(function() {})
+    .getCustomers();
+}
+
+let proyekReloadTimer_ = null;
+function debounceReloadProyek_() {
+  if (proyekReloadTimer_) clearTimeout(proyekReloadTimer_);
+  proyekReloadTimer_ = setTimeout(reloadProyekTable, 350);
+}
+
+function reloadProyekTable() {
+  const container = document.getElementById("proyekTableContainer");
+  if (!container) return;
+  container.innerHTML = '<p style="text-align:center; padding:30px;">⏳ Memuat...</p>';
+
+  const filters = {
+    status: (document.getElementById("proyekFilterStatus") || {}).value || "ALL",
+    search: (document.getElementById("proyekFilterSearch") || {}).value || "",
+    upcomingOnly: !!(document.getElementById("proyekFilterUpcoming") && document.getElementById("proyekFilterUpcoming").checked)
+  };
+
+  google.script.run
+    .withSuccessHandler(function(rows) {
+      proyekState.rows = rows || [];
+      renderProyekTable();
+    })
+    .withFailureHandler(function(err) {
+      container.innerHTML = '<div class="dash-alert error">' + escHtml(String(err && err.message ? err.message : err)) + '</div>';
+    })
+    .listProyek(filters);
+}
+
+function renderProyekTable() {
+  const container = document.getElementById("proyekTableContainer");
+  if (!container) return;
+  const rows = proyekState.rows || [];
+  const canEdit = proyekCanEdit_();
+
+  let html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:8px;">';
+  html += '<h3 style="margin:0;">Daftar Event (' + rows.length + ')</h3>';
+  if (canEdit) {
+    html += '<button class="btn-primary" onclick="openProyekForm()">+ Event Baru</button>';
+  }
+  html += '</div>';
+
+  if (!canEdit) {
+    html += '<p style="font-size:12px; color:#92400e; background:#fffbeb; padding:10px 12px; border-radius:8px; margin-bottom:12px;">Mode baca saja — hanya owner/staff yang dapat mengubah proyek.</p>';
+  }
+
+  if (!rows.length) {
+    html += '<p style="color:#9ca3af; text-align:center; padding:30px;">Belum ada proyek event. Pesanan recehan tidak perlu dibuat proyek.</p>';
+    container.innerHTML = html;
+    return;
+  }
+
+  html += '<table class="history-table"><thead><tr>';
+  html += '<th>Kode</th><th>Event</th><th>Customer</th><th>Tanggal</th><th>Lokasi</th><th>Pax</th><th>Status</th><th>PIC</th><th style="width:160px;">Aksi</th>';
+  html += '</tr></thead><tbody>';
+
+  rows.forEach(function(row) {
+    html += '<tr>';
+    html += '<td><code>' + escHtml(row.kode) + '</code></td>';
+    html += '<td><strong>' + escHtml(row.nama) + '</strong></td>';
+    html += '<td>' + escHtml(row.customer) + '</td>';
+    html += '<td>' + escHtml(row.tanggalEvent || "-") + '</td>';
+    html += '<td>' + escHtml(row.lokasi || "-") + '</td>';
+    html += '<td style="text-align:center;">' + (row.pax > 0 ? row.pax : "-") + '</td>';
+    html += '<td>' + proyekStatusBadge_(row.status) + '</td>';
+    html += '<td>' + escHtml(row.pic || "-") + '</td>';
+    html += '<td>';
+    if (canEdit) {
+      html += '<button class="btn-secondary" style="padding:4px 8px; font-size:12px;" onclick="openProyekForm(\'' + escAttr(row.kode) + '\')">Edit</button> ';
+      if (row.status !== "SELESAI" && row.status !== "BATAL") {
+        html += '<button class="btn-secondary" style="padding:4px 8px; font-size:12px;" onclick="quickProyekStatus(\'' + escAttr(row.kode) + '\',\'SELESAI\')">Selesai</button>';
+      }
+    } else {
+      html += '-';
+    }
+    html += '</td></tr>';
+  });
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function escAttr(val) {
+  return String(val || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+function openProyekForm(kode) {
+  if (!proyekCanEdit_()) return;
+  const card = document.getElementById("proyekFormCard");
+  if (!card) return;
+
+  let row = null;
+  if (kode) {
+    row = (proyekState.rows || []).find(function(r) { return r.kode === kode; });
+  }
+  proyekState.editing = row;
+
+  const statusOpts = (proyekState.statuses || []).map(function(st) {
+    const sel = row && row.status === st ? " selected" : "";
+    if (!row && st === "DRAFT") return '<option value="' + st + '" selected>' + st + '</option>';
+    return '<option value="' + st + '"' + sel + '>' + st + '</option>';
+  }).join("");
+
+  const custOpts = (proyekState.customers || []).map(function(c) {
+    const name = typeof c === "string" ? c : (c.nama || c);
+    const sel = row && row.customer === name ? " selected" : "";
+    return '<option value="' + escHtml(name) + '"' + sel + '>' + escHtml(name) + '</option>';
+  }).join("");
+
+  card.style.display = "block";
+  card.innerHTML = `
+    <h3 style="margin-top:0;">${row ? "Edit Event" : "Event Baru"}</h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+      <div style="grid-column:1/-1;">
+        <label>Nama Event *</label>
+        <input type="text" id="proyekNama" class="form-control" value="${row ? escHtml(row.nama) : ""}" placeholder="Contoh: Wedding Andi & Sari">
+      </div>
+      <div>
+        <label>Customer *</label>
+        <select id="proyekCustomer" class="form-control"><option value="">— Pilih —</option>${custOpts}</select>
+      </div>
+      <div>
+        <label>Tanggal Event *</label>
+        <input type="date" id="proyekTanggal" class="form-control" value="${row ? escHtml(row.tanggalEvent) : ""}">
+      </div>
+      <div>
+        <label>Lokasi</label>
+        <input type="text" id="proyekLokasi" class="form-control" value="${row ? escHtml(row.lokasi) : ""}">
+      </div>
+      <div>
+        <label>Jumlah Pax</label>
+        <input type="number" id="proyekPax" class="form-control" min="0" value="${row && row.pax ? row.pax : ""}">
+      </div>
+      <div>
+        <label>Status</label>
+        <select id="proyekStatus" class="form-control">${statusOpts}</select>
+      </div>
+      <div>
+        <label>PIC (penanggung jawab)</label>
+        <input type="text" id="proyekPic" class="form-control" value="${row ? escHtml(row.pic) : ""}">
+      </div>
+      <div>
+        <label>No Quotation (opsional)</label>
+        <input type="text" id="proyekQuotation" class="form-control" value="${row ? escHtml(row.quotationNo) : ""}" placeholder="QT-...">
+      </div>
+      <div style="grid-column:1/-1;">
+        <label>Catatan</label>
+        <textarea id="proyekCatatan" class="form-control" rows="2">${row ? escHtml(row.catatan) : ""}</textarea>
+      </div>
+    </div>
+    <div style="display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;">
+      <button class="btn-primary" onclick="submitProyekForm()">Simpan</button>
+      <button class="btn-secondary" onclick="closeProyekForm()">Batal</button>
+      ${row ? '<span style="font-size:12px; color:#6b7280; align-self:center;">Kode: <strong>' + escHtml(row.kode) + '</strong></span>' : ""}
+    </div>
+  `;
+  card.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function closeProyekForm() {
+  proyekState.editing = null;
+  const card = document.getElementById("proyekFormCard");
+  if (card) {
+    card.style.display = "none";
+    card.innerHTML = "";
+  }
+}
+
+function submitProyekForm() {
+  const payload = {
+    kode: proyekState.editing ? proyekState.editing.kode : "",
+    nama: document.getElementById("proyekNama").value,
+    customer: document.getElementById("proyekCustomer").value,
+    tanggalEvent: document.getElementById("proyekTanggal").value,
+    lokasi: document.getElementById("proyekLokasi").value,
+    pax: document.getElementById("proyekPax").value,
+    status: document.getElementById("proyekStatus").value,
+    pic: document.getElementById("proyekPic").value,
+    quotationNo: document.getElementById("proyekQuotation").value,
+    catatan: document.getElementById("proyekCatatan").value
+  };
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      showCustomAlert("Proyek disimpan: " + (res && res.kode ? res.kode : ""));
+      closeProyekForm();
+      reloadProyekTable();
+    })
+    .withFailureHandler(function(err) { showCustomAlert(err.message || err); })
+    .saveProyek(payload);
+}
+
+function quickProyekStatus(kode, status) {
+  if (!proyekCanEdit_()) return;
+  if (!confirm("Ubah status proyek " + kode + " menjadi " + status + "?")) return;
+  google.script.run
+    .withSuccessHandler(function() { reloadProyekTable(); })
+    .withFailureHandler(function(err) { showCustomAlert(err.message || err); })
+    .updateProyekStatus(kode, status);
 }
 
 // Inisialisasi awal — verifikasi user & role dulu

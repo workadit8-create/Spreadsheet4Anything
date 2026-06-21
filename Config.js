@@ -32,6 +32,9 @@ const MASTER_ENTITY_LABELS_ = {
 
 let CURRENT_AUTH_USER_ = null;
 
+/** Add-on Manajemen Proyek — aktifkan per client (clients/dev/Config.js, dll.). */
+const ENABLE_ADDON_PROJECT = false;
+
 /** Nama tampilan di sidebar / layar login (per client). */
 const APP_DISPLAY_NAME = "TIRTA CATERING";
 

@@ -237,7 +237,14 @@ function getSessionUser() {
   const ss = getDatabaseSpreadsheet_();
   const sh = ensureUsersSheet_(ss);
   if (sh.getLastRow() < 2) {
-    return { ok: true, needsSetup: true, email: email, menus: null, appDisplayName: appDisplayName };
+    return {
+      ok: true,
+      needsSetup: true,
+      email: email,
+      menus: null,
+      appDisplayName: appDisplayName,
+      addons: { project: isAddonProjectEnabled_() }
+    };
   }
 
   const rowNum = findUserRowByEmail_(sh, email);
@@ -274,7 +281,8 @@ function getSessionUser() {
       role: me.role,
       roleLabel: userRoleLabel_(me.role)
     },
-    menus: getRoleMenus_(me.role)
+    menus: getRoleMenus_(me.role),
+    addons: { project: isAddonProjectEnabled_() }
   };
 }
 
