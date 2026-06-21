@@ -424,7 +424,11 @@ function refreshHutangSdPreview() {
     .previewSdAllocationFifo(nominal, "");
 }
 
-function loadSdAktifCache_(callback) {
+function loadSdAktifCache_(callback, forceRefresh) {
+  if (!forceRefresh && sdAktifListCache.length) {
+    if (callback) callback();
+    return;
+  }
   google.script.run
     .withSuccessHandler(function(list) {
       sdAktifListCache = list || [];
@@ -3794,7 +3798,7 @@ function applyPembelianBootstrap_(data) {
   if (supInp) supInp.setAttribute("list", "supplierDatalist");
 
   pembelianSdMode = "fifo";
-  loadSdAktifCache_(function() { refreshPembelianSdPreview(); });
+  loadSdAktifCache_(function() { refreshPembelianSdPreview(); }, true);
 }
 
 function loadSupplierOptionsPembelian() {
@@ -3978,6 +3982,7 @@ function kirimKeServer(payload) {
 
   google.script.run
     .withSuccessHandler((res) => {
+      sdAktifListCache = [];
       showInvoiceSuccessModal("Nomor PO: " + res.po, "pembelian");
       btn.innerText = "Simpan Transaksi Pembelian";
       btn.disabled = false;

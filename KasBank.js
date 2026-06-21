@@ -218,10 +218,11 @@ function savePembelian(p) {
     const randomNum = Math.floor(Math.random() * 9000) + 1000;
     const poNumber = "PO-" + dateStr + "-" + randomNum;
     const tgl = new Date(p.tanggal);
-    let sisaBayar = Number(p.bayar);
+    const totalBayar = Number(p.bayar) || 0;
+    let sisaBayar = totalBayar;
 
     const sdResolved = resolveSdAlokasiForSave_(ss, p, "bayar");
-    if (sisaBayar > 0) {
+    if (totalBayar > 0) {
       p.rekening = sdResolved.rekening;
     }
 
@@ -274,7 +275,7 @@ function savePembelian(p) {
       writeSheetRows_(shMutasi, mutasiRows);
     }
 
-    if (sisaBayar > 0 && sdResolved.alokasi.length) {
+    if (totalBayar > 0 && sdResolved.alokasi.length) {
       saveSdAlokasi_(ss, "PEMBELIAN", poNumber, p.tanggal, sdResolved.alokasi);
     }
 

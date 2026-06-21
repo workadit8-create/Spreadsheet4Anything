@@ -87,6 +87,7 @@ function readSumberDanaRows_(ss, activeOnly) {
     const status = String(data[i][7] || SD_STATUS_AKTIF_).trim();
     if (activeOnly && status !== SD_STATUS_AKTIF_) continue;
     if (activeOnly && sisa <= 0.0001) continue;
+    if (activeOnly && status === SD_STATUS_HABIS_) continue;
     rows.push({
       sdId: sdId,
       tanggal: data[i][1],
@@ -215,22 +216,23 @@ function getSumberDanaDashboard() {
   let outstanding = 0;
   const aktif = [];
   rows.forEach(function(row) {
-    if (row.status === SD_STATUS_AKTIF_ && row.sisa > 0) {
-      outstanding += row.sisa;
-      aktif.push({
-        sdId: row.sdId,
-        sisa: row.sisa,
-        nominalAwal: row.nominalAwal,
-        terpakai: row.terpakai,
-        untukPembelian: row.untukPembelian,
-        petugas: row.petugas,
-        rekening: row.rekening,
-        status: row.status,
-        tanggal: row.tanggal instanceof Date
-          ? Utilities.formatDate(row.tanggal, Session.getScriptTimeZone(), "dd/MM/yyyy")
-          : ""
-      });
-    }
+    const sisaLive = row.sisa;
+    if (sisaLive <= 0.0001) return;
+    if (row.status === SD_STATUS_HABIS_) return;
+    outstanding += row.sisa;
+    aktif.push({
+      sdId: row.sdId,
+      sisa: row.sisa,
+      nominalAwal: row.nominalAwal,
+      terpakai: row.terpakai,
+      untukPembelian: row.untukPembelian,
+      petugas: row.petugas,
+      rekening: row.rekening,
+      status: row.status,
+      tanggal: row.tanggal instanceof Date
+        ? Utilities.formatDate(row.tanggal, Session.getScriptTimeZone(), "dd/MM/yyyy")
+        : ""
+    });
   });
   return { outstanding: outstanding, items: aktif.reverse() };
 }
