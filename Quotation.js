@@ -9,9 +9,11 @@ function ensureQuotationSheet_(ss) {
     sh = ss.insertSheet("QUOTATION");
     sh.appendRow([
       "Tanggal", "No Quotation", "Customer", "Produk", "Qty", "Satuan",
-      "Harga", "Diskon", "Total", "Status", "Line ID", "Invoice No", "Keterangan"
+      "Harga", "Diskon", "Total", "Status", "Line ID", "Invoice No", "Keterangan",
+      PROYEK_COL_HEADER_
     ]);
   }
+  ensureSheetProyekColumn_(sh, PROYEK_COL_QUOTATION_);
   return sh;
 }
 
@@ -123,6 +125,7 @@ function saveQuotation(payload) {
     const tanggal = new Date(payload.tanggal + "T12:00:00");
     const keterangan = String(payload.keterangan || "").trim();
     const customer = String(payload.customer).trim();
+    const kodeProyek = normalizeKodeProyek_(payload.kodeProyek);
 
     const rows = payload.products.map(function(item, index) {
       const total = (Number(item.qty) * Number(item.harga)) - (Number(item.diskon) || 0);
@@ -139,7 +142,8 @@ function saveQuotation(payload) {
         "AKTIF",
         ids.lineIds[index],
         "",
-        keterangan
+        keterangan,
+        kodeProyek
       ];
     });
 
@@ -173,7 +177,8 @@ function groupQuotationRows_(data, filterFn) {
         total: 0,
         lineCount: 0,
         status: String(row[9] || "AKTIF").trim().toUpperCase(),
-        invoiceNo: String(row[11] || "").trim()
+        invoiceNo: String(row[11] || "").trim(),
+        kodeProyek: readRowKodeProyek_(row, PROYEK_COL_QUOTATION_)
       };
     }
     groups[qtNo].total += Number(row[8]) || 0;
@@ -251,6 +256,7 @@ function getQuotationDetail(quotationNo) {
     keterangan: String(first[12] || "").trim(),
     status: String(first[9] || "AKTIF").trim().toUpperCase(),
     invoiceNo: String(first[11] || "").trim(),
+    kodeProyek: readRowKodeProyek_(first, PROYEK_COL_QUOTATION_),
     products: products
   };
 }

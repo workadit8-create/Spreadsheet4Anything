@@ -211,12 +211,14 @@ function persistInvoice_(invoiceData, invoiceNo, ss, options) {
   const mutasiNominal = options.mutasiNominal !== undefined ? Number(options.mutasiNominal) : Number(invoiceData.bayar) || 0;
 
   const sh = ss.getSheetByName("PEMASUKAN");
+  ensureSheetProyekColumn_(sh, PROYEK_COL_PEMASUKAN_);
   const transactionIds = options.transactionIds || allocateTransactionIds_(invoiceData.products.length);
   const tz = Session.getScriptTimeZone();
   const tanggal = new Date(invoiceData.tanggal);
   const bulan = Utilities.formatDate(tanggal, tz, "MMMM");
   const tahun = Utilities.formatDate(tanggal, tz, "yyyy");
   let sisaBayar = invoiceData.bayar;
+  const kodeProyek = normalizeKodeProyek_(invoiceData.kodeProyek);
 
   let fileUrl = "";
   if (invoiceData.fileBase64) {
@@ -260,7 +262,8 @@ function persistInvoice_(invoiceData, invoiceNo, ss, options) {
       transactionId,
       "POST",
       invoiceData.rekening || "",
-      fileUrl
+      fileUrl,
+      kodeProyek
     ]);
   });
 
@@ -486,7 +489,8 @@ function getInvoiceForEdit(invoiceNo) {
     customer: "",
     products: [],
     bayar: 0,
-    rekening: ""
+    rekening: "",
+    kodeProyek: ""
   };
 
   for(let i = 1; i < data.length; i++) {
@@ -496,6 +500,9 @@ function getInvoiceForEdit(invoiceNo) {
       result.bayar += Number(data[i][12]) || 0;
       if (!result.rekening && data[i][20]) {
         result.rekening = String(data[i][20]);
+      }
+      if (!result.kodeProyek) {
+        result.kodeProyek = readRowKodeProyek_(data[i], PROYEK_COL_PEMASUKAN_);
       }
 
       result.products.push({

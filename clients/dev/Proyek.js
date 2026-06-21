@@ -3,33 +3,6 @@
 
 const PROYEK_STATUS_ = ["DRAFT", "CONFIRMED", "BERJALAN", "SELESAI", "BATAL"];
 
-/** Kolom 1-based di sheet transaksi (append — data lama aman). */
-const PROYEK_COL_QUOTATION_ = 14;
-const PROYEK_COL_PR_ = 15;
-const PROYEK_COL_PEMBELIAN_ = 19;
-const PROYEK_COL_PEMASUKAN_ = 23;
-const PROYEK_COL_HEADER_ = "Kode Proyek";
-
-function normalizeKodeProyek_(val) {
-  return String(val || "").trim().toUpperCase();
-}
-
-function ensureSheetProyekColumn_(sh, colNum) {
-  if (!sh) return;
-  const needCol = Math.max(sh.getLastColumn(), colNum);
-  if (sh.getLastColumn() < colNum) {
-    sh.getRange(1, colNum).setValue(PROYEK_COL_HEADER_);
-    return;
-  }
-  const h = String(sh.getRange(1, colNum).getValue() || "").trim();
-  if (!h) sh.getRange(1, colNum).setValue(PROYEK_COL_HEADER_);
-}
-
-function readRowKodeProyek_(row, colIndex) {
-  if (!row || row.length < colIndex) return "";
-  return normalizeKodeProyek_(row[colIndex - 1]);
-}
-
 function isAddonProjectEnabled_() {
   return typeof ENABLE_ADDON_PROJECT !== "undefined" && ENABLE_ADDON_PROJECT === true;
 }

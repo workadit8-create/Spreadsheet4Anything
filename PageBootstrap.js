@@ -17,7 +17,8 @@ function getPembelianPageBootstrap() {
     masterPembelian: getMasterDataPembelian(),
     rekening: getListKasBank(),
     suppliers: getSuppliers(),
-    purchaseRequests: purchaseRequests
+    purchaseRequests: purchaseRequests,
+    proyekOptions: isAddonProjectEnabled_() ? listProyekForDropdown() : []
   };
 }
 
@@ -37,6 +38,7 @@ function getInvoiceFormBootstrap() {
     customers: getCustomers(),
     products: getProducts(),
     rekening: getListKasBank(),
-    quotations: quotations
+    quotations: quotations,
+    proyekOptions: isAddonProjectEnabled_() ? listProyekForDropdown() : []
   };
 }

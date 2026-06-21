@@ -207,6 +207,7 @@ function savePembelian(p) {
       assertPurchaseRequestConvertible_(ss, p.prNo);
     }
     const sh = ss.getSheetByName("PEMBELIAN");
+    ensureSheetProyekColumn_(sh, PROYEK_COL_PEMBELIAN_);
     const shMutasi = ss.getSheetByName("MUTASI_DANA");
 
     let fileUrl = "";
@@ -226,6 +227,7 @@ function savePembelian(p) {
       p.rekening = sdResolved.rekening;
     }
 
+    const kodeProyek = normalizeKodeProyek_(p.kodeProyek);
     const pembelianRows = [];
     const mutasiRows = [];
 
@@ -259,7 +261,8 @@ function savePembelian(p) {
         rekening,
         trxId,
         "POST",
-        fileUrl
+        fileUrl,
+        kodeProyek
       ]);
 
       if (bayarItem > 0 && p.rekening && shMutasi) {

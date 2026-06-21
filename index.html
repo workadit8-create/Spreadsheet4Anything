@@ -743,6 +743,46 @@ function applyAddonMenus_() {
   });
 }
 
+function isProyekAddonOn_() {
+  return !!(appSession.addons && appSession.addons.project);
+}
+
+function proyekFieldBlock_(selectId) {
+  if (!isProyekAddonOn_()) return "";
+  return '<div><label style="font-weight:bold;">Proyek Event <small style="color:#888;">(opsional)</small></label>' +
+    '<select id="' + selectId + '" class="form-control" style="margin-top:5px;"><option value="">— Tanpa proyek —</option></select></div>';
+}
+
+function fillProyekSelect_(selectId, options, selected) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  let html = '<option value="">— Tanpa proyek —</option>';
+  (options || []).forEach(function(p) {
+    const isSel = selected && selected === p.kode;
+    html += '<option value="' + escAttr(p.kode) + '"' + (isSel ? " selected" : "") + '>' + escHtml(p.label) + "</option>";
+  });
+  sel.innerHTML = html;
+}
+
+function loadProyekOptionsForForm_(selectIds, callback) {
+  if (!isProyekAddonOn_()) {
+    if (callback) callback([]);
+    return;
+  }
+  google.script.run
+    .withSuccessHandler(function(list) {
+      (selectIds || []).forEach(function(id) { fillProyekSelect_(id, list); });
+      if (callback) callback(list || []);
+    })
+    .withFailureHandler(function() { if (callback) callback([]); })
+    .listProyekForDropdown();
+}
+
+function getSelectedKodeProyek_(selectId) {
+  const sel = document.getElementById(selectId);
+  return sel ? sel.value : "";
+}
+
 function updateSidebarUser_(user) {
   const box = document.getElementById("sidebarUserBox");
   if (!box || !user) return;
@@ -804,42 +844,48 @@ function editInvoice(invoiceNo) {
   if(modal) modal.remove();
   
   google.script.run.withSuccessHandler(function(data) {
-    loadInvoiceBaruPage(); 
-    
-    loadCustomers(() => {
-      const custSelect = document.getElementById("customerSelect");
-      setDropdownValue(custSelect, data.customer); 
-      
-      loadProducts(() => {
-        loadRekeningOptions();
-        setTimeout(() => {
-          document.getElementById("invoiceDate").value = data.tanggal;
-          document.getElementById("bayarInput").value = data.bayar;
+    loadInvoiceBaruPage();
+    bootstrapInvoiceFormPage(function() {
+      setDropdownValue(document.getElementById("customerSelect"), data.customer);
+      document.getElementById("invoiceDate").value = data.tanggal;
+      document.getElementById("bayarInput").value = data.bayar;
 
-          if (data.rekening) {
-            setDropdownValue(document.getElementById("rekeningSelect"), data.rekening);
-          }
-          
-          data.products.forEach((p, index) => {
-            if(index > 0) addProductRow(); 
-            const row = document.querySelectorAll(".productRow")[index];
-            const prodSelect = row.querySelector(".productSelect");
-            setDropdownValue(prodSelect, p.produk); 
-            
-            row.querySelector(".qtyInput").value = p.qty;
-            row.querySelector(".satuanInput").value = p.satuan;
-            row.querySelector(".hargaInput").value = p.harga;
-            row.querySelector(".diskonInput").value = p.diskon;
-            calculateRowTotalRow(row); 
-          });
-          
-          calculateSummary();
-          
-          const btn = document.getElementById("btnSimpanUpdate");
-          btn.innerText = "Update Invoice";
-          btn.onclick = function() { executeUpdateInvoice(invoiceNo); };
-        }, 500); 
+      if (data.rekening) {
+        setDropdownValue(document.getElementById("rekeningSelect"), data.rekening);
+      }
+      fillProyekSelect_("invoiceProyekSelect", window.invoiceProyekOptions || [], data.kodeProyek || "");
+
+      const tbody = document.getElementById("productBody");
+      tbody.innerHTML = "";
+      data.products.forEach(function(p, index) {
+        if (index === 0) {
+          tbody.innerHTML = `
+        <tr class="productRow">
+          <td><select class="productSelect" onchange="productChangedRow(this)">${productOptions}</select></td>
+          <td><input class="qtyInput" oninput="calculateRowTotalRow(this.closest('tr'))" type="number" value="1"></td>
+          <td><select class="satuanInput"><option value=""></option><option>PORSI</option><option>PCS</option><option>BOX</option><option>PACK</option><option>SET</option></select></td>
+          <td><input class="hargaInput" oninput="calculateRowTotalRow(this.closest('tr'))" type="number"></td>
+          <td><input class="diskonInput" oninput="calculateRowTotalRow(this.closest('tr'))" type="number" value="0"></td>
+          <td><input class="totalInput" type="text" value="Rp0" readonly style="text-align:right; font-weight:bold; background:#f9fafb;"></td>
+          <td><button type="button" class="btn-secondary" onclick="removeProductRow(this)">🗑</button></td>
+        </tr>`;
+        } else {
+          addProductRow();
+        }
+        const row = document.querySelectorAll(".productRow")[index];
+        setDropdownValue(row.querySelector(".productSelect"), p.produk);
+        row.querySelector(".qtyInput").value = p.qty;
+        row.querySelector(".satuanInput").value = p.satuan;
+        row.querySelector(".hargaInput").value = p.harga;
+        row.querySelector(".diskonInput").value = p.diskon;
+        calculateRowTotalRow(row);
       });
+
+      calculateSummary();
+
+      const btn = document.getElementById("btnSimpanUpdate");
+      btn.innerText = "Update Invoice";
+      btn.onclick = function() { executeUpdateInvoice(invoiceNo); };
     });
   }).getInvoiceForEdit(invoiceNo);
 }
@@ -880,6 +926,7 @@ function getInvoiceFormData() {
     bayar: Number(document.getElementById("bayarInput").value),
     rekening: document.getElementById("rekeningSelect") ? document.getElementById("rekeningSelect").value : "",
     quotationNo: document.getElementById("quotationSelect") ? document.getElementById("quotationSelect").value : "",
+    kodeProyek: getSelectedKodeProyek_("invoiceProyekSelect"),
     products: products
   };
 }
@@ -1246,6 +1293,7 @@ function loadPemasukanPage(){
 }
 
 function loadInvoiceBaruPage(){
+  const proyekHtml = proyekFieldBlock_("invoiceProyekSelect");
   document.getElementById("mainContent").innerHTML = `
   <div class="header"><h2>Invoice Baru</h2><p>Buat transaksi penjualan baru</p></div>
   <div class="card"><h3>Informasi Invoice</h3><br>
@@ -1259,6 +1307,7 @@ function loadInvoiceBaruPage(){
         </select>
       </div>
     </div>
+    ${proyekHtml ? '<div style="margin-top:16px; max-width:480px;">' + proyekHtml + '</div>' : ''}
   </div><br>
   <div class="card"><h3>Detail Produk</h3><br>
     <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
@@ -1348,6 +1397,9 @@ function applyInvoiceFormBootstrap_(data) {
     });
     qtSel.innerHTML = qtHtml;
   }
+
+  window.invoiceProyekOptions = data.proyekOptions || [];
+  fillProyekSelect_("invoiceProyekSelect", window.invoiceProyekOptions);
 }
 
 function addProductRow(){
@@ -1515,6 +1567,7 @@ function loadQuotationToInvoice() {
 function fillInvoiceFromQuotation(data) {
   setDropdownValue(document.getElementById("customerSelect"), data.customer);
   document.getElementById("bayarInput").value = 0;
+  fillProyekSelect_("invoiceProyekSelect", window.invoiceProyekOptions || [], data.kodeProyek || "");
 
   const tbody = document.getElementById("productBody");
   tbody.innerHTML = "";
@@ -1583,6 +1636,7 @@ function loadPRToPembelian() {
 function fillPembelianFromPR(data) {
   document.getElementById("supPembelian").value = data.supplier || "";
   document.getElementById("bayarPembelian").value = 0;
+  fillProyekSelect_("pembelianProyekSelect", window.pembelianProyekOptions || [], data.kodeProyek || "");
 
   const tbody = document.getElementById("pembelianBody");
   tbody.innerHTML = "";
@@ -3764,6 +3818,7 @@ function loadRekeningOptions() {
 // ==========================================
 function loadPembelianPage() {
   const today = new Date().toISOString().split('T')[0];
+  const proyekHtml = proyekFieldBlock_("pembelianProyekSelect");
   document.getElementById("mainContent").innerHTML = `
     <div class="header">
       <h2>Pembelian Barang & Jasa</h2>
@@ -3786,6 +3841,7 @@ function loadPembelianPage() {
             <option value="">-- Buat PO Manual --</option>
           </select>
         </div>
+        ${proyekHtml ? '<div style="flex:1; min-width:220px;">' + proyekHtml + '</div>' : ''}
       </div>
       
       <div style="overflow-x:auto;">
@@ -3909,6 +3965,9 @@ function applyPembelianBootstrap_(data) {
     });
     prSel.innerHTML = prHtml;
   }
+
+  window.pembelianProyekOptions = data.proyekOptions || [];
+  fillProyekSelect_("pembelianProyekSelect", window.pembelianProyekOptions);
 
   let supHtml = "";
   (data.suppliers || []).forEach(function(s) {
@@ -4090,6 +4149,7 @@ function getPembelianPayload() {
     rekening: document.getElementById("rekPembelian").value,
     bayar: document.getElementById("bayarPembelian").value || 0,
     prNo: document.getElementById("prSelect") ? document.getElementById("prSelect").value : "",
+    kodeProyek: getSelectedKodeProyek_("pembelianProyekSelect"),
     items: items,
     sdMode: "manual",
     sdAlokasi: (pembelianSdPreview.alokasi || []).map(function(a) {
@@ -4363,6 +4423,7 @@ function loadQuotationPage() {
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
   const defaultStart = firstDay.toISOString().split("T")[0];
   const defaultEnd = today.toISOString().split("T")[0];
+  const proyekHtml = proyekFieldBlock_("qtProyekSelect");
 
   document.getElementById("mainContent").innerHTML = `
     <div class="header">
@@ -4379,6 +4440,7 @@ function loadQuotationPage() {
           <div><label style="font-weight:bold;">Tanggal</label><input type="date" id="qtTanggal" value="${defaultEnd}" style="margin-top:5px;"></div>
           <div><label style="font-weight:bold;">Customer</label><select id="qtCustomer" style="margin-top:5px;"><option value="">Pilih Customer</option></select></div>
         </div>
+        ${proyekHtml ? '<div style="margin-bottom:20px; max-width:480px;">' + proyekHtml + '</div>' : ''}
         <div style="margin-bottom:20px;">
           <label style="font-weight:bold;">Keterangan</label>
           <input type="text" id="qtKeterangan" placeholder="Catatan penawaran (opsional)" style="margin-top:5px;">
@@ -4418,6 +4480,7 @@ function loadQuotationPage() {
     document.querySelectorAll(".qtProductSelect").forEach(function(s) { s.innerHTML = window.qtProductOptions; });
   }).getProducts();
 
+  loadProyekOptionsForForm_(["qtProyekSelect"]);
   calcQtTotal();
 }
 
@@ -4515,7 +4578,13 @@ function saveQuotationForm() {
       btn.disabled = false;
       showCustomAlert("Gagal: " + err.message);
     })
-    .saveQuotation({ tanggal: tanggal, customer: customer, keterangan: document.getElementById("qtKeterangan").value, products: products });
+    .saveQuotation({
+      tanggal: tanggal,
+      customer: customer,
+      keterangan: document.getElementById("qtKeterangan").value,
+      kodeProyek: getSelectedKodeProyek_("qtProyekSelect"),
+      products: products
+    });
 }
 
 function loadQtHistory() {
@@ -4527,13 +4596,17 @@ function loadQtHistory() {
         container.innerHTML = '<div style="padding:40px; color:#666;">Belum ada quotation.</div>';
         return;
       }
-      let html = '<table class="history-table"><tr><th>Tanggal</th><th>No Quotation</th><th>Customer</th><th>Total</th><th>Status</th><th>Invoice</th><th>Aksi</th></tr>';
+      let html = '<table class="history-table"><tr><th>Tanggal</th><th>No Quotation</th><th>Customer</th>';
+      if (isProyekAddonOn_()) html += '<th>Proyek</th>';
+      html += '<th>Total</th><th>Status</th><th>Invoice</th><th>Aksi</th></tr>';
       data.forEach(function(row) {
         const badge = row.status === "CONVERTED"
           ? '<span style="background:#dcfce7;color:#166534;padding:3px 8px;border-radius:12px;font-size:12px;">CONVERTED</span>'
           : '<span style="background:#dbeafe;color:#1e40af;padding:3px 8px;border-radius:12px;font-size:12px;">AKTIF</span>';
         const qtEsc = String(row.quotationNo).replace(/'/g, "\\'");
-        html += `<tr><td>${row.tanggal}</td><td>${row.quotationNo}</td><td>${row.customer}</td><td>${formatRupiah(row.total)}</td><td>${badge}</td><td>${row.invoiceNo || "-"}</td><td><button class="detail-btn" onclick="printQuotationPdfByNo('${qtEsc}')">PDF</button></td></tr>`;
+        html += `<tr><td>${row.tanggal}</td><td>${row.quotationNo}</td><td>${row.customer}</td>`;
+        if (isProyekAddonOn_()) html += `<td>${row.kodeProyek ? escHtml(row.kodeProyek) : "-"}</td>`;
+        html += `<td>${formatRupiah(row.total)}</td><td>${badge}</td><td>${row.invoiceNo || "-"}</td><td><button class="detail-btn" onclick="printQuotationPdfByNo('${qtEsc}')">PDF</button></td></tr>`;
       });
       html += "</table>";
       container.innerHTML = html;
@@ -4549,6 +4622,7 @@ function loadPurchaseRequestPage() {
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
   const defaultStart = firstDay.toISOString().split("T")[0];
   const defaultEnd = today.toISOString().split("T")[0];
+  const proyekHtml = proyekFieldBlock_("prProyekSelect");
 
   document.getElementById("mainContent").innerHTML = `
     <div class="header">
@@ -4565,6 +4639,7 @@ function loadPurchaseRequestPage() {
           <div><label style="font-weight:bold;">Tanggal</label><input type="date" id="prTanggal" value="${defaultEnd}" style="margin-top:5px;"></div>
           <div><label style="font-weight:bold;">Supplier <small style="color:#888;">(opsional)</small></label><input type="text" id="prSupplier" placeholder="Bisa diisi nanti saat PO" style="margin-top:5px;"></div>
         </div>
+        ${proyekHtml ? '<div style="margin-bottom:20px; max-width:480px;">' + proyekHtml + '</div>' : ''}
         <div style="margin-bottom:20px;">
           <label style="font-weight:bold;">Keterangan</label>
           <input type="text" id="prKeterangan" placeholder="Catatan PR (opsional)" style="margin-top:5px;">
@@ -4598,6 +4673,7 @@ function loadPurchaseRequestPage() {
     refreshPRKategoriOptions();
   }).getMasterDataPembelian();
 
+  loadProyekOptionsForForm_(["prProyekSelect"]);
   calcPRTotal();
 }
 
@@ -4715,6 +4791,7 @@ function savePRForm() {
       tanggal: tanggal,
       supplier: document.getElementById("prSupplier").value,
       keterangan: document.getElementById("prKeterangan").value,
+      kodeProyek: getSelectedKodeProyek_("prProyekSelect"),
       items: items
     });
 }
@@ -4728,13 +4805,17 @@ function loadPRHistory() {
         container.innerHTML = '<div style="padding:40px; color:#666;">Belum ada Purchase Request.</div>';
         return;
       }
-      let html = '<table class="history-table"><tr><th>Tanggal</th><th>No PR</th><th>Supplier</th><th>Item</th><th>Estimasi</th><th>Status</th><th>PO</th><th>Aksi</th></tr>';
+      let html = '<table class="history-table"><tr><th>Tanggal</th><th>No PR</th><th>Supplier</th>';
+      if (isProyekAddonOn_()) html += '<th>Proyek</th>';
+      html += '<th>Item</th><th>Estimasi</th><th>Status</th><th>PO</th><th>Aksi</th></tr>';
       data.forEach(function(row) {
         const badge = row.status === "CONVERTED"
           ? '<span style="background:#dcfce7;color:#166534;padding:3px 8px;border-radius:12px;font-size:12px;">CONVERTED</span>'
           : '<span style="background:#dbeafe;color:#1e40af;padding:3px 8px;border-radius:12px;font-size:12px;">AKTIF</span>';
         const prEsc = String(row.prNo).replace(/'/g, "\\'");
-        html += `<tr><td>${row.tanggal}</td><td>${row.prNo}</td><td>${row.supplier || "-"}</td><td>${row.lineCount}</td><td>${formatRupiah(row.totalEstimasi)}</td><td>${badge}</td><td>${row.poNo || "-"}</td><td><button class="detail-btn" onclick="printPRPdfByNo('${prEsc}')">PDF</button></td></tr>`;
+        html += `<tr><td>${row.tanggal}</td><td>${row.prNo}</td><td>${row.supplier || "-"}</td>`;
+        if (isProyekAddonOn_()) html += `<td>${row.kodeProyek ? escHtml(row.kodeProyek) : "-"}</td>`;
+        html += `<td>${row.lineCount}</td><td>${formatRupiah(row.totalEstimasi)}</td><td>${badge}</td><td>${row.poNo || "-"}</td><td><button class="detail-btn" onclick="printPRPdfByNo('${prEsc}')">PDF</button></td></tr>`;
       });
       html += "</table>";
       container.innerHTML = html;

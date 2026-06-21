@@ -10,9 +10,10 @@ function ensurePurchaseRequestSheet_(ss) {
     sh.appendRow([
       "Tanggal", "No PR", "Supplier", "Kategori", "Sub-Kategori", "Nama Barang",
       "Qty", "Satuan", "Estimasi Harga", "Diskon", "Total Estimasi", "Status",
-      "PO No", "Keterangan"
+      "PO No", "Keterangan", PROYEK_COL_HEADER_
     ]);
   }
+  ensureSheetProyekColumn_(sh, PROYEK_COL_PR_);
   return sh;
 }
 
@@ -72,6 +73,7 @@ function savePurchaseRequest(payload) {
     const tanggal = new Date(payload.tanggal + "T12:00:00");
     const supplier = String(payload.supplier || "").trim();
     const keterangan = String(payload.keterangan || "").trim();
+    const kodeProyek = normalizeKodeProyek_(payload.kodeProyek);
 
     const rows = payload.items.map(function(item) {
       const harga = Number(item.harga) || 0;
@@ -91,7 +93,8 @@ function savePurchaseRequest(payload) {
         total,
         "AKTIF",
         "",
-        keterangan
+        keterangan,
+        kodeProyek
       ];
     });
 
@@ -125,7 +128,8 @@ function groupPurchaseRequestRows_(data, filterFn) {
         totalEstimasi: 0,
         lineCount: 0,
         status: String(row[11] || "AKTIF").trim().toUpperCase(),
-        poNo: String(row[12] || "").trim()
+        poNo: String(row[12] || "").trim(),
+        kodeProyek: readRowKodeProyek_(row, PROYEK_COL_PR_)
       };
     }
     groups[prNo].totalEstimasi += Number(row[10]) || 0;
@@ -205,6 +209,7 @@ function getPurchaseRequestDetail(prNo) {
     keterangan: String(first[13] || "").trim(),
     status: String(first[11] || "AKTIF").trim().toUpperCase(),
     poNo: String(first[12] || "").trim(),
+    kodeProyek: readRowKodeProyek_(first, PROYEK_COL_PR_),
     items: items
   };
 }
