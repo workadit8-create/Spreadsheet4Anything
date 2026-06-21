@@ -368,9 +368,8 @@ function resolveSdAlokasiForSave_(ss, payload, nominalField) {
   const nominal = Number(payload[nominalField]) || 0;
   if (nominal <= 0) return { alokasi: [], rekening: "" };
 
-  if (payload.sdMode === "fifo" || !payload.sdAlokasi || !payload.sdAlokasi.length) {
-    const fifo = allocateSdFifo_(ss, nominal, payload.rekeningFilter || "");
-    return { alokasi: fifo.alokasi, rekening: fifo.rekening };
+  if (!payload.sdAlokasi || !payload.sdAlokasi.length) {
+    throw new Error("Alokasi Sumber Dana wajib diisi. Pilih petugas dan SD.");
   }
 
   return validateSdAlokasiInput_(ss, payload.sdAlokasi, nominal, true);
