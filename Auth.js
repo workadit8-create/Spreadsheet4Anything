@@ -228,15 +228,16 @@ function getMasterPermissions() {
 }
 
 function getSessionUser() {
+  const appDisplayName = getAppDisplayName_();
   const email = getSessionEmail_();
   if (!email) {
-    return { ok: false, reason: "no_email", message: "Tidak dapat membaca email Google. Login ulang ke akun Google." };
+    return { ok: false, reason: "no_email", appDisplayName: appDisplayName, message: "Tidak dapat membaca email Google. Login ulang ke akun Google." };
   }
 
   const ss = getDatabaseSpreadsheet_();
   const sh = ensureUsersSheet_(ss);
   if (sh.getLastRow() < 2) {
-    return { ok: true, needsSetup: true, email: email, menus: null };
+    return { ok: true, needsSetup: true, email: email, menus: null, appDisplayName: appDisplayName };
   }
 
   const rowNum = findUserRowByEmail_(sh, email);
@@ -245,13 +246,14 @@ function getSessionUser() {
       ok: false,
       reason: "not_registered",
       email: email,
+      appDisplayName: appDisplayName,
       message: "Email belum terdaftar. Minta owner menambahkan Anda di Setting → Pengguna."
     };
   }
 
   const row = sh.getRange(rowNum, 1, 1, 7).getValues()[0];
   if (!masterIsActive_(row[4])) {
-    return { ok: false, reason: "inactive", email: email, message: "Akun Anda dinonaktifkan." };
+    return { ok: false, reason: "inactive", email: email, appDisplayName: appDisplayName, message: "Akun Anda dinonaktifkan." };
   }
 
   const me = {
@@ -264,6 +266,7 @@ function getSessionUser() {
   return {
     ok: true,
     needsSetup: false,
+    appDisplayName: appDisplayName,
     user: {
       id: me.id,
       email: me.email,

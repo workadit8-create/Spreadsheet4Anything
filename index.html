@@ -8,6 +8,7 @@
     .container{ display:flex; height:100vh; }
     .sidebar{ width:220px; background:#1f2937; color:white; position:fixed; top:0; left:0; bottom:0; padding-top:20px; box-sizing:border-box; }
     .logo, .sidebar h2{ color:white; padding-left:20px; margin-bottom:30px; }
+    .logo h2, .app-display-name{ font-size:18px; line-height:1.25; word-break:break-word; }
     .menu-item{ padding:12px; border-radius:8px; margin-bottom:8px; cursor:pointer; margin: 0 10px; }
     .menu-item:hover{ background:#374151; }
     .content{ flex:1; padding:25px; margin-left:220px; overflow-y:auto; }
@@ -122,7 +123,7 @@
 
 <div class="container" id="appContainer" style="display:none;">
   <div class="sidebar">
-    <div class="logo"><h2>UMKM JAYA</h2></div>
+    <div class="logo"><h2 class="app-display-name">...</h2></div>
     <div class="menu-item" data-menu="dashboard" onclick="loadDashboardPage()">🏠 Dashboard</div>
     <div class="menu-item" data-menu="mutasi" onclick="loadMutasiPage()">🏦 Kas & Bank</div>
     <div class="menu-item" data-menu="quotation" onclick="loadQuotationPage()">📋 Quotation</div>
@@ -149,7 +150,7 @@
 
 <div id="authGate" style="display:flex;">
   <div class="auth-card">
-    <h2>UMKM JAYA</h2>
+    <h2 class="app-display-name">...</h2>
     <p id="authGateMessage">Memverifikasi akun Google...</p>
     <div id="authGateSetup" style="display:none; text-align:left;">
       <p style="font-size:13px; color:#374151; margin-bottom:12px;">Belum ada user terdaftar. Setup <strong>Owner</strong> pertama dengan akun Google Anda.</p>
@@ -606,7 +607,16 @@ function initApp() {
     .getSessionUser();
 }
 
+function applyAppDisplayName_(name) {
+  const label = String(name || "").trim() || "UMKM JAYA";
+  document.querySelectorAll(".app-display-name").forEach(function(el) {
+    el.textContent = label;
+  });
+  document.title = label + " — Akuntansi";
+}
+
 function onSessionReady_(res) {
+  if (res && res.appDisplayName) applyAppDisplayName_(res.appDisplayName);
   if (!res || !res.ok) {
     if (res && res.reason === "not_registered") {
       showAuthDenied_(res.message || "Akun belum terdaftar.");

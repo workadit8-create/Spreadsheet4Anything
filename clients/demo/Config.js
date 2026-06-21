@@ -33,3 +33,11 @@ const MASTER_ENTITY_LABELS_ = {
 };
 
 let CURRENT_AUTH_USER_ = null;
+
+/** Nama tampilan di sidebar / layar login (per client). */
+const APP_DISPLAY_NAME = "AKUN DEMO";
+
+function getAppDisplayName_() {
+  const name = String(typeof APP_DISPLAY_NAME !== "undefined" ? APP_DISPLAY_NAME : "").trim();
+  return name || "UMKM JAYA";
+}
