@@ -1,7 +1,7 @@
 {
   "clients": {
     "client1": {
-      "label": "Client 1",
+      "label": "TIRTA CATERING",
       "databaseId": "1pX_pzST75hGieG3u4xlQOlAKJyp1gvhd-nBB1YdulRc",
       "backendEngineId": "171xtAp4xRNhXwLHQorHoLWi9DpxfE6lm8oG1FQwfG0k",
       "rootFolderId": "1_4SslNXoWm3k3zPJfW8rICPxKZU2yPgK",
@@ -9,7 +9,7 @@
       "uploadsFolderId": "1Zii9z6RMW6lTJ-v2FPem3Z4J8Fifr678"
     },
     "demo": {
-      "label": "Akun Demo",
+      "label": "AKUN DEMO",
       "databaseId": "1pPX9l5ag6ASB-W-eRgEcxrW2dRitgaA-EBPzrOl7HqM",
       "backendEngineId": "1ERRUrN-u-60A2QrnQ4MimIxY0S96F8JE_veKPuHccAg",
       "rootFolderId": "1_4SslNXoWm3k3zPJfW8rICPxKZU2yPgK",
@@ -17,7 +17,7 @@
       "uploadsFolderId": "1d8mtCu-af3lto_MialhLyHdXmqGXf4oF"
     },
     "dev": {
-      "label": "Sandbox Dev",
+      "label": "DEPLOY TESTING",
       "databaseId": "1w3UNhPBi-GjEBJbIzABJu9RE0fFE65HHv0l9p7QOoi8",
       "backendEngineId": "11JH-9HQuOPu-8mIPKKCZWqixiXDdu3DxQ0LzbknG7uM",
       "rootFolderId": "1_4SslNXoWm3k3zPJfW8rICPxKZU2yPgK",
