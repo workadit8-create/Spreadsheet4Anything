@@ -1097,6 +1097,7 @@ function renderDashboardV2(data, partial) {
       <div class="dash-kpi danger"><div class="dash-kpi-label">💳 Hutang</div><div class="dash-kpi-value">${formatRupiah(k.hutang)}</div><div class="dash-kpi-sub">${(data.hutang && data.hutang.count) || 0} PO outstanding</div></div>
       <div class="dash-kpi info"><div class="dash-kpi-label">📋 Quotation Aktif</div><div class="dash-kpi-value">${k.quotationAktif || 0}</div><div class="dash-kpi-sub">${k.invoiceCount || 0} invoice bulan ini</div></div>
     </div>
+    ${buildDashboardProyekHtml_(data.proyek)}
     <div class="dash-split">
       <div class="chart-box" style="margin-top:0;">
         <h3>Penjualan vs Pembelian (6 bulan)</h3>
@@ -1125,6 +1126,54 @@ function renderDashboardV2(data, partial) {
 
   renderDashMainChart_(data.charts && data.charts.bulanan ? data.charts.bulanan : []);
   renderDashActivityFeed_(data.aktivitas || [], dashState.filter);
+}
+
+function buildDashboardProyekHtml_(proyek) {
+  if (!proyek || !isProyekAddonOn_()) return "";
+  const upcoming = proyek.upcoming || [];
+  const totals = proyek.lrTotals || {};
+  const periodeLabel = proyek.periode && proyek.periode.start
+    ? (proyek.periode.start + " s/d " + proyek.periode.end)
+    : "periode ini";
+
+  let html = '<div class="table-box" style="margin-top:0;">';
+  html += '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">';
+  html += '<h3 style="margin:0;">📁 Event Mendatang (' + (proyek.upcomingCount || 0) + ')</h3>';
+  html += '<button class="btn-secondary" onclick="loadProyekPage()">Kelola Proyek</button>';
+  html += '</div>';
+
+  if (!upcoming.length) {
+    html += '<p style="color:#9ca3af; text-align:center; padding:20px;">Tidak ada event aktif mendatang.</p>';
+  } else {
+    html += '<table class="history-table"><thead><tr>';
+    html += '<th>Tanggal</th><th>Event</th><th>Customer</th><th>Status</th><th>PIC</th>';
+    html += '<th style="text-align:right">Pendapatan</th><th style="text-align:right">Beban</th><th style="text-align:right">Margin</th>';
+    html += '</tr></thead><tbody>';
+    upcoming.forEach(function(ev) {
+      const marginColor = ev.margin >= 0 ? "#059669" : "#dc2626";
+      html += '<tr style="cursor:pointer;" onclick="loadProyekPage()">';
+      html += '<td>' + escHtml(ev.tanggalEvent || "-") + '</td>';
+      html += '<td><strong>' + escHtml(ev.nama) + '</strong><br><small style="color:#6b7280;">' + escHtml(ev.kode) + '</small></td>';
+      html += '<td>' + escHtml(ev.customer || "-") + '</td>';
+      html += '<td>' + proyekStatusBadge_(ev.status) + '</td>';
+      html += '<td>' + escHtml(ev.pic || "-") + '</td>';
+      html += '<td style="text-align:right">' + formatRupiah(ev.pendapatan || 0) + '</td>';
+      html += '<td style="text-align:right">' + formatRupiah(ev.beban || 0) + '</td>';
+      html += '<td style="text-align:right; font-weight:bold; color:' + marginColor + '">' + formatRupiah(ev.margin || 0) + '</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    html += '<p style="font-size:12px; color:#6b7280; margin-top:10px;">Angka keuangan = transaksi tagged proyek di ' + escHtml(periodeLabel) + ' · ' + (proyek.activeWithTag || 0) + ' proyek ada transaksi.</p>';
+  }
+
+  html += '<div style="display:flex; gap:16px; flex-wrap:wrap; margin-top:16px; padding-top:12px; border-top:1px solid #e5e7eb; font-size:13px;">';
+  html += '<span><strong>Total tagged (' + escHtml(periodeLabel) + '):</strong></span>';
+  html += '<span>Pendapatan ' + formatRupiah(totals.pendapatan || 0) + '</span>';
+  html += '<span>Beban ' + formatRupiah(totals.beban || 0) + '</span>';
+  html += '<span style="font-weight:bold;">Margin ' + formatRupiah(totals.margin || 0);
+  if (totals.marginPct) html += ' (' + totals.marginPct + '%)';
+  html += '</span></div></div>';
+  return html;
 }
 
 function buildDashboardKeuanganHtml_(keu) {
@@ -5714,7 +5763,7 @@ function exportLaporanExcel() {
 // ADD-ON: MANAJEMEN PROYEK (EVENT CATERING)
 // ==========================================
 
-let proyekState = { rows: [], customers: [], statuses: [], editing: null, filterStatus: "ALL", filterSearch: "" };
+let proyekState = { rows: [], customers: [], statuses: [], editing: null, filterStatus: "ALL", filterSearch: "", tab: "daftar", lrData: null };
 
 function proyekCanEdit_() {
   return appSession.role === "owner" || appSession.role === "staff";
@@ -5740,58 +5789,246 @@ function loadProyekPage() {
     return;
   }
 
-  proyekState = { rows: [], customers: [], statuses: [], editing: null, filterStatus: "ALL", filterSearch: "" };
+  const tab = proyekState.tab || "daftar";
+  proyekState = {
+    rows: proyekState.rows || [],
+    customers: proyekState.customers || [],
+    statuses: proyekState.statuses || [],
+    editing: null,
+    filterStatus: "ALL",
+    filterSearch: "",
+    tab: tab,
+    lrData: proyekState.lrData || null
+  };
+
+  const today = new Date();
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+  const defaultStart = firstDay.toISOString().split("T")[0];
+  const defaultEnd = today.toISOString().split("T")[0];
 
   document.getElementById("mainContent").innerHTML = `
     <div class="header">
       <h2>Proyek Event</h2>
-      <p>1 proyek = 1 event catering — kelola jadwal, PIC, dan status event</p>
+      <p>1 proyek = 1 event catering — kelola jadwal & lihat laba rugi per event</p>
     </div>
-    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; align-items:flex-end;">
-      <div>
-        <label style="font-size:12px; color:#6b7280;">Status</label>
-        <select id="proyekFilterStatus" class="form-control" onchange="reloadProyekTable()">
-          <option value="ALL">Semua</option>
-        </select>
-      </div>
-      <div style="flex:1; min-width:180px;">
-        <label style="font-size:12px; color:#6b7280;">Cari</label>
-        <input type="text" id="proyekFilterSearch" class="form-control" placeholder="Nama, customer, lokasi..." oninput="debounceReloadProyek_()">
-      </div>
-      <label style="display:flex; align-items:center; gap:6px; font-size:13px; margin-bottom:8px;">
-        <input type="checkbox" id="proyekFilterUpcoming" onchange="reloadProyekTable()"> Hanya event mendatang
-      </label>
+    <div style="display:flex; gap:10px; margin-bottom:20px;">
+      <button id="proyekTabDaftar" class="btn-primary" onclick="switchProyekTab('daftar')" style="flex:1;">📋 Daftar Event</button>
+      <button id="proyekTabLr" class="btn-secondary" onclick="switchProyekTab('lr')" style="flex:1;">📈 L/R Proyek</button>
     </div>
-    <div id="proyekFormCard" class="card" style="display:none; margin-bottom:20px;"></div>
-    <div class="table-box" id="proyekTableContainer">
-      <p style="text-align:center; padding:40px; color:#6b7280;">⏳ Memuat...</p>
+    <div id="proyekPanelDaftar">
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; align-items:flex-end;">
+        <div>
+          <label style="font-size:12px; color:#6b7280;">Status</label>
+          <select id="proyekFilterStatus" class="form-control" onchange="reloadProyekTable()">
+            <option value="ALL">Semua</option>
+          </select>
+        </div>
+        <div style="flex:1; min-width:180px;">
+          <label style="font-size:12px; color:#6b7280;">Cari</label>
+          <input type="text" id="proyekFilterSearch" class="form-control" placeholder="Nama, customer, lokasi..." oninput="debounceReloadProyek_()">
+        </div>
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px; margin-bottom:8px;">
+          <input type="checkbox" id="proyekFilterUpcoming" onchange="reloadProyekTable()"> Hanya event mendatang
+        </label>
+      </div>
+      <div id="proyekFormCard" class="card" style="display:none; margin-bottom:20px;"></div>
+      <div class="table-box" id="proyekTableContainer">
+        <p style="text-align:center; padding:40px; color:#6b7280;">⏳ Memuat...</p>
+      </div>
+    </div>
+    <div id="proyekPanelLr" style="display:none;">
+      <div class="card" style="display:flex; gap:15px; align-items:flex-end; flex-wrap:wrap; margin-bottom:20px;">
+        <div><label style="font-weight:bold;">Dari</label><br><input type="date" id="proyekLrStart" value="${defaultStart}" style="margin-top:5px;"></div>
+        <div><label style="font-weight:bold;">Sampai</label><br><input type="date" id="proyekLrEnd" value="${defaultEnd}" style="margin-top:5px;"></div>
+        <div><label style="font-weight:bold;">Status Proyek</label><br>
+          <select id="proyekLrStatus" style="margin-top:5px; min-width:140px;"><option value="ALL">Semua</option></select>
+        </div>
+        <div><label style="font-weight:bold;">Proyek</label><br>
+          <select id="proyekLrKode" style="margin-top:5px; min-width:220px;"><option value="">Semua proyek</option></select>
+        </div>
+        <button class="btn-primary" onclick="reloadProyekLr()">🔄 Muat Laporan</button>
+        <button class="btn-secondary" onclick="exportProyekLrExcel()">📥 Export Excel</button>
+      </div>
+      <div class="table-box" id="proyekLrContainer">
+        <p style="text-align:center; padding:40px; color:#6b7280;">⏳ Memuat...</p>
+      </div>
     </div>
   `;
+
+  switchProyekTab(tab);
 
   google.script.run
     .withSuccessHandler(function(meta) {
       proyekState.statuses = (meta && meta.statuses) || [];
-      const sel = document.getElementById("proyekFilterStatus");
-      if (sel) {
+      ["proyekFilterStatus", "proyekLrStatus"].forEach(function(id) {
+        const sel = document.getElementById(id);
+        if (!sel) return;
         proyekState.statuses.forEach(function(st) {
           const opt = document.createElement("option");
           opt.value = st;
           opt.textContent = st;
           sel.appendChild(opt);
         });
-      }
-      reloadProyekTable();
+      });
+      if (proyekState.tab === "daftar") reloadProyekTable();
+      else reloadProyekLr();
     })
     .withFailureHandler(function(err) {
-      document.getElementById("proyekTableContainer").innerHTML =
-        '<div class="dash-alert error">' + escHtml(String(err && err.message ? err.message : err)) + '</div>';
+      const msg = '<div class="dash-alert error">' + escHtml(String(err && err.message ? err.message : err)) + '</div>';
+      const c1 = document.getElementById("proyekTableContainer");
+      const c2 = document.getElementById("proyekLrContainer");
+      if (c1) c1.innerHTML = msg;
+      if (c2) c2.innerHTML = msg;
     })
     .getProyekMeta();
 
   google.script.run
-    .withSuccessHandler(function(list) { proyekState.customers = list || []; })
+    .withSuccessHandler(function(list) {
+      proyekState.customers = list || [];
+      google.script.run
+        .withSuccessHandler(function(proyekList) {
+          const opts = (proyekList || []).map(function(p) {
+            return { kode: p.kode, label: p.kode + " — " + p.nama + (p.tanggalEvent ? " (" + p.tanggalEvent + ")" : "") };
+          });
+          fillProyekSelect_("proyekLrKode", opts);
+        })
+        .withFailureHandler(function() {})
+        .listProyek({});
+    })
     .withFailureHandler(function() {})
     .getCustomers();
+}
+
+function switchProyekTab(tab) {
+  proyekState.tab = tab;
+  const isDaftar = tab === "daftar";
+  const panelDaftar = document.getElementById("proyekPanelDaftar");
+  const panelLr = document.getElementById("proyekPanelLr");
+  const tabDaftar = document.getElementById("proyekTabDaftar");
+  const tabLr = document.getElementById("proyekTabLr");
+  if (panelDaftar) panelDaftar.style.display = isDaftar ? "block" : "none";
+  if (panelLr) panelLr.style.display = isDaftar ? "none" : "block";
+  if (tabDaftar) tabDaftar.className = isDaftar ? "btn-primary" : "btn-secondary";
+  if (tabLr) tabLr.className = isDaftar ? "btn-secondary" : "btn-primary";
+  if (isDaftar && document.getElementById("proyekTableContainer")) reloadProyekTable();
+  else if (!isDaftar && document.getElementById("proyekLrContainer")) reloadProyekLr();
+}
+
+function reloadProyekLr() {
+  const container = document.getElementById("proyekLrContainer");
+  if (!container) return;
+  container.innerHTML = '<p style="text-align:center; padding:30px;">⏳ Memuat...</p>';
+
+  const filters = {
+    startDate: (document.getElementById("proyekLrStart") || {}).value || "",
+    endDate: (document.getElementById("proyekLrEnd") || {}).value || "",
+    status: (document.getElementById("proyekLrStatus") || {}).value || "ALL",
+    kodeProyek: (document.getElementById("proyekLrKode") || {}).value || ""
+  };
+
+  google.script.run
+    .withSuccessHandler(function(data) {
+      proyekState.lrData = data;
+      renderProyekLrTable(data);
+    })
+    .withFailureHandler(function(err) {
+      container.innerHTML = '<div class="dash-alert error">' + escHtml(String(err && err.message ? err.message : err)) + '</div>';
+    })
+    .getLaporanLrProyek(filters);
+}
+
+function renderProyekLrTable(data) {
+  const container = document.getElementById("proyekLrContainer");
+  if (!container) return;
+  data = data || { rows: [], totals: {}, periode: {} };
+  const rows = data.rows || [];
+  const totals = data.totals || {};
+
+  let html = '<div style="margin-bottom:16px;">';
+  html += '<p style="font-size:13px; color:#6b7280; margin:0;">Pendapatan dari <strong>Pemasukan</strong> + Beban dari <strong>Pembelian</strong> yang ditag ke proyek';
+  if (data.periode && data.periode.start) {
+    html += ' · Periode transaksi: <strong>' + escHtml(data.periode.start) + ' s/d ' + escHtml(data.periode.end) + '</strong>';
+  }
+  html += '</p></div>';
+
+  html += '<div class="dash-kpi-grid" style="margin-bottom:20px; grid-template-columns:repeat(3,1fr);">';
+  html += '<div class="dash-kpi"><div class="dash-kpi-label">Pendapatan</div><div class="dash-kpi-value">' + formatRupiah(totals.pendapatan || 0) + '</div></div>';
+  html += '<div class="dash-kpi"><div class="dash-kpi-label">Beban Direct</div><div class="dash-kpi-value">' + formatRupiah(totals.beban || 0) + '</div></div>';
+  const marginColor = (totals.margin || 0) >= 0 ? "" : " color:#dc2626;";
+  html += '<div class="dash-kpi"><div class="dash-kpi-label">Margin</div><div class="dash-kpi-value" style="' + marginColor + '">' + formatRupiah(totals.margin || 0);
+  if (totals.marginPct) html += ' <small>(' + totals.marginPct + '%)</small>';
+  html += '</div></div></div>';
+
+  if (!rows.length) {
+    html += '<p style="color:#9ca3af; text-align:center; padding:30px;">Belum ada transaksi tagged proyek di periode ini.</p>';
+    container.innerHTML = html;
+    return;
+  }
+
+  html += '<table class="history-table"><thead><tr>';
+  html += '<th>Kode</th><th>Event</th><th>Customer</th><th>Tgl Event</th><th>Status</th>';
+  html += '<th style="text-align:right">Pendapatan</th><th style="text-align:right">Beban</th><th style="text-align:right">Margin</th><th style="text-align:right">%</th>';
+  html += '</tr></thead><tbody>';
+
+  rows.forEach(function(row) {
+    const mc = row.margin >= 0 ? "#059669" : "#dc2626";
+    html += '<tr>';
+    html += '<td><code>' + escHtml(row.kode) + '</code></td>';
+    html += '<td><strong>' + escHtml(row.nama) + '</strong></td>';
+    html += '<td>' + escHtml(row.customer || "-") + '</td>';
+    html += '<td>' + escHtml(row.tanggalEvent || "-") + '</td>';
+    html += '<td>' + proyekStatusBadge_(row.status) + '</td>';
+    html += '<td style="text-align:right">' + formatRupiah(row.pendapatan) + '</td>';
+    html += '<td style="text-align:right">' + formatRupiah(row.beban) + '</td>';
+    html += '<td style="text-align:right; font-weight:bold; color:' + mc + '">' + formatRupiah(row.margin) + '</td>';
+    html += '<td style="text-align:right">' + (row.marginPct || 0) + '%</td>';
+    html += '</tr>';
+  });
+
+  html += '<tr style="background:#f8fafc; font-weight:bold;">';
+  html += '<td colspan="5">TOTAL</td>';
+  html += '<td style="text-align:right">' + formatRupiah(totals.pendapatan || 0) + '</td>';
+  html += '<td style="text-align:right">' + formatRupiah(totals.beban || 0) + '</td>';
+  html += '<td style="text-align:right">' + formatRupiah(totals.margin || 0) + '</td>';
+  html += '<td style="text-align:right">' + (totals.marginPct || 0) + '%</td>';
+  html += '</tr></tbody></table>';
+  container.innerHTML = html;
+}
+
+function exportProyekLrExcel() {
+  const data = proyekState.lrData;
+  if (!data || !data.rows || !data.rows.length) {
+    showCustomAlert("Muat laporan L/R proyek terlebih dahulu.");
+    return;
+  }
+  const exportRows = data.rows.map(function(r) {
+    return {
+      Kode: r.kode,
+      Event: r.nama,
+      Customer: r.customer,
+      "Tanggal Event": r.tanggalEvent,
+      Status: r.status,
+      Pendapatan: r.pendapatan,
+      Beban: r.beban,
+      Margin: r.margin,
+      "Margin %": r.marginPct
+    };
+  });
+  exportRows.push({
+    Kode: "TOTAL",
+    Event: "",
+    Customer: "",
+    "Tanggal Event": "",
+    Status: "",
+    Pendapatan: data.totals.pendapatan,
+    Beban: data.totals.beban,
+    Margin: data.totals.margin,
+    "Margin %": data.totals.marginPct
+  });
+  const ws = XLSX.utils.json_to_sheet(exportRows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "LR Proyek");
+  XLSX.writeFile(wb, "LR_Proyek.xlsx");
 }
 
 let proyekReloadTimer_ = null;

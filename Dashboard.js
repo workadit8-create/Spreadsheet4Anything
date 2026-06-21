@@ -678,6 +678,9 @@ function dashBuildOpsPayload_(ss, m, y) {
     quotationAktif: quotationAktif,
     keuanganPending: true
   };
+  if (typeof getDashboardProyekSummary_ === "function") {
+    payload.proyek = getDashboardProyekSummary_(ss, m, y);
+  }
   payload.alerts = dashBuildAlertsOps_(payload);
   return payload;
 }
