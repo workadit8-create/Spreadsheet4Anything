@@ -7,8 +7,8 @@ const ALLOWED_EMAILS = [];
 const USER_ROLES_ = ["owner", "staff", "akuntan"];
 const ROLE_MENUS_ = {
   owner: null,
-  staff: ["dashboard", "mutasi", "quotation", "pemasukan", "invoice", "piutang", "pr", "pembelian", "po", "hutang", "master"],
-  akuntan: ["dashboard", "mutasi", "piutang", "hutang", "jurnal", "posting", "master", "laporan"]
+  staff: ["dashboard", "mutasi", "quotation", "proyek", "pemasukan", "invoice", "piutang", "pr", "pembelian", "po", "hutang", "master"],
+  akuntan: ["dashboard", "mutasi", "piutang", "hutang", "jurnal", "posting", "master", "laporan", "proyek"]
 };
 
 /** Role yang boleh mengubah tiap entitas master (save / nonaktifkan). */
@@ -32,8 +32,8 @@ const MASTER_ENTITY_LABELS_ = {
 
 let CURRENT_AUTH_USER_ = null;
 
-/** Add-on Manajemen Proyek — aktifkan per client (clients/dev/Config.js, dll.). */
-const ENABLE_ADDON_PROJECT = false;
+/** Add-on Manajemen Proyek — pilot Tirta Catering (production). */
+const ENABLE_ADDON_PROJECT = true;
 
 /** Nama tampilan di sidebar / layar login (per client). */
 const APP_DISPLAY_NAME = "TIRTA CATERING";

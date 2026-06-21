@@ -396,6 +396,104 @@ function getLaporanLrProyek(filters) {
   });
 }
 
+function proyekFormatTxDate_(val) {
+  if (!val) return "";
+  const d = val instanceof Date ? val : new Date(val);
+  if (isNaN(d.getTime())) return "";
+  return Utilities.formatDate(d, Session.getScriptTimeZone(), "yyyy-MM-dd");
+}
+
+function buildProyekLrDetail_(ss, kode, startDate, endDate) {
+  const target = normalizeKodeProyek_(kode);
+  if (!target) throw new Error("Kode proyek tidak valid.");
+
+  const pemasukan = [];
+  const shIn = ss.getSheetByName("PEMASUKAN");
+  if (shIn && shIn.getLastRow() >= 2) {
+    const cols = Math.max(shIn.getLastColumn(), PROYEK_COL_PEMASUKAN_);
+    const data = shIn.getRange(2, 1, shIn.getLastRow() - 1, cols).getValues();
+    data.forEach(function(row) {
+      if (readRowKodeProyek_(row, PROYEK_COL_PEMASUKAN_) !== target) return;
+      if (!proyekDateInRange_(row[1], startDate, endDate)) return;
+      pemasukan.push({
+        tanggal: proyekFormatTxDate_(row[1]),
+        invoiceNo: String(row[4] || "").trim(),
+        customer: String(row[5] || "").trim(),
+        produk: String(row[6] || "").trim(),
+        qty: Number(row[7]) || 0,
+        satuan: String(row[8] || "").trim(),
+        total: Number(row[11]) || 0,
+        akun: String(row[17] || "").trim()
+      });
+    });
+  }
+
+  const pembelian = [];
+  const shPb = ss.getSheetByName("PEMBELIAN");
+  if (shPb && shPb.getLastRow() >= 2) {
+    const cols = Math.max(shPb.getLastColumn(), PROYEK_COL_PEMBELIAN_);
+    const data = shPb.getRange(2, 1, shPb.getLastRow() - 1, cols).getValues();
+    data.forEach(function(row) {
+      if (readRowKodeProyek_(row, PROYEK_COL_PEMBELIAN_) !== target) return;
+      if (!proyekDateInRange_(row[0], startDate, endDate)) return;
+      pembelian.push({
+        tanggal: proyekFormatTxDate_(row[0]),
+        poNo: String(row[1] || "").trim(),
+        supplier: String(row[2] || "").trim(),
+        barang: String(row[3] || "").trim(),
+        qty: Number(row[4]) || 0,
+        satuan: String(row[5] || "").trim(),
+        total: Number(row[7]) || 0,
+        akun: String(row[9] || "").trim()
+      });
+    });
+  }
+
+  pemasukan.sort(function(a, b) {
+    if (b.tanggal !== a.tanggal) return b.tanggal.localeCompare(a.tanggal);
+    return a.invoiceNo.localeCompare(b.invoiceNo, "id");
+  });
+  pembelian.sort(function(a, b) {
+    if (b.tanggal !== a.tanggal) return b.tanggal.localeCompare(a.tanggal);
+    return a.poNo.localeCompare(b.poNo, "id");
+  });
+
+  let pendapatan = 0;
+  let beban = 0;
+  pemasukan.forEach(function(r) { pendapatan += r.total; });
+  pembelian.forEach(function(r) { beban += r.total; });
+  const margin = pendapatan - beban;
+
+  let proyekMeta = null;
+  readMasterProyek_(ss, { activeOnly: false }).forEach(function(p) {
+    if (p.kode === target) proyekMeta = p;
+  });
+
+  return {
+    kode: target,
+    proyek: proyekMeta || { kode: target, nama: target, customer: "", tanggalEvent: "", status: "" },
+    periode: { start: startDate || "", end: endDate || "" },
+    pemasukan: pemasukan,
+    pembelian: pembelian,
+    totals: {
+      pendapatan: pendapatan,
+      beban: beban,
+      margin: margin,
+      marginPct: pendapatan > 0 ? Math.round((margin / pendapatan) * 1000) / 10 : 0
+    }
+  };
+}
+
+function getLaporanLrProyekDetail(payload) {
+  authGuard_();
+  assertAddonProject_();
+  payload = payload || {};
+  const kode = normalizeKodeProyek_(payload.kode);
+  if (!kode) throw new Error("Kode proyek wajib diisi.");
+  const ss = getDatabaseSpreadsheet_();
+  return buildProyekLrDetail_(ss, kode, payload.startDate || "", payload.endDate || "");
+}
+
 function getDashboardProyekSummary_(ss, bulan, tahun) {
   if (!isAddonProjectEnabled_()) return null;
 

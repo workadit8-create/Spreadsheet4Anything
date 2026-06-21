@@ -13,7 +13,7 @@ const ROLE_MENUS_ = {
   akuntan: ["dashboard", "mutasi", "piutang", "hutang", "jurnal", "posting", "master", "laporan", "proyek"]
 };
 
-/** Add-on Manajemen Proyek — hanya dev untuk uji. */
+/** Add-on Manajemen Proyek — sandbox dev. */
 const ENABLE_ADDON_PROJECT = true;
 
 /** Role yang boleh mengubah tiap entitas master (save / nonaktifkan). */

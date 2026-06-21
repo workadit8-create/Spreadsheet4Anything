@@ -5814,6 +5814,7 @@ function loadProyekPage() {
     <div style="display:flex; gap:10px; margin-bottom:20px;">
       <button id="proyekTabDaftar" class="btn-primary" onclick="switchProyekTab('daftar')" style="flex:1;">📋 Daftar Event</button>
       <button id="proyekTabLr" class="btn-secondary" onclick="switchProyekTab('lr')" style="flex:1;">📈 L/R Proyek</button>
+      <button id="proyekTabPanduan" class="btn-secondary" onclick="switchProyekTab('panduan')" style="flex:1;">📖 Panduan</button>
     </div>
     <div id="proyekPanelDaftar">
       <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; align-items:flex-end;">
@@ -5853,6 +5854,9 @@ function loadProyekPage() {
         <p style="text-align:center; padding:40px; color:#6b7280;">⏳ Memuat...</p>
       </div>
     </div>
+    <div id="proyekPanelPanduan" style="display:none;">
+      <div class="card" id="proyekPanduanContent"></div>
+    </div>
   `;
 
   switchProyekTab(tab);
@@ -5871,7 +5875,8 @@ function loadProyekPage() {
         });
       });
       if (proyekState.tab === "daftar") reloadProyekTable();
-      else reloadProyekLr();
+      else if (proyekState.tab === "lr") reloadProyekLr();
+      else if (proyekState.tab === "panduan") renderProyekPanduan_();
     })
     .withFailureHandler(function(err) {
       const msg = '<div class="dash-alert error">' + escHtml(String(err && err.message ? err.message : err)) + '</div>';
@@ -5902,16 +5907,72 @@ function loadProyekPage() {
 function switchProyekTab(tab) {
   proyekState.tab = tab;
   const isDaftar = tab === "daftar";
+  const isLr = tab === "lr";
+  const isPanduan = tab === "panduan";
   const panelDaftar = document.getElementById("proyekPanelDaftar");
   const panelLr = document.getElementById("proyekPanelLr");
+  const panelPanduan = document.getElementById("proyekPanelPanduan");
   const tabDaftar = document.getElementById("proyekTabDaftar");
   const tabLr = document.getElementById("proyekTabLr");
+  const tabPanduan = document.getElementById("proyekTabPanduan");
   if (panelDaftar) panelDaftar.style.display = isDaftar ? "block" : "none";
-  if (panelLr) panelLr.style.display = isDaftar ? "none" : "block";
+  if (panelLr) panelLr.style.display = isLr ? "block" : "none";
+  if (panelPanduan) panelPanduan.style.display = isPanduan ? "block" : "none";
   if (tabDaftar) tabDaftar.className = isDaftar ? "btn-primary" : "btn-secondary";
-  if (tabLr) tabLr.className = isDaftar ? "btn-secondary" : "btn-primary";
+  if (tabLr) tabLr.className = isLr ? "btn-primary" : "btn-secondary";
+  if (tabPanduan) tabPanduan.className = isPanduan ? "btn-primary" : "btn-secondary";
   if (isDaftar && document.getElementById("proyekTableContainer")) reloadProyekTable();
-  else if (!isDaftar && document.getElementById("proyekLrContainer")) reloadProyekLr();
+  else if (isLr && document.getElementById("proyekLrContainer")) reloadProyekLr();
+  else if (isPanduan) renderProyekPanduan_();
+}
+
+function renderProyekPanduan_() {
+  const box = document.getElementById("proyekPanduanContent");
+  if (!box) return;
+  box.innerHTML = `
+    <h3 style="margin-top:0;">Panduan Proyek Event — Tirta Catering</h3>
+    <p style="color:#6b7280; font-size:14px; line-height:1.6;">Add-on ini membantu melacak <strong>1 event = 1 proyek</strong>. Tagging proyek <strong>opsional</strong> — pesanan recehan tidak perlu proyek.</p>
+
+    <h4 style="margin:24px 0 8px;">Kapan buat proyek?</h4>
+    <table class="history-table" style="margin-bottom:20px;">
+      <tr><th style="width:40%">Buat proyek ✅</th><th>Tidak perlu proyek ❌</th></tr>
+      <tr><td>Wedding, corporate, aqiqah, gathering</td><td>Walk-in / pesanan harian kecil</td></tr>
+      <tr><td>Butuh lacak untung per event</td><td>1 invoice recehan tanpa event khusus</td></tr>
+      <tr><td>Ada PR/PO bahan khusus event</td><td>Belanja rutin dapur (tanpa event)</td></tr>
+    </table>
+
+    <h4 style="margin:0 0 8px;">Alur operasional (disarankan)</h4>
+    <ol style="line-height:1.9; font-size:14px; padding-left:20px; margin-bottom:20px;">
+      <li><strong>Proyek Event</strong> → buat event (customer, tanggal, lokasi, pax, PIC)</li>
+      <li><strong>Quotation</strong> → pilih proyek (opsional) → kirim ke customer</li>
+      <li><strong>Pemasukan / Invoice</strong> → muat dari Quotation atau manual → pilih proyek yang sama</li>
+      <li><strong>Purchase Request</strong> → pilih proyek untuk bahan event</li>
+      <li><strong>Pembelian / PO</strong> → muat PR atau manual → pastikan proyek ikut terisi</li>
+      <li><strong>L/R Proyek</strong> → cek margin + klik <strong>Detail</strong> untuk rincian transaksi</li>
+      <li>Setelah event selesai → status proyek <strong>SELESAI</strong></li>
+    </ol>
+
+    <h4 style="margin:0 0 8px;">Status proyek</h4>
+    <ul style="font-size:14px; line-height:1.8; margin-bottom:20px;">
+      <li><strong>DRAFT</strong> — masih negosiasi / belum fix</li>
+      <li><strong>CONFIRMED</strong> — deal, jadwal &amp; menu fix</li>
+      <li><strong>BERJALAN</strong> — persiapan / H-day mendekat</li>
+      <li><strong>SELESAI</strong> — event sudah selesai</li>
+      <li><strong>BATAL</strong> — event batal</li>
+    </ul>
+
+    <h4 style="margin:0 0 8px;">Cara baca L/R Proyek</h4>
+    <ul style="font-size:14px; line-height:1.8; margin-bottom:20px;">
+      <li><strong>Pendapatan</strong> = total Invoice (Pemasukan) yang ditag ke proyek</li>
+      <li><strong>Beban</strong> = total PO (Pembelian) yang ditag ke proyek</li>
+      <li><strong>Margin</strong> = Pendapatan − Beban (perkiraan untung event)</li>
+      <li>Filter periode = tanggal <em>transaksi</em>, bukan tanggal event</li>
+    </ul>
+
+    <div style="background:#eff6ff; border-left:4px solid #2563eb; padding:12px 16px; border-radius:8px; font-size:13px; color:#1e40af;">
+      <strong>Tips pilot:</strong> Mulai dari 1–2 event nyata minggu ini. Pastikan Invoice dan PO pakai proyek yang sama, lalu cek L/R + Detail. Kalau recehan, biarkan dropdown proyek kosong.
+    </div>
+  `;
 }
 
 function reloadProyekLr() {
