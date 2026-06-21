@@ -355,7 +355,7 @@
 
         content.innerHTML = `<div class="cards">${entries.map(([slug, c]) => renderCard(slug, c)).join("")}</div>`;
       } catch (err) {
-        content.innerHTML = `<div class="error">Gagal memuat client-registry.json: ${escapeHtml(err.message)}<br><br>Jalankan sync lalu buka via local server (<code>ops/serve.sh</code>) atau deploy GitHub Pages.</div>`;
+        content.innerHTML = `<div class="error">Gagal memuat client-registry.json: ${escapeHtml(err.message)}<br><br>Jalankan sync lalu buka via local server (<code>docs/serve.sh</code>) atau deploy GitHub Pages.</div>`;
       }
     }
 

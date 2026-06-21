@@ -20,3 +20,8 @@ Buka semua di Finder:
 ```bash
 open docs/
 ```
+
+## Ops Console (dashboard link akun)
+
+Homepage GitHub Pages = `docs/index.html`. Panduan lengkap: [OPS-CONSOLE.md](./OPS-CONSOLE.md)
+

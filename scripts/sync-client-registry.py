@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Gabung drive-layout.json + client.env → ops/client-registry.json (tanpa secrets)."""
+"""Gabung drive-layout.json + client.env → docs/client-registry.json (tanpa secrets)."""
 from __future__ import annotations
 
 import json
@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DRIVE_LAYOUT = ROOT / "provision" / "drive-layout.json"
-OUT = ROOT / "ops" / "client-registry.json"
+OUT = ROOT / "docs" / "client-registry.json"
 
 TIER = {
     "dev": "sandbox",

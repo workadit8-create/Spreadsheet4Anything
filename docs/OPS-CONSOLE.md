@@ -10,27 +10,29 @@ Setelah ubah `client.env` atau provision client baru:
 ./scripts/sync-client-registry.sh
 ```
 
-Output: `ops/client-registry.json` (tanpa API key — aman di-commit untuk GitHub Pages).
+Output: `docs/client-registry.json` (tanpa API key — aman di-commit untuk GitHub Pages).
 
 ## Preview lokal
 
 ```bash
-./ops/serve.sh
+./docs/serve.sh
 ```
 
 Buka http://localhost:8765
 
 ## GitHub Pages (akses dari mana saja, gratis)
 
+GitHub Pages **hanya** mendukung folder **`/docs`** atau **`/` (root)** — bukan `/ops`.
+
 1. Push repo ke GitHub
-2. Jalankan sync + commit `ops/client-registry.json` dan `ops/index.html`
+2. Jalankan sync + commit `docs/client-registry.json` dan `docs/index.html`
 3. Repo **Settings → Pages → Build and deployment**
    - Source: **Deploy from a branch**
-   - Branch: `main` (atau branch kamu)
-   - Folder: **`/ops`**
-4. URL: `https://<user>.github.io/Spreadsheet4Anything/` (atau custom path sesuai repo)
+   - Branch: **main**
+   - Folder: **`/docs`**
+4. Save — URL: `https://workadit8-create.github.io/Spreadsheet4Anything/`
 
-Setelah deploy client baru: sync registry → commit → push (Pages update ~1 menit).
+Setelah client baru: sync registry → commit → push (~1 menit update).
 
 ## Link per akun
 
