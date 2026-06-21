@@ -378,7 +378,7 @@ function findMasterRowById_(sh, id, colCount) {
 function listMasterCustomers(includeInactive) {
   authGuard_();
   try {
-    const ss = SpreadsheetApp.openById(DATABASE_ID);
+    const ss = getDatabaseSpreadsheet_();
     return readMasterCustomers_(ss, !includeInactive);
   } catch (e) {
     throw new Error("Gagal memuat customer: " + (e.message || e));
@@ -388,7 +388,7 @@ function listMasterCustomers(includeInactive) {
 function listMasterProduk(includeInactive) {
   authGuard_();
   try {
-    const ss = SpreadsheetApp.openById(DATABASE_ID);
+    const ss = getDatabaseSpreadsheet_();
     return readMasterProduk_(ss, !includeInactive);
   } catch (e) {
     throw new Error("Gagal memuat produk: " + (e.message || e));
@@ -398,7 +398,7 @@ function listMasterProduk(includeInactive) {
 function listMasterKasBank(includeInactive) {
   authGuard_();
   try {
-    const ss = SpreadsheetApp.openById(DATABASE_ID);
+    const ss = getDatabaseSpreadsheet_();
     return readMasterKasBank_(ss, !includeInactive);
   } catch (e) {
     throw new Error("Gagal memuat kas/bank: " + (e.message || e));
@@ -408,7 +408,7 @@ function listMasterKasBank(includeInactive) {
 function listMasterSuppliers(includeInactive) {
   authGuard_();
   try {
-    const ss = SpreadsheetApp.openById(DATABASE_ID);
+    const ss = getDatabaseSpreadsheet_();
     return readMasterSuppliers_(ss, !includeInactive);
   } catch (e) {
     throw new Error("Gagal memuat supplier: " + (e.message || e));
@@ -418,7 +418,7 @@ function listMasterSuppliers(includeInactive) {
 function listMasterKategoriPembelian(includeInactive) {
   authGuard_();
   try {
-    const ss = SpreadsheetApp.openById(DATABASE_ID);
+    const ss = getDatabaseSpreadsheet_();
     return readMasterKategoriPembelian_(ss, !includeInactive);
   } catch (e) {
     throw new Error("Gagal memuat kategori pembelian: " + (e.message || e));
@@ -430,7 +430,7 @@ function saveMasterCustomer(payload) {
   const nama = String(payload.nama || "").trim();
   if (!nama) throw new Error("Nama customer wajib diisi.");
 
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   ensureMasterDataReady_(ss);
   const sh = ensureMasterCustomerSheet_(ss);
   const aktif = payload.aktif === false ? "TIDAK" : "YA";
@@ -460,7 +460,7 @@ function saveMasterProduk(payload) {
   const harga = Number(payload.harga);
   if (isNaN(harga) || harga < 0) throw new Error("Harga tidak valid.");
 
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   ensureMasterDataReady_(ss);
   const sh = ensureMasterProdukSheet_(ss);
   const aktif = payload.aktif === false ? "TIDAK" : "YA";
@@ -489,7 +489,7 @@ function saveMasterKasBank(payload) {
   const nama = String(payload.nama || "").trim();
   if (!nama) throw new Error("Nama rekening wajib diisi.");
 
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   ensureMasterDataReady_(ss);
   const sh = ensureMasterKasBankSheet_(ss);
   const aktif = payload.aktif === false ? "TIDAK" : "YA";
@@ -517,7 +517,7 @@ function saveMasterSupplier(payload) {
   const nama = String(payload.nama || "").trim();
   if (!nama) throw new Error("Nama supplier wajib diisi.");
 
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   ensureMasterDataReady_(ss);
   const sh = ensureMasterSupplierSheet_(ss);
   const aktif = payload.aktif === false ? "TIDAK" : "YA";
@@ -547,7 +547,7 @@ function saveMasterKategoriPembelian(payload) {
   if (!kategori) throw new Error("Kategori wajib diisi.");
   if (!subKategori) throw new Error("Sub-kategori wajib diisi.");
 
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   ensureMasterDataReady_(ss);
   const sh = ensureMasterKategoriPembelianSheet_(ss);
   const id = String(payload.id || "").trim();
@@ -575,7 +575,7 @@ function saveMasterKategoriPembelian(payload) {
 
 function setMasterCustomerStatus(id, aktif) {
   assertMasterEntityRole_("customer");
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ensureMasterCustomerSheet_(ss);
   const rowNum = findMasterRowById_(sh, id, 6);
   if (!rowNum) throw new Error("Customer tidak ditemukan.");
@@ -585,7 +585,7 @@ function setMasterCustomerStatus(id, aktif) {
 
 function setMasterProdukStatus(id, aktif) {
   assertMasterEntityRole_("produk");
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ensureMasterProdukSheet_(ss);
   const rowNum = findMasterRowById_(sh, id, 7);
   if (!rowNum) throw new Error("Produk tidak ditemukan.");
@@ -595,7 +595,7 @@ function setMasterProdukStatus(id, aktif) {
 
 function setMasterKasBankStatus(id, aktif) {
   assertMasterEntityRole_("kasBank");
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ensureMasterKasBankSheet_(ss);
   const rowNum = findMasterRowById_(sh, id, 5);
   if (!rowNum) throw new Error("Rekening tidak ditemukan.");
@@ -605,7 +605,7 @@ function setMasterKasBankStatus(id, aktif) {
 
 function setMasterSupplierStatus(id, aktif) {
   assertMasterEntityRole_("supplier");
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ensureMasterSupplierSheet_(ss);
   const rowNum = findMasterRowById_(sh, id, 6);
   if (!rowNum) throw new Error("Supplier tidak ditemukan.");
@@ -615,7 +615,7 @@ function setMasterSupplierStatus(id, aktif) {
 
 function setMasterKategoriPembelianStatus(id, aktif) {
   assertMasterEntityRole_("kategoriPembelian");
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ensureMasterKategoriPembelianSheet_(ss);
   const rowNum = findMasterRowById_(sh, id, 5);
   if (!rowNum) throw new Error("Kategori pembelian tidak ditemukan.");
@@ -902,13 +902,13 @@ function syncBackendLaporanViaApi_() {
 
 function getCustomers() {
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   return readMasterCustomers_(ss, true).map(function(c) { return c.nama; });
 }
 
 function getProducts() {
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   return readMasterProduk_(ss, true).map(function(p) {
     return { kode: p.kode, nama: p.nama, harga: p.harga, akun: p.akun };
   });
@@ -916,7 +916,7 @@ function getProducts() {
 
 function getListKasBank() {
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   return readMasterKasBank_(ss, true).map(function(k) {
     return { kode: k.kode, nama: k.nama };
   });

@@ -5,7 +5,7 @@
 
 function getSaldoKasBank() {
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("MUTASI_DANA");
   const data = sh && sh.getLastRow() >= 2 ? sh.getDataRange().getValues() : [];
   const daftarAkun = getListKasBank();
@@ -61,7 +61,7 @@ function saveMutasiDana(p) {
 
 function getHistoryMutasi() {
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName('MUTASI_DANA');
   const data = sh.getDataRange().getValues();
   const history = [];
@@ -86,7 +86,7 @@ function pancingIzinDrive() {
 }
 
 function updatePemasukanLedger(invoiceNo, nominalBayar, tanggalBayar) {
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("PEMASUKAN");
   const data = sh.getDataRange().getValues();
 
@@ -139,7 +139,7 @@ function updatePemasukanLedger(invoiceNo, nominalBayar, tanggalBayar) {
 }
 
 function debugCariInvoice(invoiceToFind) {
-  const ss = SpreadsheetApp.openById(DATABASE_ID); // Pastikan ID ini sudah benar
+  const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("PEMASUKAN");
   const data = sh.getDataRange().getValues();
   
@@ -162,7 +162,7 @@ function debugCariInvoice(invoiceToFind) {
 // Fungsi untuk mengambil list Kategori dan Sub-Kategori dari Master
 function getMasterDataPembelian() {
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   return buildMasterPembelianMap_(ss);
 }
 
@@ -294,7 +294,7 @@ function uploadToDrive(base64Data, fileName, mimeType) {
 // Mengambil list PO
 function getPurchaseOrderHistory(start, end) {
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("PEMBELIAN");
   if (!sh) throw new Error("Sheet PEMBELIAN tidak ditemukan!");
 
@@ -351,7 +351,7 @@ function getPurchaseOrderHistory(start, end) {
 function getPurchaseOrderDetailsExport(startDate, endDate) {
   authGuard_();
   try {
-    const ss = SpreadsheetApp.openById(DATABASE_ID);
+    const ss = getDatabaseSpreadsheet_();
     const sh = ss.getSheetByName("PEMBELIAN");
     if (!sh) throw new Error("Sheet PEMBELIAN tidak ditemukan!");
 
@@ -396,7 +396,7 @@ function getPurchaseOrderDetailsExport(startDate, endDate) {
 
 function getPurchaseOrderDetail(poNum) {
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("PEMBELIAN");
   if (!sh) throw new Error("Sheet PEMBELIAN tidak ditemukan!");
 
@@ -456,7 +456,7 @@ function getPurchaseOrderDetail(poNum) {
 // Mengambil data untuk Edit (Mirip logic invoice)
 function getPurchaseOrderForEdit(poNum) {
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("PEMBELIAN");
   const data = sh.getDataRange().getValues();
   data.shift();

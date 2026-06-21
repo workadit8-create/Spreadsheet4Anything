@@ -5,7 +5,7 @@
 
 function getSuppliers() {
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   ensureMasterDataReady_(ss);
   const seen = {};
   readMasterSuppliers_(ss, true).forEach(function(s) {
@@ -38,7 +38,7 @@ function getSisaHutangPO_(ss, poNo) {
 
 function getDaftarHutang(startDate, endDate, selectedSupplier) {
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("PEMBELIAN");
   if (!sh) throw new Error("Sheet PEMBELIAN tidak ditemukan!");
 
@@ -90,7 +90,7 @@ function getDaftarHutang(startDate, endDate, selectedSupplier) {
 }
 
 function updatePembelianLedger(poNo, nominalBayar, tanggalBayar) {
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("PEMBELIAN");
   const data = sh.getDataRange().getValues();
 

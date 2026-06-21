@@ -158,7 +158,7 @@ function saveManualJournal(payload) {
 
 function getManualJournalHistory(startDate, endDate) {
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("JURNAL_MANUAL");
   if (!sh || sh.getLastRow() < 2) return [];
 
@@ -213,7 +213,7 @@ function getManualJournalHistory(startDate, endDate) {
 
 function getManualJournalDetail(transactionId) {
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("JURNAL_MANUAL");
   if (!sh) throw new Error("Sheet JURNAL_MANUAL tidak ditemukan!");
 

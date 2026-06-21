@@ -387,7 +387,7 @@ function getCompanyLogoBase64() {
 function getInvoiceHistory(startDate, endDate, selectedCustomer) {
   authGuard_();
   try {
-    const ss = SpreadsheetApp.openById(DATABASE_ID);
+    const ss = getDatabaseSpreadsheet_();
     const sh = ss.getSheetByName("PEMASUKAN");
     if (!sh) throw new Error("Sheet PEMASUKAN tidak ditemukan!");
     
@@ -445,7 +445,7 @@ function getInvoiceHistory(startDate, endDate, selectedCustomer) {
 
 function getInvoiceDetail(invoiceNo){
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("PEMASUKAN");
   const data = sh.getDataRange().getValues();
   const items = [];
@@ -477,7 +477,7 @@ function getInvoiceDetail(invoiceNo){
 
 function getInvoiceForEdit(invoiceNo) {
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ss.getSheetByName("PEMASUKAN");
   const data = sh.getDataRange().getValues();
   
@@ -549,7 +549,7 @@ function updateInvoice(invoiceNo, invoiceData) {
 function getInvoiceDetailsExport(startDate, endDate, selectedCustomer) {
   authGuard_();
   try {
-    const ss = SpreadsheetApp.openById(DATABASE_ID);
+    const ss = getDatabaseSpreadsheet_();
     const sh = ss.getSheetByName("PEMASUKAN");
     const data = sh.getDataRange().getValues();
     const startObj = startDate ? new Date(startDate).setHours(0,0,0,0) : null;
@@ -592,7 +592,7 @@ function getInvoiceDetailsExport(startDate, endDate, selectedCustomer) {
 
 function getDaftarPiutang(startDate, endDate, selectedCustomer) {
   authGuard_();
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const shPemasukan = ss.getSheetByName("PEMASUKAN");
   const data = shPemasukan.getDataRange().getValues();
 

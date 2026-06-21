@@ -127,7 +127,7 @@ function qaInspectUsersSheet_(ss) {
 
 function qaRunUsersModule_() {
   const results = [];
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   ensureUsersSheet_(ss);
   const testEmail = qaTestEmail_();
   let testUserId = "";
@@ -347,7 +347,7 @@ function runQaSmokeTestUsers() {
 /** Bersihkan sisa data QA lama di sheet USERS */
 function qaCleanupLeftoverTestUsers() {
   assertRole_(["owner"]);
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const sh = ensureUsersSheet_(ss);
   const rows = usersReadAll_(sh);
   let removed = 0;

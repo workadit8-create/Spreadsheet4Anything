@@ -67,7 +67,7 @@ function getUnpostedTransactions(modul, startDate, endDate) {
   if (!POSTING_MODUL_META_[key]) {
     throw new Error("Modul posting tidak valid.");
   }
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   if (key === "PEMASUKAN") return postListPemasukan_(ss, startDate, endDate);
   if (key === "PEMBELIAN") return postListPembelian_(ss, startDate, endDate);
   if (key === "PELUNASAN_PIUTANG") return postListPelunasanPiutang_(ss, startDate, endDate);
@@ -499,7 +499,7 @@ function postSelectedTransactions(itemIds) {
     throw new Error("Sistem sedang memproses posting lain. Coba beberapa detik lagi.");
   }
 
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const result = { posted: 0, lines: 0, failed: [], successRefs: [] };
 
   try {

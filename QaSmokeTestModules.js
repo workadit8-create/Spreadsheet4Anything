@@ -79,7 +79,7 @@ function qaRunDashboardModule_() {
 
 function qaRunMasterDataModule_() {
   const results = [];
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   const testName = QA_MASTER_PREFIX_ + "CUST_" + Date.now();
   let custId = "";
 
@@ -202,7 +202,7 @@ function qaRunPostingModule_() {
 
 function qaRunJurnalModule_() {
   const results = [];
-  const ss = SpreadsheetApp.openById(DATABASE_ID);
+  const ss = getDatabaseSpreadsheet_();
   let transId = "";
   const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
 
