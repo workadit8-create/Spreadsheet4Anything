@@ -1,0 +1,59 @@
+{
+  "meta": {
+    "title": "Akuntansi Ops Console",
+    "syncedAt": "2026-06-21T01:14:31+00:00",
+    "gitHead": "88c0bea",
+    "rootFolderName": "Akuntansi App",
+    "rootFolder": "https://drive.google.com/drive/folders/1_4SslNXoWm3k3zPJfW8rICPxKZU2yPgK"
+  },
+  "clients": {
+    "dev": {
+      "slug": "dev",
+      "label": "Sandbox Dev",
+      "tier": "sandbox",
+      "links": {
+        "webapp": "https://script.google.com/macros/s/AKfycbykBrNQaoMfG6QjFTUhSBEry_MhvI0x2ZCydz2dEOU52ik7sBAMVhzahoApss2ZIGnH/exec",
+        "database": "https://docs.google.com/spreadsheets/d/1w3UNhPBi-GjEBJbIzABJu9RE0fFE65HHv0l9p7QOoi8/edit",
+        "backend": "https://script.google.com/macros/s/AKfycbwfEFsG8sNW15bHqCHuqPWnkPv4kvH5mx6kvXTJVWQ2OvKlBVx8ya4dFLjoDnbyHlE-IA/exec"
+      },
+      "extras": {
+        "backendEngine": "https://docs.google.com/spreadsheets/d/11JH-9HQuOPu-8mIPKKCZWqixiXDdu3DxQ0LzbknG7uM/edit",
+        "clientFolder": "https://drive.google.com/drive/folders/1OSyT3CMoEHKNKjONjaudlQiTEoQJfitS",
+        "uploadsFolder": "https://drive.google.com/drive/folders/19g9M1HhQfDECwcjZV_COpZVfsYyz1NA8"
+      },
+      "ready": true
+    },
+    "demo": {
+      "slug": "demo",
+      "label": "Akun Demo",
+      "tier": "demo",
+      "links": {
+        "webapp": "https://script.google.com/macros/s/AKfycbw7d4w1SRllJ51Qti3vRAR_fbphE0zRKPCj2qUSPCHBVaM7bzaqgzgklALhzEl5KLAv/exec",
+        "database": "https://docs.google.com/spreadsheets/d/1pPX9l5ag6ASB-W-eRgEcxrW2dRitgaA-EBPzrOl7HqM/edit",
+        "backend": "https://script.google.com/macros/s/AKfycbwkQbm4968DQa42rTmDp_gf92Qymp-Fvo37NOdMEPSGrfjTr6HOW9PPEeVfCIMPG7ohaQ/exec"
+      },
+      "extras": {
+        "backendEngine": "https://docs.google.com/spreadsheets/d/1ERRUrN-u-60A2QrnQ4MimIxY0S96F8JE_veKPuHccAg/edit",
+        "clientFolder": "https://drive.google.com/drive/folders/1_HfiKMNs4CoIvVRifhn9ZBYzZP0bLN0A",
+        "uploadsFolder": "https://drive.google.com/drive/folders/1d8mtCu-af3lto_MialhLyHdXmqGXf4oF"
+      },
+      "ready": true
+    },
+    "client1": {
+      "slug": "client1",
+      "label": "Client 1",
+      "tier": "production",
+      "links": {
+        "webapp": "https://script.google.com/macros/s/AKfycbzgw08PULf6FhWjiA4FlIqrRhuikcpwNnvIt02sD9I8rLzL0WprwATGTsWsdk_-TsQt/exec",
+        "database": "https://docs.google.com/spreadsheets/d/1pX_pzST75hGieG3u4xlQOlAKJyp1gvhd-nBB1YdulRc/edit",
+        "backend": "https://script.google.com/macros/s/AKfycbwqNLUa0U6m-p9lzPwE9nYVhMbbp7qjE5IOG4mlKA8roxMXVMMNVduWBSI2iVuSKMCiaw/exec"
+      },
+      "extras": {
+        "backendEngine": "https://docs.google.com/spreadsheets/d/171xtAp4xRNhXwLHQorHoLWi9DpxfE6lm8oG1FQwfG0k/edit",
+        "clientFolder": "https://drive.google.com/drive/folders/15GpcwdyYy5gLklTGL-uF2lfSbSsc3sF9",
+        "uploadsFolder": "https://drive.google.com/drive/folders/1Zii9z6RMW6lTJ-v2FPem3Z4J8Fifr678"
+      },
+      "ready": true
+    }
+  }
+}
