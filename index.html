@@ -309,9 +309,7 @@ function validatePembelianForm() {
   return true;
 }
 
-let pembelianSdMode = "fifo";
 let pembelianSdPreview = { alokasi: [], rekening: "", error: "" };
-let hutangSdMode = "fifo";
 let hutangSdPreview = { alokasi: [], rekening: "", error: "" };
 let sdAktifListCache = [];
 
@@ -329,28 +327,73 @@ function hutangSdAlokasiReady_() {
   return hutangSdPreview.alokasi && hutangSdPreview.alokasi.length > 0 && hutangSdPreview.rekening;
 }
 
-function setPembelianSdMode(mode) {
-  pembelianSdMode = mode === "manual" ? "manual" : "fifo";
-  const fifoEl = document.getElementById("sdModeFifoPembelian");
-  const manualEl = document.getElementById("sdModeManualPembelian");
-  if (fifoEl) fifoEl.checked = pembelianSdMode === "fifo";
-  if (manualEl) manualEl.checked = pembelianSdMode === "manual";
-  const manualBox = document.getElementById("sdManualBoxPembelian");
-  if (manualBox) manualBox.style.display = pembelianSdMode === "manual" ? "block" : "none";
-  if (pembelianSdMode === "manual") initManualSdRows_("Pembelian");
-  else refreshPembelianSdPreview();
+function getSdPetugasSelectId_(prefix) {
+  return prefix === "Pembelian" ? "sdPetugasPembelian" : "sdPetugasHutang";
 }
 
-function setHutangSdMode(mode) {
-  hutangSdMode = mode === "manual" ? "manual" : "fifo";
-  const fifoEl = document.getElementById("sdModeFifoHutang");
-  const manualEl = document.getElementById("sdModeManualHutang");
-  if (fifoEl) fifoEl.checked = hutangSdMode === "fifo";
-  if (manualEl) manualEl.checked = hutangSdMode === "manual";
-  const manualBox = document.getElementById("sdManualBoxHutang");
-  if (manualBox) manualBox.style.display = hutangSdMode === "manual" ? "block" : "none";
-  if (hutangSdMode === "manual") initManualSdRows_("Hutang");
+function getSelectedSdPetugas_(prefix) {
+  const el = document.getElementById(getSdPetugasSelectId_(prefix));
+  return el ? String(el.value || "").trim() : "";
+}
+
+function getUniquePetugasFromSdCache_() {
+  const seen = {};
+  const list = [];
+  sdAktifListCache.forEach(function(sd) {
+    const p = String(sd.petugas || "").trim();
+    if (!p || seen[p]) return;
+    seen[p] = true;
+    list.push(p);
+  });
+  return list.sort();
+}
+
+function buildSdOptionsForPetugas_(petugas) {
+  if (!petugas) return '<option value="">-- Pilih petugas dulu --</option>';
+  const list = sdAktifListCache.filter(function(sd) {
+    return String(sd.petugas || "").trim() === petugas;
+  });
+  if (!list.length) return '<option value="">-- Tidak ada SD aktif --</option>';
+  let opts = '<option value="">-- Pilih SD --</option>';
+  list.forEach(function(sd) {
+    const shortLabel = sd.sdId + " · " + formatRupiah(sd.sisa) + " · " + (sd.untukPembelian || "-");
+    opts += '<option value="' + escAttr(sd.sdId) + '">' + escHtml(shortLabel) + '</option>';
+  });
+  return opts;
+}
+
+function populateSdPetugasDropdown_(prefix) {
+  const sel = document.getElementById(getSdPetugasSelectId_(prefix));
+  if (!sel) return;
+  const current = sel.value;
+  let html = '<option value="">-- Pilih Petugas --</option>';
+  getUniquePetugasFromSdCache_().forEach(function(p) {
+    html += '<option value="' + escAttr(p) + '">' + escHtml(p) + '</option>';
+  });
+  sel.innerHTML = html;
+  if (current && Array.from(sel.options).some(function(o) { return o.value === current; })) {
+    sel.value = current;
+  }
+}
+
+function onSdPetugasChange_(prefix) {
+  const box = document.getElementById("sdManualRows" + prefix);
+  if (box) box.innerHTML = "";
+  const petugas = getSelectedSdPetugas_(prefix);
+  if (petugas) addManualSdRow_(prefix);
+  if (prefix === "Pembelian") refreshPembelianSdPreview();
   else refreshHutangSdPreview();
+}
+
+function refreshSdSelectsInRows_(prefix) {
+  const opts = buildSdOptionsForPetugas_(getSelectedSdPetugas_(prefix));
+  document.querySelectorAll("#sdManualRows" + prefix + " .sdManualSelect").forEach(function(sel) {
+    const cur = sel.value;
+    sel.innerHTML = opts;
+    if (cur && Array.from(sel.options).some(function(o) { return o.value === cur; })) {
+      sel.value = cur;
+    }
+  });
 }
 
 function renderSdPreviewHtml_(preview, rekeningInputId) {
@@ -384,23 +427,15 @@ function refreshPembelianSdPreview() {
     if (rekEl) rekEl.value = "";
     return;
   }
-  if (pembelianSdMode === "manual") {
-    applyManualSdPreview_("Pembelian", bayar, "rekPembelian", function(p) { pembelianSdPreview = p; box.innerHTML = renderSdPreviewHtml_(p, "rekPembelian"); });
+  if (!getSelectedSdPetugas_("Pembelian")) {
+    pembelianSdPreview = { alokasi: [], rekening: "", error: "Pilih petugas terlebih dahulu.", total: 0 };
+    box.innerHTML = renderSdPreviewHtml_(pembelianSdPreview, "rekPembelian");
     return;
   }
-  box.innerHTML = '<div style="color:#64748b; font-size:13px;">Menghitung alokasi FIFO...</div>';
-  google.script.run
-    .withSuccessHandler(function(res) {
-      res = res || {};
-      if (res.error) pembelianSdPreview = { alokasi: [], rekening: "", error: res.error, total: 0 };
-      else pembelianSdPreview = { alokasi: res.alokasi || [], rekening: res.rekening || "", error: "", total: res.total || bayar };
-      box.innerHTML = renderSdPreviewHtml_(pembelianSdPreview, "rekPembelian");
-    })
-    .withFailureHandler(function(err) {
-      pembelianSdPreview = { alokasi: [], rekening: "", error: err.message || String(err), total: 0 };
-      box.innerHTML = renderSdPreviewHtml_(pembelianSdPreview, "rekPembelian");
-    })
-    .previewSdAllocationFifo(bayar, "");
+  applyManualSdPreview_("Pembelian", bayar, "rekPembelian", function(p) {
+    pembelianSdPreview = p;
+    box.innerHTML = renderSdPreviewHtml_(p, "rekPembelian");
+  });
 }
 
 function refreshHutangSdPreview() {
@@ -412,23 +447,15 @@ function refreshHutangSdPreview() {
     box.innerHTML = '<div style="color:#64748b; font-size:13px;">Nominal harus > 0.</div>';
     return;
   }
-  if (hutangSdMode === "manual") {
-    applyManualSdPreview_("Hutang", nominal, "payHutangRekening", function(p) { hutangSdPreview = p; box.innerHTML = renderSdPreviewHtml_(p, "payHutangRekening"); });
+  if (!getSelectedSdPetugas_("Hutang")) {
+    hutangSdPreview = { alokasi: [], rekening: "", error: "Pilih petugas terlebih dahulu.", total: 0 };
+    box.innerHTML = renderSdPreviewHtml_(hutangSdPreview, "payHutangRekening");
     return;
   }
-  box.innerHTML = '<div style="color:#64748b; font-size:13px;">Menghitung alokasi FIFO...</div>';
-  google.script.run
-    .withSuccessHandler(function(res) {
-      res = res || {};
-      if (res.error) hutangSdPreview = { alokasi: [], rekening: "", error: res.error, total: 0 };
-      else hutangSdPreview = { alokasi: res.alokasi || [], rekening: res.rekening || "", error: "", total: res.total || nominal };
-      box.innerHTML = renderSdPreviewHtml_(hutangSdPreview, "payHutangRekening");
-    })
-    .withFailureHandler(function(err) {
-      hutangSdPreview = { alokasi: [], rekening: "", error: err.message || String(err), total: 0 };
-      box.innerHTML = renderSdPreviewHtml_(hutangSdPreview, "payHutangRekening");
-    })
-    .previewSdAllocationFifo(nominal, "");
+  applyManualSdPreview_("Hutang", nominal, "payHutangRekening", function(p) {
+    hutangSdPreview = p;
+    box.innerHTML = renderSdPreviewHtml_(p, "payHutangRekening");
+  });
 }
 
 function loadSdAktifCache_(callback, forceRefresh) {
@@ -447,27 +474,29 @@ function loadSdAktifCache_(callback, forceRefresh) {
     .getSumberDanaAktif();
 }
 
-function initManualSdRows_(prefix) {
-  const box = document.getElementById("sdManualRows" + prefix);
-  if (!box) return;
+function initSdAlokasiUi_(prefix) {
   loadSdAktifCache_(function() {
-    if (!box.children.length) addManualSdRow_(prefix);
+    populateSdPetugasDropdown_(prefix);
+    const box = document.getElementById("sdManualRows" + prefix);
+    if (box) box.innerHTML = "";
     if (prefix === "Pembelian") refreshPembelianSdPreview();
-    else if (prefix === "Hutang") refreshHutangSdPreview();
-  });
+    else refreshHutangSdPreview();
+  }, true);
 }
 
 function addManualSdRow_(prefix) {
+  const petugas = getSelectedSdPetugas_(prefix);
+  if (!petugas) {
+    showCustomAlert("Pilih petugas terlebih dahulu.");
+    return;
+  }
   const box = document.getElementById("sdManualRows" + prefix);
   if (!box) return;
-  let opts = '<option value="">-- Pilih SD --</option>';
-  sdAktifListCache.forEach(function(sd) {
-    opts += `<option value="${sd.sdId}">${sd.label}</option>`;
-  });
+  const opts = buildSdOptionsForPetugas_(petugas);
   const row = document.createElement("div");
   row.className = "sdManualRow";
   row.style.cssText = "display:grid; grid-template-columns: 1fr 140px 40px; gap:8px; margin-bottom:8px; align-items:center;";
-  row.innerHTML = `<select class="sdManualSelect" onchange="onManualSdChange_('${prefix}')">${opts}</select><input type="number" class="sdManualNominal" min="0" placeholder="Nominal" oninput="onManualSdChange_('${prefix}')"><button type="button" class="btn-secondary" onclick="this.parentElement.remove(); onManualSdChange_('${prefix}')" style="padding:6px;">✕</button>`;
+  row.innerHTML = '<select class="sdManualSelect" onchange="onManualSdChange_(\'' + prefix + '\')">' + opts + '</select><input type="number" class="sdManualNominal" min="0" placeholder="Nominal" oninput="onManualSdChange_(\'' + prefix + '\')"><button type="button" class="btn-secondary" onclick="this.parentElement.remove(); onManualSdChange_(\'' + prefix + '\')" style="padding:6px;">✕</button>';
   box.appendChild(row);
   onManualSdChange_(prefix);
 }
@@ -491,6 +520,10 @@ function applyManualSdPreview_(prefix, totalRequired, rekeningInputId, setter) {
     if (nominal <= 0) { error = "Nominal setiap baris SD harus > 0."; return; }
     const meta = sdAktifListCache.find(function(s) { return s.sdId === sdId; });
     if (!meta) { error = "SD tidak ditemukan."; return; }
+    const petugas = getSelectedSdPetugas_(prefix);
+    if (petugas && String(meta.petugas || "").trim() !== petugas) {
+      error = "SD tidak sesuai petugas yang dipilih."; return;
+    }
     if (nominal > meta.sisa + 0.01) { error = "Nominal melebihi sisa " + sdId; return; }
     if (!rekening) rekening = meta.rekening;
     if (meta.rekening !== rekening) { error = "Semua SD harus rekening yang sama."; return; }
@@ -505,9 +538,9 @@ function applyManualSdPreview_(prefix, totalRequired, rekeningInputId, setter) {
   if (rekEl && !error) rekEl.value = rekening;
 }
 
-function getSdPayloadFromPreview_(preview, mode) {
+function getSdPayloadFromPreview_(preview) {
   return {
-    sdMode: mode,
+    sdMode: "manual",
     sdAlokasi: (preview.alokasi || []).map(function(a) {
       return { sdId: a.sdId, nominal: Number(a.nominal) || 0 };
     })
@@ -3501,11 +3534,14 @@ function bukaModalPelunasanHutang(poNo, supplierName, sisaHutang) {
 
       <div style="margin-bottom:15px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px;">
         <label style="font-weight:bold; font-size:14px;">Alokasi Sumber Dana</label>
-        <div style="margin:8px 0; font-size:13px;">
-          <label style="margin-right:14px;"><input type="radio" name="sdModeHutang" id="sdModeFifoHutang" checked onchange="setHutangSdMode('fifo')"> FIFO</label>
-          <label><input type="radio" name="sdModeHutang" id="sdModeManualHutang" onchange="setHutangSdMode('manual')"> Manual</label>
+        <p style="font-size:12px; color:#64748b; margin:6px 0 8px;">Pilih petugas dulu, lalu pilih SD milik petugas tersebut.</p>
+        <div style="margin-bottom:10px;">
+          <label style="font-size:13px; font-weight:bold;">Petugas</label>
+          <select id="sdPetugasHutang" onchange="onSdPetugasChange_('Hutang')" style="margin-top:5px; width:100%;">
+            <option value="">-- Pilih Petugas --</option>
+          </select>
         </div>
-        <div id="sdManualBoxHutang" style="display:none; margin-bottom:8px;">
+        <div id="sdManualBoxHutang" style="margin-bottom:8px;">
           <div id="sdManualRowsHutang"></div>
           <button type="button" class="btn-secondary" onclick="addManualSdRow_('Hutang')" style="font-size:12px; padding:4px 8px;">+ SD</button>
         </div>
@@ -3530,8 +3566,8 @@ function bukaModalPelunasanHutang(poNo, supplierName, sisaHutang) {
   `;
   document.body.appendChild(modal);
 
-  hutangSdMode = "fifo";
-  loadSdAktifCache_(function() { refreshHutangSdPreview(); });
+  hutangSdPreview = { alokasi: [], rekening: "", error: "" };
+  initSdAlokasiUi_("Hutang");
 }
 
 function prosesPelunasanHutang(po, supplier, sisaHutangLama) {
@@ -3550,7 +3586,7 @@ function prosesPelunasanHutang(po, supplier, sisaHutangLama) {
     rekening: document.getElementById("payHutangRekening").value,
     nominal: nominal,
     keterangan: document.getElementById("payHutangKeterangan").value,
-    sdMode: hutangSdMode,
+    sdMode: "manual",
     sdAlokasi: (hutangSdPreview.alokasi || []).map(function(a) {
       return { sdId: a.sdId, nominal: Number(a.nominal) || 0 };
     })
@@ -3783,11 +3819,14 @@ function loadPembelianPage() {
 
       <div style="margin-top:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
         <label style="font-weight:bold; font-size:14px;">Alokasi Sumber Dana</label>
-        <div style="margin:10px 0; font-size:13px;">
-          <label style="margin-right:16px;"><input type="radio" name="sdModePembelian" id="sdModeFifoPembelian" checked onchange="setPembelianSdMode('fifo')"> Otomatis (FIFO)</label>
-          <label><input type="radio" name="sdModePembelian" id="sdModeManualPembelian" onchange="setPembelianSdMode('manual')"> Manual</label>
+        <p style="font-size:12px; color:#64748b; margin:8px 0;">Pilih petugas dulu, lalu pilih SD milik petugas tersebut.</p>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px; font-weight:bold;">Petugas</label>
+          <select id="sdPetugasPembelian" onchange="onSdPetugasChange_('Pembelian')" style="margin-top:5px; width:100%;">
+            <option value="">-- Pilih Petugas --</option>
+          </select>
         </div>
-        <div id="sdManualBoxPembelian" style="display:none; margin-bottom:10px;">
+        <div id="sdManualBoxPembelian" style="margin-bottom:10px;">
           <div id="sdManualRowsPembelian"></div>
           <button type="button" class="btn-secondary" onclick="addManualSdRow_('Pembelian')" style="font-size:12px; padding:6px 10px;">+ Tambah baris SD</button>
         </div>
@@ -3863,8 +3902,7 @@ function applyPembelianBootstrap_(data) {
   const supInp = document.getElementById("supPembelian");
   if (supInp) supInp.setAttribute("list", "supplierDatalist");
 
-  pembelianSdMode = "fifo";
-  loadSdAktifCache_(function() { refreshPembelianSdPreview(); }, true);
+  initSdAlokasiUi_("Pembelian");
 }
 
 function loadSupplierOptionsPembelian() {
@@ -4031,7 +4069,7 @@ function getPembelianPayload() {
     bayar: document.getElementById("bayarPembelian").value || 0,
     prNo: document.getElementById("prSelect") ? document.getElementById("prSelect").value : "",
     items: items,
-    sdMode: pembelianSdMode,
+    sdMode: "manual",
     sdAlokasi: (pembelianSdPreview.alokasi || []).map(function(a) {
       return { sdId: a.sdId, nominal: Number(a.nominal) || 0 };
     })

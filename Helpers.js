@@ -237,8 +237,8 @@ function validatePelunasanHutangPayload_(payload, sisaHutang) {
   if (nominal > sisaHutang) {
     throw new Error("Nominal bayar tidak boleh melebihi sisa hutang.");
   }
-  if (!payload.sdAlokasi && payload.sdMode !== "fifo") {
-    payload.sdMode = "fifo";
+  if (!payload.sdAlokasi || !payload.sdAlokasi.length) {
+    throw new Error("Alokasi Sumber Dana wajib diisi.");
   }
   if (payload.keterangan) payload.keterangan = normalizeRecordText_(payload.keterangan);
   payload.nominal = nominal;
@@ -342,8 +342,8 @@ function validatePembelian_(p) {
     throw new Error("Nominal bayar tidak boleh melebihi total pembelian.");
   }
   if (bayar > 0) {
-    if (!p.sdAlokasi && p.sdMode !== "fifo") {
-      p.sdMode = "fifo";
+    if (!p.sdAlokasi || !p.sdAlokasi.length) {
+      throw new Error("Alokasi Sumber Dana wajib jika ada pembayaran.");
     }
   }
   p.bayar = bayar;
