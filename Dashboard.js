@@ -297,6 +297,31 @@ function dashKeuanganCacheKey_(bulan, tahun) {
   return "dash_keu_" + bulan + "_" + tahun;
 }
 
+/** TTL cache snapshot keuangan dashboard (detik). */
+var DASH_KEUANGAN_CACHE_TTL_ = 600;
+
+function dashReadKeuanganAmounts_(ss) {
+  const neraca = ss.getSheetByName("NERACA");
+  const lr = ss.getSheetByName("LABA_RUGI");
+  if (!neraca || !lr) return null;
+  return {
+    available: true,
+    totalAset: dashFindSheetAmount_(neraca, ["total aset"]),
+    totalPassiva: dashFindSheetAmount_(neraca, ["total liabilitas dan ekuitas"]),
+    selisihNeraca: dashFindSheetAmount_(neraca, ["selisih neraca"]),
+    jumlahPendapatan: dashFindSheetAmount_(lr, ["jumlah pendapatan"]),
+    jumlahHpp: dashFindSheetAmount_(lr, ["jumlah hpp"]),
+    labaKotor: dashFindSheetAmount_(lr, ["laba kotor"]),
+    labaBersih: dashFindSheetAmount_(lr, ["laba bersih"])
+  };
+}
+
+function dashCacheKeuanganResult_(cacheKey, result) {
+  try {
+    CacheService.getScriptCache().put(cacheKey, JSON.stringify(result), DASH_KEUANGAN_CACHE_TTL_);
+  } catch (ignore) {}
+}
+
 function dashClearKeuanganCache_() {
   try {
     const cache = CacheService.getScriptCache();
@@ -405,7 +430,7 @@ function dashBuildCharts_(ss, bulan, tahun) {
   });
 }
 
-function dashReadKeuanganBackend_(bulan, tahun, skipCache) {
+function dashReadKeuanganBackend_(bulan, tahun, forceRefresh) {
   const empty = {
     available: false,
     totalAset: 0,
@@ -419,8 +444,9 @@ function dashReadKeuanganBackend_(bulan, tahun, skipCache) {
   const m = Number(bulan);
   const y = Number(tahun);
   const cacheKey = dashKeuanganCacheKey_(m, y);
+  const refresh = !!forceRefresh;
 
-  if (!skipCache) {
+  if (!refresh) {
     try {
       const cached = CacheService.getScriptCache().get(cacheKey);
       if (cached) return JSON.parse(cached);
@@ -434,31 +460,30 @@ function dashReadKeuanganBackend_(bulan, tahun, skipCache) {
     const cur = readBackendReportPeriod_(ss);
     const periodChanged = cur.bulan !== m || cur.tahun !== y;
 
+    if (!refresh) {
+      if (periodChanged) {
+        return Object.assign({}, empty, {
+          needsRefresh: true,
+          message: "Snapshot periode belum dimuat. Klik Refresh untuk sinkron ke backend."
+        });
+      }
+      const quick = dashReadKeuanganAmounts_(ss);
+      if (!quick) return empty;
+      dashCacheKeuanganResult_(cacheKey, quick);
+      return quick;
+    }
+
     if (periodChanged) {
       cfg.getRange(2, 2).setValue(m);
       cfg.getRange(3, 2).setValue(y);
+      forceBackendLaporanRecalc_(ss, false);
+    } else {
       forceBackendLaporanRecalc_(ss, true);
     }
 
-    const neraca = ss.getSheetByName("NERACA");
-    const lr = ss.getSheetByName("LABA_RUGI");
-    if (!neraca || !lr) return empty;
-
-    const result = {
-      available: true,
-      totalAset: dashFindSheetAmount_(neraca, ["total aset"]),
-      totalPassiva: dashFindSheetAmount_(neraca, ["total liabilitas dan ekuitas"]),
-      selisihNeraca: dashFindSheetAmount_(neraca, ["selisih neraca"]),
-      jumlahPendapatan: dashFindSheetAmount_(lr, ["jumlah pendapatan"]),
-      jumlahHpp: dashFindSheetAmount_(lr, ["jumlah hpp"]),
-      labaKotor: dashFindSheetAmount_(lr, ["laba kotor"]),
-      labaBersih: dashFindSheetAmount_(lr, ["laba bersih"])
-    };
-
-    try {
-      CacheService.getScriptCache().put(cacheKey, JSON.stringify(result), 180);
-    } catch (ignore) {}
-
+    const result = dashReadKeuanganAmounts_(ss);
+    if (!result) return empty;
+    dashCacheKeuanganResult_(cacheKey, result);
     return result;
   } catch (e) {
     return Object.assign({}, empty, { error: String(e.message || e) });
@@ -601,6 +626,12 @@ function dashBuildAlertsOps_(payload) {
 function dashBuildAlertsKeu_(keuangan) {
   const alerts = [];
   const k = keuangan || {};
+  if (k.needsRefresh) {
+    alerts.push({
+      level: "info",
+      text: k.message || "Snapshot keuangan periode ini belum dimuat — klik Refresh."
+    });
+  }
   if (k.available && Math.abs(k.selisihNeraca) > 1) {
     alerts.push({
       level: "error",

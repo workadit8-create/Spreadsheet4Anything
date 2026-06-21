@@ -615,8 +615,16 @@ function patchDashboardKeuangan(keu) {
 
   const labaEl = document.getElementById("dashKpiLaba");
   const marginEl = document.getElementById("dashKpiMargin");
-  if (labaEl) labaEl.innerHTML = formatRupiah((keu.kpi && keu.kpi.labaBersih) || 0);
-  if (marginEl) marginEl.innerHTML = ((keu.kpi && keu.kpi.margin) || 0) + "%";
+  if (labaEl) {
+    labaEl.innerHTML = (keu.keuangan && keu.keuangan.needsRefresh)
+      ? '<span class="dash-pending">—</span>'
+      : formatRupiah((keu.kpi && keu.kpi.labaBersih) || 0);
+  }
+  if (marginEl) {
+    marginEl.innerHTML = (keu.keuangan && keu.keuangan.needsRefresh)
+      ? '<span class="dash-pending">—</span>'
+      : (((keu.kpi && keu.kpi.margin) || 0) + "%");
+  }
 
   const keuBox = document.getElementById("dashKeuanganBox");
   if (!keuBox) return;
@@ -624,6 +632,13 @@ function patchDashboardKeuangan(keu) {
   const periodeLabel = formatLaporanPeriodeLabel_(dashState.data.periode.bulan, dashState.data.periode.tahun);
 
   if (!k.available) {
+    if (k.needsRefresh) {
+      keuBox.innerHTML =
+        '<div class="dash-keuangan-loading">' + escHtml(k.message || "Snapshot periode belum dimuat.") + '</div>' +
+        '<button class="btn-primary" style="margin-top:16px; width:100%;" onclick="loadDashboardV2(true)">🔄 Refresh Snapshot</button>' +
+        '<button class="btn-secondary" style="margin-top:8px; width:100%;" onclick="loadLaporanPage()">📊 Buka Laporan Lengkap</button>';
+      return;
+    }
     keuBox.innerHTML = '<div class="dash-keuangan-loading">Snapshot keuangan tidak tersedia' +
       (k.error ? (": " + escHtml(k.error)) : "") + '</div>' +
       '<button class="btn-secondary" style="margin-top:16px; width:100%;" onclick="loadLaporanPage()">📊 Buka Laporan Lengkap</button>';
@@ -714,8 +729,19 @@ function renderDashboardV2(data, partial) {
 }
 
 function buildDashboardKeuanganHtml_(keu) {
+  if (keu.needsRefresh) {
+    return (
+      '<div class="dash-keuangan-loading">' + escHtml(keu.message || "Snapshot periode belum dimuat.") + '</div>' +
+      '<button class="btn-primary" style="margin-top:16px; width:100%;" onclick="loadDashboardV2(true)">🔄 Refresh Snapshot</button>' +
+      '<button class="btn-secondary" style="margin-top:8px; width:100%;" onclick="loadLaporanPage()">📊 Buka Laporan Lengkap</button>'
+    );
+  }
   if (!keu.available) {
-    return '<div class="dash-kpi-sub">Backend laporan tidak tersedia</div>';
+    return (
+      '<div class="dash-kpi-sub">Backend laporan tidak tersedia' +
+      (keu.error ? (": " + escHtml(keu.error)) : "") + '</div>' +
+      '<button class="btn-secondary" style="margin-top:16px; width:100%;" onclick="loadLaporanPage()">📊 Buka Laporan Lengkap</button>'
+    );
   }
   const ok = Math.abs(keu.selisihNeraca || 0) <= 1;
   return (
