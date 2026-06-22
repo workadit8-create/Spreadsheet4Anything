@@ -5763,7 +5763,7 @@ function exportLaporanExcel() {
 // ADD-ON: MANAJEMEN PROYEK (EVENT CATERING)
 // ==========================================
 
-let proyekState = { rows: [], customers: [], statuses: [], editing: null, filterStatus: "ALL", filterSearch: "", tab: "daftar", lrData: null };
+let proyekState = { rows: [], customers: [], statuses: [], editing: null, filterStatus: "ALL", filterSearch: "", tab: "daftar", lrData: null, checklistKode: "", taskTemplates: [] };
 
 function proyekCanEdit_() {
   return appSession.role === "owner" || appSession.role === "staff";
@@ -5794,11 +5794,13 @@ function loadProyekPage() {
     rows: proyekState.rows || [],
     customers: proyekState.customers || [],
     statuses: proyekState.statuses || [],
+    taskTemplates: proyekState.taskTemplates || [],
     editing: null,
     filterStatus: "ALL",
     filterSearch: "",
     tab: tab,
-    lrData: proyekState.lrData || null
+    lrData: proyekState.lrData || null,
+    checklistKode: proyekState.checklistKode || ""
   };
 
   const today = new Date();
@@ -5813,6 +5815,7 @@ function loadProyekPage() {
     </div>
     <div style="display:flex; gap:10px; margin-bottom:20px;">
       <button id="proyekTabDaftar" class="btn-primary" onclick="switchProyekTab('daftar')" style="flex:1;">📋 Daftar Event</button>
+      <button id="proyekTabChecklist" class="btn-secondary" onclick="switchProyekTab('checklist')" style="flex:1;">✅ Checklist</button>
       <button id="proyekTabLr" class="btn-secondary" onclick="switchProyekTab('lr')" style="flex:1;">📈 L/R Proyek</button>
       <button id="proyekTabPanduan" class="btn-secondary" onclick="switchProyekTab('panduan')" style="flex:1;">📖 Panduan</button>
     </div>
@@ -5835,6 +5838,20 @@ function loadProyekPage() {
       <div id="proyekFormCard" class="card" style="display:none; margin-bottom:20px;"></div>
       <div class="table-box" id="proyekTableContainer">
         <p style="text-align:center; padding:40px; color:#6b7280;">⏳ Memuat...</p>
+      </div>
+    </div>
+    <div id="proyekPanelChecklist" style="display:none;">
+      <div class="card" style="margin-bottom:16px; display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+        <div style="flex:1; min-width:240px;">
+          <label style="font-weight:bold;">Pilih Event</label>
+          <select id="proyekChecklistSelect" class="form-control" style="margin-top:5px;" onchange="onProyekChecklistSelectChange()">
+            <option value="">— Pilih proyek —</option>
+          </select>
+        </div>
+        <button class="btn-secondary" onclick="reloadProyekChecklist()">🔄 Muat Ulang</button>
+      </div>
+      <div id="proyekChecklistContainer">
+        <p style="text-align:center; padding:40px; color:#6b7280;">Pilih event untuk melihat checklist operasional.</p>
       </div>
     </div>
     <div id="proyekPanelLr" style="display:none;">
@@ -5864,6 +5881,7 @@ function loadProyekPage() {
   google.script.run
     .withSuccessHandler(function(meta) {
       proyekState.statuses = (meta && meta.statuses) || [];
+      proyekState.taskTemplates = (meta && meta.taskTemplates) || [];
       ["proyekFilterStatus", "proyekLrStatus"].forEach(function(id) {
         const sel = document.getElementById(id);
         if (!sel) return;
@@ -5875,6 +5893,7 @@ function loadProyekPage() {
         });
       });
       if (proyekState.tab === "daftar") reloadProyekTable();
+      else if (proyekState.tab === "checklist") fillProyekChecklistSelect_();
       else if (proyekState.tab === "lr") reloadProyekLr();
       else if (proyekState.tab === "panduan") renderProyekPanduan_();
     })
@@ -5907,21 +5926,30 @@ function loadProyekPage() {
 function switchProyekTab(tab) {
   proyekState.tab = tab;
   const isDaftar = tab === "daftar";
+  const isChecklist = tab === "checklist";
   const isLr = tab === "lr";
   const isPanduan = tab === "panduan";
   const panelDaftar = document.getElementById("proyekPanelDaftar");
+  const panelChecklist = document.getElementById("proyekPanelChecklist");
   const panelLr = document.getElementById("proyekPanelLr");
   const panelPanduan = document.getElementById("proyekPanelPanduan");
   const tabDaftar = document.getElementById("proyekTabDaftar");
+  const tabChecklist = document.getElementById("proyekTabChecklist");
   const tabLr = document.getElementById("proyekTabLr");
   const tabPanduan = document.getElementById("proyekTabPanduan");
   if (panelDaftar) panelDaftar.style.display = isDaftar ? "block" : "none";
+  if (panelChecklist) panelChecklist.style.display = isChecklist ? "block" : "none";
   if (panelLr) panelLr.style.display = isLr ? "block" : "none";
   if (panelPanduan) panelPanduan.style.display = isPanduan ? "block" : "none";
   if (tabDaftar) tabDaftar.className = isDaftar ? "btn-primary" : "btn-secondary";
+  if (tabChecklist) tabChecklist.className = isChecklist ? "btn-primary" : "btn-secondary";
   if (tabLr) tabLr.className = isLr ? "btn-primary" : "btn-secondary";
   if (tabPanduan) tabPanduan.className = isPanduan ? "btn-primary" : "btn-secondary";
   if (isDaftar && document.getElementById("proyekTableContainer")) reloadProyekTable();
+  else if (isChecklist) {
+    fillProyekChecklistSelect_();
+    reloadProyekChecklist();
+  }
   else if (isLr && document.getElementById("proyekLrContainer")) reloadProyekLr();
   else if (isPanduan) renderProyekPanduan_();
 }
@@ -5961,6 +5989,14 @@ function renderProyekPanduan_() {
       <li><strong>BATAL</strong> — event batal</li>
     </ul>
 
+    <h4 style="margin:0 0 8px;">Checklist Event (tab ✅ Checklist)</h4>
+    <ul style="font-size:14px; line-height:1.8; margin-bottom:20px;">
+      <li>Pilih event → pilih template (Wedding, Corporate, atau Event Kecil)</li>
+      <li>Deadline dihitung otomatis dari <strong>tanggal event</strong> (H-7, H-day, H+1, dst.)</li>
+      <li>Centang manual saat task selesai — PIC isi teks bebas</li>
+      <li>Task terlambat / deadline dekat muncul sebagai <strong>alert di Dashboard</strong></li>
+    </ul>
+
     <h4 style="margin:0 0 8px;">Cara baca L/R Proyek</h4>
     <ul style="font-size:14px; line-height:1.8; margin-bottom:20px;">
       <li><strong>Pendapatan</strong> = total Invoice (Pemasukan) yang ditag ke proyek</li>
@@ -5973,6 +6009,189 @@ function renderProyekPanduan_() {
       <strong>Tips pilot:</strong> Mulai dari 1–2 event nyata minggu ini. Pastikan Invoice dan PO pakai proyek yang sama, lalu cek L/R + Detail. Kalau recehan, biarkan dropdown proyek kosong.
     </div>
   `;
+}
+
+function fillProyekChecklistSelect_() {
+  const sel = document.getElementById("proyekChecklistSelect");
+  if (!sel) return;
+  const prev = proyekState.checklistKode || sel.value || "";
+  let html = '<option value="">— Pilih proyek —</option>';
+  (proyekState.rows || []).forEach(function(row) {
+    html += '<option value="' + escAttr(row.kode) + '">' + escHtml(row.kode + " — " + row.nama + (row.tanggalEvent ? " (" + row.tanggalEvent + ")" : "")) + '</option>';
+  });
+  if (!proyekState.rows || !proyekState.rows.length) {
+    google.script.run
+      .withSuccessHandler(function(rows) {
+        proyekState.rows = rows || [];
+        fillProyekChecklistSelect_();
+      })
+      .withFailureHandler(function() {})
+      .listProyek({});
+    return;
+  }
+  sel.innerHTML = html;
+  if (prev) sel.value = prev;
+}
+
+function onProyekChecklistSelectChange() {
+  const sel = document.getElementById("proyekChecklistSelect");
+  proyekState.checklistKode = sel ? sel.value : "";
+  reloadProyekChecklist();
+}
+
+function openProyekChecklist(kode) {
+  proyekState.checklistKode = kode || "";
+  proyekState.tab = "checklist";
+  if (document.getElementById("proyekPanelChecklist")) {
+    switchProyekTab("checklist");
+  } else {
+    loadProyekPage();
+  }
+}
+
+function reloadProyekChecklist() {
+  const container = document.getElementById("proyekChecklistContainer");
+  if (!container) return;
+  const kode = (document.getElementById("proyekChecklistSelect") || {}).value || proyekState.checklistKode || "";
+  proyekState.checklistKode = kode;
+  if (!kode) {
+    container.innerHTML = '<p style="text-align:center; padding:40px; color:#6b7280;">Pilih event untuk melihat checklist operasional.</p>';
+    return;
+  }
+  container.innerHTML = '<p style="text-align:center; padding:30px;">⏳ Memuat checklist...</p>';
+  google.script.run
+    .withSuccessHandler(renderProyekChecklist)
+    .withFailureHandler(function(err) {
+      container.innerHTML = '<div class="dash-alert error">' + escHtml(String(err && err.message ? err.message : err)) + '</div>';
+    })
+    .listProyekTasks(kode);
+}
+
+function renderProyekChecklist(data) {
+  const container = document.getElementById("proyekChecklistContainer");
+  if (!container || !data) return;
+  const proyek = data.proyek || {};
+  const tasks = data.tasks || [];
+  const progress = data.progress || {};
+  const canEdit = proyekCanEdit_();
+  const today = new Date().toISOString().split("T")[0];
+
+  let html = '<div style="margin-bottom:16px;">';
+  html += '<h3 style="margin:0 0 6px 0;">' + escHtml(proyek.nama || data.kode) + '</h3>';
+  html += '<p style="margin:0; font-size:13px; color:#6b7280;">';
+  html += 'Event: <strong>' + escHtml(proyek.tanggalEvent || "-") + '</strong>';
+  if (proyek.customer) html += ' · Customer: <strong>' + escHtml(proyek.customer) + '</strong>';
+  html += ' · Status: ' + proyekStatusBadge_(proyek.status);
+  html += '</p></div>';
+
+  const pct = progress.pct || 0;
+  const barColor = (progress.overdue || 0) > 0 ? "#dc2626" : "#059669";
+  html += '<div style="background:#f8fafc; border-radius:10px; padding:14px 16px; margin-bottom:16px;">';
+  html += '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">';
+  html += '<strong>Progress: ' + (progress.done || 0) + ' / ' + (progress.total || 0) + ' selesai</strong>';
+  html += '<span style="font-size:12px; color:#6b7280;">Pending: ' + (progress.pending || 0);
+  if (progress.overdue) html += ' · <span style="color:#dc2626;">Terlambat: ' + progress.overdue + '</span>';
+  html += '</span></div>';
+  html += '<div style="background:#e5e7eb; border-radius:999px; height:10px; overflow:hidden;">';
+  html += '<div style="width:' + pct + '%; background:' + barColor + '; height:100%; transition:width 0.3s;"></div>';
+  html += '</div></div>';
+
+  if (!tasks.length) {
+    html += '<div class="card" style="text-align:center; padding:24px;">';
+    html += '<p style="color:#6b7280; margin-bottom:16px;">Belum ada checklist untuk event ini. Pilih template:</p>';
+    html += '<div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">';
+    (proyekState.taskTemplates || []).forEach(function(tpl) {
+      html += '<button class="btn-primary" onclick="initProyekChecklistTemplate(\'' + escAttr(tpl.key) + '\')">' + escHtml(tpl.label) + ' (' + tpl.itemCount + ' item)</button>';
+    });
+    if (!(proyekState.taskTemplates || []).length) {
+      html += '<p style="font-size:12px; color:#92400e;">Template belum dimuat — refresh halaman.</p>';
+    }
+    html += '</div></div>';
+    container.innerHTML = html;
+    return;
+  }
+
+  html += '<table class="history-table"><thead><tr>';
+  html += '<th style="width:40px;">✓</th><th>Task</th><th>Fase</th><th>Deadline</th><th>Relatif</th><th>PIC</th><th>Status</th>';
+  html += '</tr></thead><tbody>';
+
+  let lastFase = "";
+  tasks.forEach(function(task) {
+    if (task.fase && task.fase !== lastFase) {
+      lastFase = task.fase;
+      html += '<tr style="background:#f1f5f9;"><td colspan="7" style="font-weight:600; font-size:12px; color:#475569;">' + escHtml(task.fase) + '</td></tr>';
+    }
+    const isDone = task.status === "DONE";
+    const isNa = task.status === "NA";
+    const isOverdue = !isDone && !isNa && task.deadline && task.deadline < today;
+    let rowStyle = "";
+    if (isOverdue) rowStyle = ' style="background:#fef2f2;"';
+    else if (isDone) rowStyle = ' style="opacity:0.75;"';
+
+    html += '<tr' + rowStyle + ' data-task-id="' + escAttr(task.id) + '">';
+    html += '<td style="text-align:center;">';
+    if (canEdit) {
+      html += '<input type="checkbox"' + (isDone ? " checked" : "") + ' onchange="toggleProyekTaskDone(\'' + escAttr(task.id) + '\', this.checked)">';
+    } else {
+      html += isDone ? "✅" : "⬜";
+    }
+    html += '</td>';
+    html += '<td><strong' + (isDone ? ' style="text-decoration:line-through;"' : "") + '>' + escHtml(task.judul) + '</strong>';
+    if (task.catatan) html += '<br><small style="color:#6b7280;">' + escHtml(task.catatan) + '</small>';
+    html += '</td>';
+    html += '<td>' + escHtml(task.fase || "-") + '</td>';
+    html += '<td' + (isOverdue ? ' style="color:#dc2626; font-weight:bold;"' : "") + '>' + escHtml(task.deadline || "-") + '</td>';
+    html += '<td><code style="font-size:11px;">' + escHtml(task.offsetLabel || "") + '</code></td>';
+    html += '<td>';
+    if (canEdit) {
+      html += '<input type="text" class="form-control" style="font-size:12px; padding:4px 6px; min-width:100px;" value="' + escAttr(task.pic || "") + '" onblur="saveProyekTaskPic(\'' + escAttr(task.id) + '\', this.value)">';
+    } else {
+      html += escHtml(task.pic || "-");
+    }
+    html += '</td>';
+    html += '<td>';
+    if (canEdit) {
+      html += '<select class="form-control" style="font-size:12px; padding:4px 6px;" onchange="saveProyekTaskStatus(\'' + escAttr(task.id) + '\', this.value)">';
+      ["PENDING", "DONE", "NA"].forEach(function(st) {
+        html += '<option value="' + st + '"' + (task.status === st ? " selected" : "") + '>' + st + '</option>';
+      });
+      html += '</select>';
+    } else {
+      html += escHtml(task.status);
+    }
+    html += '</td></tr>';
+  });
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function initProyekChecklistTemplate(templateKey) {
+  const kode = proyekState.checklistKode || (document.getElementById("proyekChecklistSelect") || {}).value;
+  if (!kode) return;
+  if (!confirm("Buat checklist dari template ini? Task lama (jika ada) tidak akan ditimpa.")) return;
+  google.script.run
+    .withSuccessHandler(function() { reloadProyekChecklist(); })
+    .withFailureHandler(function(err) { showCustomAlert(String(err && err.message ? err.message : err)); })
+    .initProyekTasksFromTemplate(kode, templateKey);
+}
+
+function toggleProyekTaskDone(taskId, checked) {
+  saveProyekTaskStatus(taskId, checked ? "DONE" : "PENDING");
+}
+
+function saveProyekTaskStatus(taskId, status) {
+  google.script.run
+    .withSuccessHandler(function() { reloadProyekChecklist(); })
+    .withFailureHandler(function(err) { showCustomAlert(String(err && err.message ? err.message : err)); })
+    .updateProyekTask({ id: taskId, status: status });
+}
+
+function saveProyekTaskPic(taskId, pic) {
+  google.script.run
+    .withSuccessHandler(function() {})
+    .withFailureHandler(function(err) { showCustomAlert(String(err && err.message ? err.message : err)); })
+    .updateProyekTask({ id: taskId, pic: pic });
 }
 
 function reloadProyekLr() {
@@ -6279,6 +6498,7 @@ function renderProyekTable() {
     html += '<td>';
     if (canEdit) {
       html += '<button class="btn-secondary" style="padding:4px 8px; font-size:12px;" onclick="openProyekForm(\'' + escAttr(row.kode) + '\')">Edit</button> ';
+      html += '<button class="btn-secondary" style="padding:4px 8px; font-size:12px;" onclick="openProyekChecklist(\'' + escAttr(row.kode) + '\')">Checklist</button> ';
       if (row.status !== "SELESAI" && row.status !== "BATAL") {
         html += '<button class="btn-secondary" style="padding:4px 8px; font-size:12px;" onclick="quickProyekStatus(\'' + escAttr(row.kode) + '\',\'SELESAI\')">Selesai</button>';
       }

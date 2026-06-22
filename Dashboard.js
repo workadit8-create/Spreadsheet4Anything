@@ -620,6 +620,9 @@ function dashBuildAlertsOps_(payload) {
       text: unposted + " transaksi terbaru belum POSTED ke jurnal backend."
     });
   }
+  if (payload.proyek && payload.proyek.taskAlerts && payload.proyek.taskAlerts.length) {
+    payload.proyek.taskAlerts.forEach(function(a) { alerts.push(a); });
+  }
   return alerts;
 }
 
