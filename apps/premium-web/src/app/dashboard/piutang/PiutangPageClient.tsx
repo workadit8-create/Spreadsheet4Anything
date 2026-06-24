@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { confirmPostInvoiceJournal, invoiceDebtStatusLabel } from "@/lib/penjualan/invoice-status-label";
 
 type PiutangItem = {
   salesOrderId: string;
@@ -14,6 +15,7 @@ type PiutangItem = {
   customerName: string;
   grandTotal: number;
   sisaTagihan: number;
+  status: string;
 };
 
 type PaymentHistoryItem = {
@@ -69,6 +71,8 @@ export default function PiutangPageClient() {
   const [history, setHistory] = useState<PaymentHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [actingPaymentId, setActingPaymentId] = useState<string | null>(null);
+  const [actingOrderId, setActingOrderId] = useState<string | null>(null);
+  const [listMessage, setListMessage] = useState<string | null>(null);
   const [historyMessage, setHistoryMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -140,11 +144,32 @@ export default function PiutangPageClient() {
   }
 
   function openPay(row: PiutangItem) {
+    if (row.status !== "POSTED") {
+      setListMessage(`Invoice ${row.invoiceNo} belum diposting — klik Post jurnal dulu.`);
+      return;
+    }
     setPayTarget(row);
     setPayDate(new Date().toISOString().slice(0, 10));
     setPayNominal(String(row.sisaTagihan));
     setPayKeterangan("");
     setPayMessage(null);
+  }
+
+  async function postOrder(row: PiutangItem) {
+    if (!confirmPostInvoiceJournal(row.invoiceNo, row.sisaTagihan)) return;
+    setActingOrderId(row.salesOrderId);
+    setListMessage(null);
+    try {
+      const res = await fetch(`/api/sales-orders/${row.salesOrderId}/post`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setListMessage(data.message || `Invoice ${row.invoiceNo} diposting — sekarang bisa dibayar`);
+      await load();
+    } catch (e) {
+      setListMessage(e instanceof Error ? e.message : "Gagal posting");
+    } finally {
+      setActingOrderId(null);
+    }
   }
 
   async function submitPelunasan() {
@@ -266,7 +291,7 @@ export default function PiutangPageClient() {
       <PageHeader
         badge="Piutang"
         title="Daftar piutang"
-        description="Invoice kredit / kurang bayar → pelunasan → jurnal PELUNASAN_PIUTANG di Supabase"
+        description="Invoice kredit / kurang bayar. Post jurnal = catat ke buku besar. Pelunasan (Bayar) dilakukan setelah jurnal penjualan diposting."
       />
 
       <Card className="mb-6">
@@ -321,11 +346,13 @@ export default function PiutangPageClient() {
 
       <Card>
         {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+        {listMessage && <p className="mb-4 text-sm text-slate-600">{listMessage}</p>}
         {loading ? (
           <p className="text-sm text-slate-500">Memuat piutang...</p>
         ) : !items.length ? (
           <p className="text-sm text-slate-500">
             Tidak ada piutang outstanding{allOutstanding ? "" : " di rentang tanggal ini"}.
+            Invoice kredit muncul di sini setelah disimpan; pelunasan setelah status jurnal OK.
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -337,11 +364,14 @@ export default function PiutangPageClient() {
                   <th className="px-4 py-3">Customer</th>
                   <th className="px-4 py-3">Total</th>
                   <th className="px-4 py-3">Sisa</th>
+                  <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {items.map((row) => (
+                {items.map((row) => {
+                  const busy = actingOrderId === row.salesOrderId;
+                  return (
                   <tr key={row.salesOrderId} className="hover:bg-slate-50/80">
                     <td className="px-4 py-3">{row.orderDate}</td>
                     <td className="px-4 py-3 font-mono text-xs">{row.invoiceNo}</td>
@@ -349,16 +379,33 @@ export default function PiutangPageClient() {
                     <td className="px-4 py-3">{formatRp(row.grandTotal)}</td>
                     <td className="px-4 py-3 font-semibold text-red-700">{formatRp(row.sisaTagihan)}</td>
                     <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => openPay(row)}
-                        className="text-sm font-medium text-emerald-700 hover:text-emerald-800"
-                      >
-                        Bayar
-                      </button>
+                      <span className={row.status === "POSTED" ? "font-semibold text-emerald-600" : "font-semibold text-amber-600"}>
+                        {invoiceDebtStatusLabel(row.status, row.sisaTagihan)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {row.status === "CONFIRMED" ? (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          disabled={busy}
+                          onClick={() => postOrder(row)}
+                        >
+                          {busy ? "..." : "Post jurnal"}
+                        </Button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => openPay(row)}
+                          className="text-sm font-medium text-emerald-700 hover:text-emerald-800"
+                        >
+                          Bayar
+                        </button>
+                      )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

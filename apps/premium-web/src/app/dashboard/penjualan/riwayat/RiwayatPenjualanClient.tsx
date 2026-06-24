@@ -8,6 +8,7 @@ import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
 import type { HistoryDetail } from "@/lib/penjualan/history";
 import { buildInvoicePrintHtml, openInvoicePrintWindow } from "@/lib/penjualan/invoice-print";
+import { confirmPostInvoiceJournal, invoiceDebtStatusLabel } from "@/lib/penjualan/invoice-status-label";
 
 type HistoryRow = {
   id: string;
@@ -133,7 +134,8 @@ export default function RiwayatPenjualanClient() {
     openInvoicePrintWindow(html);
   }
 
-  async function postOrder(orderId: string, orderNo: string) {
+  async function postOrder(orderId: string, orderNo: string, sisaTagihan = 0) {
+    if (!confirmPostInvoiceJournal(orderNo, sisaTagihan)) return;
     setActingId(orderId);
     setMessage(null);
     try {
@@ -332,7 +334,7 @@ export default function RiwayatPenjualanClient() {
                       <td className="border-b border-slate-100 px-2 py-2">{formatRp(row.sisaTagihan)}</td>
                       <td className="border-b border-slate-100 px-2 py-2">
                         <span className={`font-semibold ${orderStatusClass(row.status)}`}>
-                          {row.status}
+                          {invoiceDebtStatusLabel(row.status, row.sisaTagihan)}
                         </span>
                       </td>
                       <td className="border-b border-slate-100 px-2 py-2">
@@ -346,9 +348,9 @@ export default function RiwayatPenjualanClient() {
                                 type="button"
                                 variant="secondary"
                                 disabled={busy}
-                                onClick={() => postOrder(row.id, row.orderNo)}
+                                onClick={() => postOrder(row.id, row.orderNo, row.sisaTagihan)}
                               >
-                                {busy ? "..." : "Post"}
+                                {busy ? "..." : "Post jurnal"}
                               </Button>
                               <Button
                                 type="button"
@@ -457,7 +459,7 @@ export default function RiwayatPenjualanClient() {
                         type="button"
                         variant="secondary"
                         disabled={actingId === detail.order.id}
-                        onClick={() => postOrder(detail.order.id, detail.order.orderNo)}
+                        onClick={() => postOrder(detail.order.id, detail.order.orderNo, detail.order.sisaTagihan)}
                       >
                         Post jurnal
                       </Button>

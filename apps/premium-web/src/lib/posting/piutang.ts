@@ -24,6 +24,7 @@ export type PiutangRow = {
   customerName: string;
   grandTotal: number;
   sisaTagihan: number;
+  status: string;
 };
 
 export function summarizePiutangFromLines(
@@ -34,6 +35,7 @@ export function summarizePiutangFromLines(
     customer_id: string | null;
     metadata: Record<string, unknown>;
     total?: number;
+    status?: string;
   },
   lines: SalesLineRow[]
 ): PiutangRow | null {
@@ -78,7 +80,8 @@ export function summarizePiutangFromLines(
     customerId: order.customer_id,
     customerName,
     grandTotal,
-    sisaTagihan
+    sisaTagihan,
+    status: String(order.status || "CONFIRMED")
   };
 }
 
