@@ -48,7 +48,8 @@ export async function voidSalesOrder(
     .from("payments")
     .select("*", { count: "exact", head: true })
     .eq("doc_type", "PIUTANG_PAYMENT")
-    .eq("doc_id", order.id);
+    .eq("doc_id", order.id)
+    .in("status", ["CONFIRMED", "POSTED"]);
 
   if (payCountErr) {
     throw new Error(payCountErr.message);
@@ -160,7 +161,8 @@ export async function deleteConfirmedSalesOrder(
     .from("payments")
     .select("*", { count: "exact", head: true })
     .eq("doc_type", "PIUTANG_PAYMENT")
-    .eq("doc_id", order.id);
+    .eq("doc_id", order.id)
+    .in("status", ["CONFIRMED", "POSTED"]);
 
   if ((paymentCount ?? 0) > 0) {
     throw new Error("Invoice memiliki data pelunasan — tidak bisa dihapus");

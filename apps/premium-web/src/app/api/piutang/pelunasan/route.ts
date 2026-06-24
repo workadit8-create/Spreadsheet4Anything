@@ -112,6 +112,14 @@ export async function POST(request: Request) {
     }, { status: 400 });
   }
 
+  const lineRollbacks = updates.map((upd) => {
+    const line = lineRows.find((l) => l.id === upd.lineId);
+    return {
+      lineId: upd.lineId,
+      metadata: (line?.metadata || {}) as Record<string, unknown>
+    };
+  });
+
   for (const upd of updates) {
     const { error: updErr } = await supabase
       .from("sales_lines")
@@ -153,6 +161,7 @@ export async function POST(request: Request) {
       method: rekeningName,
       amount: nominal,
       paid_at: new Date(tanggalBayar).toISOString(),
+      status: "CONFIRMED",
       metadata: {
         transactionId,
         invoiceNo: order.order_no,
@@ -161,7 +170,9 @@ export async function POST(request: Request) {
         rekening: rekeningName,
         coaAccountName,
         keterangan: keterangan || `Pelunasan ${order.order_no}`,
-        tanggalBayar
+        tanggalBayar,
+        lineRollbacks,
+        orderMetaBefore: orderMeta
       }
     })
     .select("id")
@@ -169,21 +180,6 @@ export async function POST(request: Request) {
 
   if (payErr || !payment) {
     return NextResponse.json({ error: payErr?.message || "Gagal simpan payment" }, { status: 500 });
-  }
-
-  const { data: job, error: jobErr } = await supabase
-    .from("posting_jobs")
-    .insert({
-      organization_id: org.id,
-      doc_type: "PIUTANG_PAYMENT",
-      doc_id: payment.id,
-      status: "PENDING"
-    })
-    .select("id")
-    .single();
-
-  if (jobErr || !job) {
-    return NextResponse.json({ error: jobErr?.message || "Gagal enqueue posting" }, { status: 500 });
   }
 
   const remaining = lineRows.reduce((sum, line) => {
@@ -196,9 +192,8 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     paymentId: payment.id,
-    postingJobId: job.id,
     transactionId,
     sisaSetelah: remaining,
-    message: "Pelunasan disimpan + posting job PENDING"
+    message: "Pelunasan disimpan (CONFIRMED). Post jurnal dari riwayat pelunasan."
   });
 }

@@ -202,6 +202,10 @@ async function processPiutangPaymentJob(
     throw new Error(payErr?.message || "Payment tidak ditemukan");
   }
 
+  if (payment.status !== "CONFIRMED") {
+    throw new Error("Pelunasan tidak dalam status CONFIRMED");
+  }
+
   const meta = asPiutangPaymentMeta(payment.metadata);
   if (!meta.transactionId || !meta.invoiceNo) {
     throw new Error("Metadata pelunasan tidak lengkap");
@@ -382,6 +386,11 @@ export async function processPendingPostingJobs(
             updated_at: new Date().toISOString()
           })
           .eq("id", job.id);
+
+        await supabase
+          .from("payments")
+          .update({ status: "POSTED" })
+          .eq("id", job.doc_id);
 
         results.push({ jobId: job.id, ok: true, journalSkipped });
         continue;

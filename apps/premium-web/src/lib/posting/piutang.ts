@@ -132,3 +132,20 @@ export function allocatePelunasanToLines(
 
   return updates;
 }
+
+/** Setelah void/hapus pelunasan — sync header order dari baris. */
+export function recomputeOrderPaymentMeta(
+  orderMeta: Record<string, unknown>,
+  lines: SalesLineRow[]
+): Record<string, unknown> {
+  const grandTotal = lines.reduce((sum, line) => sum + Number(line.line_total) || 0, 0);
+  const totalBayar = lines.reduce((sum, line) => sum + lineBayar(line), 0);
+  const sisa = lines.reduce((sum, line) => sum + lineKurangBayar(line), 0);
+
+  return {
+    ...orderMeta,
+    bayar: totalBayar,
+    paymentStatus: sisa > 0.01 ? "PENJUALAN KREDIT" : "PENJUALAN TUNAI",
+    tanggalBayar: sisa <= 0.01 ? orderMeta.tanggalBayar : orderMeta.tanggalBayar
+  };
+}

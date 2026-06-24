@@ -16,6 +16,18 @@ type PiutangItem = {
   sisaTagihan: number;
 };
 
+type PaymentHistoryItem = {
+  id: string;
+  amount: number;
+  paidAt: string;
+  status: string;
+  invoiceNo: string;
+  customerName: string;
+  keterangan: string;
+  voidReason?: string | null;
+  postingError?: string | null;
+};
+
 type Customer = { id: string; code: string | null; name: string };
 type KasBank = { id: string; name: string; coa_account_name?: string };
 
@@ -54,6 +66,11 @@ export default function PiutangPageClient() {
   const [paying, setPaying] = useState(false);
   const [payMessage, setPayMessage] = useState<string | null>(null);
 
+  const [history, setHistory] = useState<PaymentHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [actingPaymentId, setActingPaymentId] = useState<string | null>(null);
+  const [historyMessage, setHistoryMessage] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -84,6 +101,24 @@ export default function PiutangPageClient() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      const res = await fetch("/api/piutang/payments");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setHistory(data.items || []);
+    } catch {
+      setHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
 
   useEffect(() => {
     fetch("/api/master/kas-bank")
@@ -144,35 +179,85 @@ export default function PiutangPageClient() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      const processRes = await fetch("/api/posting/process", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jobIds: data.postingJobId ? [data.postingJobId] : [],
-          retryFailed: false,
-          limit: 5
-        })
-      });
-      const processData = await processRes.json();
-      const jobResult = (processData.results || []).find(
-        (r: { jobId?: string }) => r.jobId === data.postingJobId
-      ) as { ok?: boolean; error?: string } | undefined;
-
-      const ok = jobResult?.ok === true;
-
       setPayMessage(
-        ok
-          ? `Pelunasan ${payTarget.invoiceNo} → jurnal Supabase POSTED`
-          : `Pelunasan disimpan. Posting: ${jobResult?.error || processData.error || "cek queue di Laporan"}`
+        `Pelunasan ${payTarget.invoiceNo} disimpan (CONFIRMED). Post jurnal di riwayat pelunasan.`
       );
 
       setPayTarget(null);
       await load();
+      await loadHistory();
     } catch (e) {
       setPayMessage(e instanceof Error ? e.message : "Gagal pelunasan");
     } finally {
       setPaying(false);
     }
+  }
+
+  async function postPayment(row: PaymentHistoryItem) {
+    setActingPaymentId(row.id);
+    setHistoryMessage(null);
+    try {
+      const res = await fetch(`/api/piutang/payments/${row.id}/post`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setHistoryMessage(data.message || "Posting OK");
+      await load();
+      await loadHistory();
+    } catch (e) {
+      setHistoryMessage(e instanceof Error ? e.message : "Gagal posting");
+    } finally {
+      setActingPaymentId(null);
+    }
+  }
+
+  async function voidPayment(row: PaymentHistoryItem) {
+    const reason = window.prompt(`Alasan batal pelunasan ${row.invoiceNo}?`, "Input salah");
+    if (reason === null) return;
+
+    setActingPaymentId(row.id);
+    setHistoryMessage(null);
+    try {
+      const res = await fetch(`/api/piutang/payments/${row.id}/void`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setHistoryMessage(data.message || "Pelunasan dibatalkan");
+      await load();
+      await loadHistory();
+    } catch (e) {
+      setHistoryMessage(e instanceof Error ? e.message : "Gagal void");
+    } finally {
+      setActingPaymentId(null);
+    }
+  }
+
+  async function deletePayment(row: PaymentHistoryItem) {
+    if (!window.confirm(`Hapus pelunasan ${row.invoiceNo}? (belum posting jurnal)`)) return;
+
+    setActingPaymentId(row.id);
+    setHistoryMessage(null);
+    try {
+      const res = await fetch(`/api/piutang/payments/${row.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setHistoryMessage(data.message || "Pelunasan dihapus");
+      await load();
+      await loadHistory();
+    } catch (e) {
+      setHistoryMessage(e instanceof Error ? e.message : "Gagal hapus");
+    } finally {
+      setActingPaymentId(null);
+    }
+  }
+
+  function paymentStatusClass(status: string) {
+    if (status === "POSTED") return "text-emerald-600";
+    if (status === "VOIDED") return "text-red-600";
+    if (status === "CONFIRMED") return "text-amber-600";
+    return "text-slate-500";
   }
 
   return (
@@ -279,6 +364,94 @@ export default function PiutangPageClient() {
         )}
       </Card>
 
+      <Card className="mt-6">
+        <h2 className="mb-3 text-base font-semibold text-slate-900">Riwayat pelunasan</h2>
+        <p className="mb-4 text-xs text-slate-500">
+          CONFIRMED → Post jurnal · POSTED → Batal (void + jurnal pembalik)
+        </p>
+        {historyMessage && <p className="mb-3 text-sm text-slate-600">{historyMessage}</p>}
+        {historyLoading ? (
+          <p className="text-sm text-slate-500">Memuat riwayat...</p>
+        ) : !history.length ? (
+          <p className="text-sm text-slate-500">Belum ada pelunasan.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">Tanggal</th>
+                  <th className="px-4 py-3">Invoice</th>
+                  <th className="px-4 py-3">Customer</th>
+                  <th className="px-4 py-3">Nominal</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {history.map((row) => {
+                  const busy = actingPaymentId === row.id;
+                  return (
+                    <tr key={row.id} className="hover:bg-slate-50/80">
+                      <td className="px-4 py-3">
+                        {new Date(row.paidAt).toLocaleDateString("id-ID")}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs">{row.invoiceNo}</td>
+                      <td className="px-4 py-3">{row.customerName || "—"}</td>
+                      <td className="px-4 py-3">{formatRp(row.amount)}</td>
+                      <td className="px-4 py-3">
+                        <span className={`font-semibold ${paymentStatusClass(row.status)}`}>
+                          {row.status}
+                        </span>
+                        {row.postingError && row.status === "CONFIRMED" && (
+                          <div className="text-xs text-red-600">{row.postingError}</div>
+                        )}
+                        {row.voidReason && (
+                          <div className="text-xs text-slate-400">{row.voidReason}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {row.status === "CONFIRMED" && (
+                            <>
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                disabled={busy}
+                                onClick={() => postPayment(row)}
+                              >
+                                {busy ? "..." : "Post jurnal"}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                disabled={busy}
+                                onClick={() => deletePayment(row)}
+                              >
+                                Hapus
+                              </Button>
+                            </>
+                          )}
+                          {row.status === "POSTED" && (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              disabled={busy}
+                              onClick={() => voidPayment(row)}
+                            >
+                              {busy ? "..." : "Batal"}
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
       {payTarget && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
@@ -351,7 +524,7 @@ export default function PiutangPageClient() {
                 onClick={submitPelunasan}
                 disabled={paying || !kasBank.length}
               >
-                {paying ? "Memproses..." : "Simpan pembayaran"}
+                {paying ? "Memproses..." : "Simpan pelunasan"}
               </Button>
             </div>
           </div>
