@@ -14,7 +14,7 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
-VERCEL_BIN="$(premium_vercel_bin "$APP" "$ROOT")"
+VERCEL_BIN="$(premium_vercel_prepare "$APP" "$ROOT")"
 
 echo "Upload env ke Vercel production dari .env.local ..."
 while IFS= read -r line || [[ -n "$line" ]]; do
@@ -25,9 +25,9 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   val=$(echo "$val" | xargs)
   [[ -z "$key" || -z "$val" ]] && continue
   echo "  → $key"
-  printf '%s' "$val" | "$VERCEL_BIN" env add "$key" production --force --yes
+  (cd "$APP" && printf '%s' "$val" | "$VERCEL_BIN" env add "$key" production --force --yes)
 done < "$ENV_FILE"
 
 echo ""
-echo "Redeploy agar env aktif:"
+echo "OK — redeploy agar env aktif:"
 echo "  cd apps/premium-web && npm run vercel:deploy"

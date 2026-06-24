@@ -12,17 +12,16 @@ if [[ ! -f "$APP/package.json" ]]; then
   exit 1
 fi
 
-VERCEL_BIN="$(premium_vercel_bin "$APP" "$ROOT")"
+VERCEL_BIN="$(premium_vercel_prepare "$APP" "$ROOT")"
 
 echo "==> Build lokal (cek error sebelum deploy)..."
-cd "$APP"
-npm run build
+(cd "$APP" && npm run build)
 
 echo "==> Deploy ke Vercel..."
 if [[ -n "${VERCEL_TOKEN:-}" ]]; then
-  "$VERCEL_BIN" deploy --prod --yes --token "$VERCEL_TOKEN"
+  (cd "$APP" && "$VERCEL_BIN" deploy --prod --yes --token "$VERCEL_TOKEN")
 else
-  "$VERCEL_BIN" deploy --prod --yes
+  (cd "$APP" && "$VERCEL_BIN" deploy --prod --yes)
 fi
 
 echo ""
