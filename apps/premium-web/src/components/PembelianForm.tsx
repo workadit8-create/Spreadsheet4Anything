@@ -189,69 +189,91 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
       </div>
 
       <div>
-        <div className="mb-2 flex items-center justify-between">
-          <Label>Barang / jasa</Label>
-          <Button type="button" variant="ghost" onClick={addLine}>+ Baris</Button>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-slate-900">Barang / jasa</h3>
+          <Button type="button" variant="secondary" onClick={addLine}>+ Baris</Button>
         </div>
-        <div className="space-y-3">
-          {lines.map((line, idx) => (
-            <div key={line.key} className="rounded-lg border border-slate-200 p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-500">Baris {idx + 1}</span>
-                {lines.length > 1 && (
-                  <button type="button" className="text-xs text-red-500" onClick={() => removeLine(line.key)}>
-                    Hapus
-                  </button>
-                )}
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="sm:col-span-2">
-                  <Input
-                    placeholder="Nama barang / jasa"
-                    value={line.description}
-                    onChange={(e) => updateLine(line.key, { description: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Select
-                    value={line.purchase_category_id}
-                    onChange={(e) => updateLine(line.key, { purchase_category_id: e.target.value })}
-                  >
-                    <option value="">Kategori</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.label}</option>
-                    ))}
-                  </Select>
-                </div>
-                <div className="grid grid-cols-3 gap-1">
-                  <Input
-                    type="number"
-                    min="0"
-                    placeholder="Qty"
-                    value={line.qty}
-                    onChange={(e) => updateLine(line.key, { qty: e.target.value })}
-                  />
-                  <Input
-                    type="number"
-                    min="0"
-                    placeholder="Harga"
-                    value={line.unit_cost}
-                    onChange={(e) => updateLine(line.key, { unit_cost: e.target.value })}
-                  />
-                  <Input
-                    type="number"
-                    min="0"
-                    placeholder="Diskon"
-                    value={line.diskon}
-                    onChange={(e) => updateLine(line.key, { diskon: e.target.value })}
-                  />
-                </div>
-              </div>
-              <p className="mt-1 text-right text-xs text-slate-500">
-                Subtotal baris: {formatRp(lineTotals[idx] || 0)}
-              </p>
-            </div>
-          ))}
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <table className="w-full min-w-[720px] text-sm">
+            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Barang / jasa</th>
+                <th className="px-3 py-2 w-48">Kategori</th>
+                <th className="px-3 py-2 w-20">Qty</th>
+                <th className="px-3 py-2 w-32">Harga</th>
+                <th className="px-3 py-2 w-28">Diskon</th>
+                <th className="px-3 py-2 w-32 text-right">Subtotal</th>
+                <th className="px-3 py-2 w-12" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {lines.map((line, idx) => (
+                <tr key={line.key}>
+                  <td className="px-3 py-2">
+                    <Input
+                      placeholder="Nama barang / jasa"
+                      value={line.description}
+                      onChange={(e) => updateLine(line.key, { description: e.target.value })}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <Select
+                      value={line.purchase_category_id}
+                      onChange={(e) => updateLine(line.key, { purchase_category_id: e.target.value })}
+                    >
+                      <option value="">Kategori</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>{c.label}</option>
+                      ))}
+                    </Select>
+                  </td>
+                  <td className="px-3 py-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={line.qty}
+                      onChange={(e) => updateLine(line.key, { qty: e.target.value })}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="0"
+                      value={line.unit_cost}
+                      onChange={(e) => updateLine(line.key, { unit_cost: e.target.value })}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="0"
+                      value={line.diskon}
+                      onChange={(e) => updateLine(line.key, { diskon: e.target.value })}
+                    />
+                  </td>
+                  <td className="px-3 py-2 text-right font-medium text-slate-700">
+                    {formatRp(lineTotals[idx] || 0)}
+                  </td>
+                  <td className="px-3 py-2">
+                    {lines.length > 1 && (
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-red-500 hover:text-red-600"
+                        onClick={() => removeLine(line.key)}
+                      >
+                        Hapus
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
