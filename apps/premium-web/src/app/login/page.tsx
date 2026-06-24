@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("workadit8@gmail.com");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -80,8 +80,9 @@ export default function LoginPage() {
         >
           {loading ? "Memuat..." : "Masuk"}
         </button>
-        <p style={{ marginTop: 16, fontSize: 12, color: "#94a3b8" }}>
-          Buat user di Supabase → Authentication → Users (lab).
+        <p style={{ marginTop: 16, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+          Lab: Supabase → Users → <strong>Create user</strong> (email + password), centang{" "}
+          <strong>Auto Confirm User</strong>. Jangan pakai Invite saja.
         </p>
       </form>
     </main>
