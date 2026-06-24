@@ -349,7 +349,7 @@ DO $$
 DECLARE
   t TEXT;
   tables_with_org TEXT[] := ARRAY[
-    'organizations', 'memberships', 'tenant_addons', 'warehouses', 'app_settings',
+    'tenant_addons', 'warehouses', 'app_settings',
     'product_categories', 'units', 'products', 'unit_conversions',
     'customers', 'suppliers', 'stock_levels', 'stock_movements',
     'sales_orders', 'purchase_orders', 'payments',
@@ -383,14 +383,30 @@ BEGIN
   END LOOP;
 END $$;
 
--- organizations: user sees orgs they belong to
+-- organizations PK = id (bukan organization_id)
+ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_select ON organizations;
+DROP POLICY IF EXISTS tenant_insert ON organizations;
+DROP POLICY IF EXISTS tenant_update ON organizations;
+DROP POLICY IF EXISTS tenant_delete ON organizations;
 DROP POLICY IF EXISTS org_select ON organizations;
 CREATE POLICY org_select ON organizations FOR SELECT
   USING (id IN (SELECT public.user_organization_ids()));
 
--- memberships: same org scope
+-- memberships
+ALTER TABLE memberships ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_select ON memberships;
+DROP POLICY IF EXISTS tenant_insert ON memberships;
+DROP POLICY IF EXISTS tenant_update ON memberships;
+DROP POLICY IF EXISTS tenant_delete ON memberships;
 DROP POLICY IF EXISTS membership_select ON memberships;
 CREATE POLICY membership_select ON memberships FOR SELECT
+  USING (organization_id IN (SELECT public.user_organization_ids()));
+CREATE POLICY membership_insert ON memberships FOR INSERT
+  WITH CHECK (organization_id IN (SELECT public.user_organization_ids()));
+CREATE POLICY membership_update ON memberships FOR UPDATE
+  USING (organization_id IN (SELECT public.user_organization_ids()));
+CREATE POLICY membership_delete ON memberships FOR DELETE
   USING (organization_id IN (SELECT public.user_organization_ids()));
 
 -- stock_movement_lines via parent movement
