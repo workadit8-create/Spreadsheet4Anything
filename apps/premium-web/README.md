@@ -78,6 +78,40 @@ Setelah jurnal POSTED, worker menulis baris ke sheet **PEMASUKAN** (client DB).
 
 4. Cek client DB spreadsheet → sheet **PEMASUKAN** (kolom Posted = TRUE)
 
-## Deploy
+## Deploy Vercel
 
-Vercel (nanti) — project terpisah, root directory `apps/premium-web`.
+**Production:** https://premium-web-ruby.vercel.app
+
+### Deploy ulang (dari root repo)
+
+```bash
+./scripts/deploy-premium-vercel.sh
+```
+
+Atau cepat:
+
+```bash
+cd apps/premium-web && npx vercel deploy --prod --yes
+```
+
+### Env di Vercel (wajib sekali)
+
+Setelah deploy pertama, isi env dari `.env.local`:
+
+```bash
+./scripts/setup-premium-vercel-env.sh
+cd apps/premium-web && npx vercel deploy --prod --yes
+```
+
+Atau manual: Vercel → **premium-web** → Settings → Environment Variables (lihat `.env.example`).
+
+### Supabase Auth (wajib untuk login di Vercel)
+
+Supabase → Authentication → URL Configuration:
+
+| Field | Value |
+|-------|-------|
+| Site URL | `https://premium-web-ruby.vercel.app` |
+| Redirect URLs | `https://premium-web-ruby.vercel.app/auth/callback` |
+
+## Deploy (legacy note)

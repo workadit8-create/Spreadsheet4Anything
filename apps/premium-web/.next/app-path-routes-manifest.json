@@ -1,0 +1,12 @@
+{
+  "/api/posting/process/route": "/api/posting/process",
+  "/api/sales-orders/route": "/api/sales-orders",
+  "/_not-found/page": "/_not-found",
+  "/api/posting/sync-sheet/route": "/api/posting/sync-sheet",
+  "/auth/callback/route": "/auth/callback",
+  "/dashboard/laporan/page": "/dashboard/laporan",
+  "/page": "/",
+  "/dashboard/page": "/dashboard",
+  "/dashboard/invoices/page": "/dashboard/invoices",
+  "/login/page": "/login"
+}

@@ -1,7 +1,12 @@
 {
-  "/api/posting/sync-sheet/route": "app/api/posting/sync-sheet/route.js",
-  "/api/sales-orders/route": "app/api/sales-orders/route.js",
   "/api/posting/process/route": "app/api/posting/process/route.js",
+  "/api/sales-orders/route": "app/api/sales-orders/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/posting/sync-sheet/route": "app/api/posting/sync-sheet/route.js",
+  "/auth/callback/route": "app/auth/callback/route.js",
   "/dashboard/laporan/page": "app/dashboard/laporan/page.js",
-  "/dashboard/invoices/page": "app/dashboard/invoices/page.js"
+  "/page": "app/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/invoices/page": "app/dashboard/invoices/page.js",
+  "/login/page": "app/login/page.js"
 }

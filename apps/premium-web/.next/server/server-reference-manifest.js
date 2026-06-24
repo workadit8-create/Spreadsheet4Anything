@@ -1,1 +1,1 @@
-self.__RSC_SERVER_MANIFEST="{\n  \"node\": {},\n  \"edge\": {},\n  \"encryptionKey\": \"process.env.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY\"\n}"
+self.__RSC_SERVER_MANIFEST="{\"node\":{\"4046279bb060c9f59f34f6b400db21ce41a1e0701f\":{\"workers\":{\"app/login/page\":{\"moduleId\":\"19873\",\"async\":false}},\"layer\":{\"app/login/page\":\"action-browser\"},\"filename\":\"app/login/actions.ts\",\"exportedName\":\"loginAction\"}},\"edge\":{},\"encryptionKey\":\"process.env.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY\"}"
