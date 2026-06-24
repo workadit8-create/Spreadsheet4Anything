@@ -1,19 +1,5 @@
 {
-  "node": {
-    "4046279bb060c9f59f34f6b400db21ce41a1e0701f": {
-      "workers": {
-        "app/login/page": {
-          "moduleId": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Farthamas%2FSpreadsheet4Anything%2Fapps%2Fpremium-web%2Fsrc%2Fapp%2Flogin%2Factions.ts%22%2C%5B%7B%22id%22%3A%224046279bb060c9f59f34f6b400db21ce41a1e0701f%22%2C%22exportedName%22%3A%22loginAction%22%2C%22filename%22%3A%22app%2Flogin%2Factions.ts%22%7D%5D%5D%5D&__client_imported__=true!",
-          "async": false
-        }
-      },
-      "layer": {
-        "app/login/page": "action-browser"
-      },
-      "filename": "app/login/actions.ts",
-      "exportedName": "loginAction"
-    }
-  },
+  "node": {},
   "edge": {},
   "encryptionKey": "2QAZhBJTVMzTZb8Uu0ubeIbxkNnA7o1TkkxZNj7U53w="
 }
