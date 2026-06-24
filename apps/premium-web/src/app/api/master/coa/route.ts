@@ -4,6 +4,13 @@ import { getUserPrimaryOrg } from "@/lib/org/get-user-org";
 
 const ACCOUNT_TYPES = ["Aset", "Kewajiban", "Ekuitas", "Pendapatan", "Beban"] as const;
 
+function formatCoaError(message: string, code: string): string {
+  if (message.includes("coa_accounts_organization_id_code_key") || message.includes("duplicate key")) {
+    return `Kode akun "${code}" sudah dipakai. Gunakan kode lain (mis. 5-10002).`;
+  }
+  return message;
+}
+
 export async function GET() {
   const supabase = await createClient();
   const org = await getUserPrimaryOrg(supabase);
@@ -51,11 +58,15 @@ export async function POST(request: Request) {
       .eq("organization_id", org.id)
       .select()
       .single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      return NextResponse.json({ error: formatCoaError(error.message, code) }, { status: 400 });
+    }
     return NextResponse.json({ item: data });
   }
 
   const { data, error } = await supabase.from("coa_accounts").insert(row).select().single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    return NextResponse.json({ error: formatCoaError(error.message, code) }, { status: 400 });
+  }
   return NextResponse.json({ item: data });
 }
