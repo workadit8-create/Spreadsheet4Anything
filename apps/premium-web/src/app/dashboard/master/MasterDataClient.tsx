@@ -142,9 +142,10 @@ export default function MasterDataClient() {
               {
                 key: "akunPendapatan",
                 label: "Akun pendapatan",
-                type: "text",
+                type: "select",
                 metaKey: "akunPendapatan",
-                placeholder: "Pendapatan"
+                optionsKey: "coa_accounts",
+                coaAccountTypes: ["Pendapatan"]
               },
               { key: "active", label: "Aktif", type: "checkbox" }
             ]}

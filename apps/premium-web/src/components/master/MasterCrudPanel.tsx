@@ -15,6 +15,7 @@ export type FieldDef = {
   placeholder?: string;
   metaKey?: string;
   optionsKey?: string;
+  coaAccountTypes?: string[];
   options?: { value: string; label: string }[];
 };
 
@@ -148,7 +149,13 @@ export function MasterCrudPanel({
   function selectOptions(field: FieldDef) {
     if (field.options) return field.options;
     if (field.optionsKey === "coa_accounts") {
-      return (extras.coa_accounts || []).map((a) => ({
+      let accounts = extras.coa_accounts || [];
+      if (field.coaAccountTypes?.length) {
+        accounts = accounts.filter((a) =>
+          field.coaAccountTypes!.includes(String(a.account_type))
+        );
+      }
+      return accounts.map((a) => ({
         value: String(a.name),
         label: `${String(a.code)} — ${String(a.name)}`
       }));
