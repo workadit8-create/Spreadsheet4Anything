@@ -24,6 +24,7 @@ export type HutangRow = {
   supplierName: string;
   grandTotal: number;
   sisaTagihan: number;
+  status: string;
 };
 
 export function summarizeHutangFromLines(
@@ -32,8 +33,9 @@ export function summarizeHutangFromLines(
     po_no: string;
     order_date: string;
     supplier_id: string | null;
-    metadata: Record<string, unknown>;
     total?: number;
+    status?: string;
+    metadata: Record<string, unknown>;
   },
   lines: PurchaseLineRow[]
 ): HutangRow | null {
@@ -78,7 +80,8 @@ export function summarizeHutangFromLines(
     supplierId: order.supplier_id,
     supplierName,
     grandTotal,
-    sisaTagihan
+    sisaTagihan,
+    status: String(order.status || "CONFIRMED")
   };
 }
 

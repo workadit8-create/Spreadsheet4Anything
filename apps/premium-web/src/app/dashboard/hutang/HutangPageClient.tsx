@@ -14,6 +14,7 @@ type HutangItem = {
   supplierName: string;
   grandTotal: number;
   sisaTagihan: number;
+  status: string;
 };
 
 type PaymentHistoryItem = {
@@ -69,6 +70,8 @@ export default function HutangPageClient() {
   const [history, setHistory] = useState<PaymentHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [actingPaymentId, setActingPaymentId] = useState<string | null>(null);
+  const [actingOrderId, setActingOrderId] = useState<string | null>(null);
+  const [listMessage, setListMessage] = useState<string | null>(null);
   const [historyMessage, setHistoryMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -140,11 +143,31 @@ export default function HutangPageClient() {
   }
 
   function openPay(row: HutangItem) {
+    if (row.status !== "POSTED") {
+      setListMessage(`PO ${row.poNo} belum diposting — klik Post jurnal dulu.`);
+      return;
+    }
     setPayTarget(row);
     setPayDate(new Date().toISOString().slice(0, 10));
     setPayNominal(String(row.sisaTagihan));
     setPayKeterangan("");
     setPayMessage(null);
+  }
+
+  async function postOrder(row: HutangItem) {
+    setActingOrderId(row.purchaseOrderId);
+    setListMessage(null);
+    try {
+      const res = await fetch(`/api/purchase-orders/${row.purchaseOrderId}/post`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setListMessage(data.message || `PO ${row.poNo} diposting — sekarang bisa dibayar`);
+      await load();
+    } catch (e) {
+      setListMessage(e instanceof Error ? e.message : "Gagal posting");
+    } finally {
+      setActingOrderId(null);
+    }
   }
 
   async function submitPelunasan() {
@@ -266,7 +289,7 @@ export default function HutangPageClient() {
       <PageHeader
         badge="Hutang"
         title="Daftar hutang"
-        description="PO kredit / kurang bayar → pelunasan → jurnal PELUNASAN_UTANG di Supabase"
+        description="PO kredit / kurang bayar. Post jurnal dulu (CONFIRMED), lalu bayar pelunasan (POSTED)."
       />
 
       <Card className="mb-6">
@@ -321,11 +344,13 @@ export default function HutangPageClient() {
 
       <Card>
         {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+        {listMessage && <p className="mb-4 text-sm text-slate-600">{listMessage}</p>}
         {loading ? (
           <p className="text-sm text-slate-500">Memuat hutang...</p>
         ) : !items.length ? (
           <p className="text-sm text-slate-500">
             Tidak ada hutang outstanding{allOutstanding ? "" : " di rentang tanggal ini"}.
+            PO kredit muncul di sini setelah disimpan; pelunasan setelah status POSTED.
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -337,11 +362,14 @@ export default function HutangPageClient() {
                   <th className="px-4 py-3">Supplier</th>
                   <th className="px-4 py-3">Total</th>
                   <th className="px-4 py-3">Sisa</th>
+                  <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {items.map((row) => (
+                {items.map((row) => {
+                  const busy = actingOrderId === row.purchaseOrderId;
+                  return (
                   <tr key={row.purchaseOrderId} className="hover:bg-slate-50/80">
                     <td className="px-4 py-3">{row.orderDate}</td>
                     <td className="px-4 py-3 font-mono text-xs">{row.poNo}</td>
@@ -349,16 +377,33 @@ export default function HutangPageClient() {
                     <td className="px-4 py-3">{formatRp(row.grandTotal)}</td>
                     <td className="px-4 py-3 font-semibold text-red-700">{formatRp(row.sisaTagihan)}</td>
                     <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => openPay(row)}
-                        className="text-sm font-medium text-emerald-700 hover:text-emerald-800"
-                      >
-                        Bayar
-                      </button>
+                      <span className={row.status === "POSTED" ? "font-semibold text-emerald-600" : "font-semibold text-amber-600"}>
+                        {row.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {row.status === "CONFIRMED" ? (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          disabled={busy}
+                          onClick={() => postOrder(row)}
+                        >
+                          {busy ? "..." : "Post jurnal"}
+                        </Button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => openPay(row)}
+                          className="text-sm font-medium text-emerald-700 hover:text-emerald-800"
+                        >
+                          Bayar
+                        </button>
+                      )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
