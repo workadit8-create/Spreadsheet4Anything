@@ -12,10 +12,20 @@ const PRODUCT_KIND_OPTIONS = Object.entries(PRODUCT_KIND_LABELS).map(([value, la
   label
 }));
 
+const COA_TYPE_OPTIONS = [
+  { value: "Aset", label: "Aset" },
+  { value: "Kewajiban", label: "Kewajiban" },
+  { value: "Ekuitas", label: "Ekuitas" },
+  { value: "Pendapatan", label: "Pendapatan" },
+  { value: "Beban", label: "Beban" }
+];
+
 const TABS = [
   { id: "customers", label: "Customer" },
   { id: "product-categories", label: "Kategori Produk" },
   { id: "products", label: "Produk" },
+  { id: "units", label: "Satuan" },
+  { id: "coa", label: "COA" },
   { id: "kas-bank", label: "Kas & Bank" },
   { id: "suppliers", label: "Supplier" },
   { id: "purchase-categories", label: "Kategori Pembelian" }
@@ -145,6 +155,45 @@ export default function MasterDataClient() {
               { key: "tracks_stock_label", label: "Stok" },
               { key: "sell_price", label: "Harga" },
               { key: "akunPendapatan", label: "Akun", metaKey: "akunPendapatan" },
+              { key: "active", label: "Status" }
+            ]}
+          />
+        )}
+        {tab === "units" && (
+          <MasterCrudPanel
+            title="Satuan"
+            apiPath="/api/master/units"
+            defaultForm={{}}
+            fields={[
+              { key: "code", label: "Kode", type: "text", required: true, placeholder: "PCS" },
+              { key: "name", label: "Nama", type: "text", required: true, placeholder: "Pieces" }
+            ]}
+            columns={[
+              { key: "code", label: "Kode" },
+              { key: "name", label: "Nama" }
+            ]}
+          />
+        )}
+        {tab === "coa" && (
+          <MasterCrudPanel
+            title="Chart of Accounts (COA)"
+            apiPath="/api/master/coa"
+            defaultForm={{ active: true, account_type: "Aset" }}
+            fields={[
+              { key: "code", label: "Kode akun", type: "text", required: true, placeholder: "1-10001" },
+              { key: "name", label: "Nama akun", type: "text", required: true },
+              {
+                key: "account_type",
+                label: "Tipe akun",
+                type: "select",
+                options: COA_TYPE_OPTIONS
+              },
+              { key: "active", label: "Aktif", type: "checkbox" }
+            ]}
+            columns={[
+              { key: "code", label: "Kode" },
+              { key: "name", label: "Nama" },
+              { key: "account_type", label: "Tipe" },
               { key: "active", label: "Status" }
             ]}
           />

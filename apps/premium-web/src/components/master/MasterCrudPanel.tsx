@@ -31,19 +31,21 @@ export function MasterCrudPanel({
   title,
   apiPath,
   fields,
-  columns
+  columns,
+  defaultForm = { active: true }
 }: {
   title: string;
   apiPath: string;
   fields: FieldDef[];
   columns: ColumnDef[];
+  defaultForm?: Row;
 }) {
   const [items, setItems] = useState<Row[]>([]);
   const [extras, setExtras] = useState<Record<string, Row[]>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<Row>({ active: true });
+  const [form, setForm] = useState<Row>(defaultForm);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -119,7 +121,7 @@ export function MasterCrudPanel({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal simpan");
-      setForm({ active: true });
+      setForm({ ...defaultForm });
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal simpan");
@@ -198,7 +200,7 @@ export function MasterCrudPanel({
             {saving ? "Menyimpan..." : form.id ? "Update" : "Tambah"}
           </Button>
           {form.id != null && form.id !== "" && (
-            <Button type="button" variant="secondary" onClick={() => setForm({ active: true })}>
+            <Button type="button" variant="secondary" onClick={() => setForm({ ...defaultForm })}>
               Batal edit
             </Button>
           )}
