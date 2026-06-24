@@ -114,6 +114,7 @@ type PiutangPaymentMetadata = {
   customerName: string;
   salesOrderId: string;
   rekening: string;
+  coaAccountName?: string;
   keterangan?: string;
   tanggalBayar: string;
   sheetSynced?: boolean;
@@ -127,6 +128,7 @@ function asPiutangPaymentMeta(raw: unknown): PiutangPaymentMetadata {
     customerName: String(m.customerName || ""),
     salesOrderId: String(m.salesOrderId || ""),
     rekening: String(m.rekening || ""),
+    coaAccountName: m.coaAccountName ? String(m.coaAccountName) : undefined,
     keterangan: m.keterangan ? String(m.keterangan) : undefined,
     tanggalBayar: String(m.tanggalBayar || new Date().toISOString().slice(0, 10)),
     sheetSynced: m.sheetSynced === true
@@ -153,7 +155,14 @@ async function processPiutangPaymentJob(
     throw new Error("Metadata pelunasan tidak lengkap");
   }
 
-  const payload = buildPelunasanPiutangPayload(meta, Number(payment.amount), config);
+  const payload = buildPelunasanPiutangPayload(
+    {
+      ...meta,
+      rekening: meta.coaAccountName || meta.rekening
+    },
+    Number(payment.amount),
+    config
+  );
   await callHybridBackend(payload, config.url);
 
   let sheetSynced = false;

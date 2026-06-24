@@ -29,11 +29,32 @@ export async function POST(request: Request) {
   const salesOrderId = String(body.sales_order_id || "").trim();
   const nominal = Number(body.nominal);
   const tanggalBayar = body.tanggal || new Date().toISOString().slice(0, 10);
-  const rekening = String(body.rekening || "Kas").trim();
   const keterangan = String(body.keterangan || "").trim();
 
   if (!salesOrderId) return NextResponse.json({ error: "Invoice wajib dipilih" }, { status: 400 });
   if (!nominal || nominal <= 0) return NextResponse.json({ error: "Nominal harus > 0" }, { status: 400 });
+
+  const { data: kasAccounts, error: kasErr } = await supabase
+    .from("cash_bank_accounts")
+    .select("id, name, coa_account_name")
+    .eq("organization_id", org.id)
+    .eq("active", true);
+
+  if (kasErr) return NextResponse.json({ error: kasErr.message }, { status: 500 });
+
+  const rekeningInput = String(body.rekening || "Kas").trim();
+  const kasMatch = (kasAccounts || []).find(
+    (k) => k.name === rekeningInput || k.coa_account_name === rekeningInput
+  );
+
+  if (!kasMatch) {
+    return NextResponse.json({
+      error: `Rekening "${rekeningInput}" tidak ada di Master Kas & Bank. Pilih rekening yang terdaftar.`
+    }, { status: 400 });
+  }
+
+  const rekeningName = kasMatch.name;
+  const coaAccountName = kasMatch.coa_account_name;
 
   const { data: order, error: orderErr } = await supabase
     .from("sales_orders")
@@ -118,7 +139,7 @@ export async function POST(request: Request) {
       organization_id: org.id,
       doc_type: "PIUTANG_PAYMENT",
       doc_id: order.id,
-      method: rekening,
+      method: rekeningName,
       amount: nominal,
       paid_at: new Date(tanggalBayar).toISOString(),
       metadata: {
@@ -126,7 +147,8 @@ export async function POST(request: Request) {
         invoiceNo: order.order_no,
         customerName,
         salesOrderId: order.id,
-        rekening,
+        rekening: rekeningName,
+        coaAccountName,
         keterangan: keterangan || `Pelunasan ${order.order_no}`,
         tanggalBayar
       }

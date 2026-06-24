@@ -31,28 +31,43 @@ export function summarizePiutangFromLines(
     order_date: string;
     customer_id: string | null;
     metadata: Record<string, unknown>;
+    total?: number;
   },
   lines: SalesLineRow[]
 ): PiutangRow | null {
   const meta = order.metadata || {};
   const customerName = String(meta.customerName || "");
+  const orderTotal = Number(order.total) || 0;
+  const orderBayar = Number(meta.bayar) || 0;
+  const paymentStatus = String(meta.paymentStatus || "");
 
   let grandTotal = 0;
   let sisaTagihan = 0;
 
   if (lines.length) {
-    for (const line of lines) {
-      grandTotal += Number(line.line_total) || 0;
-      sisaTagihan += lineKurangBayar(line);
+    grandTotal = lines.reduce((sum, line) => sum + Number(line.line_total) || 0, 0);
+    const hasLineLevelPayment = lines.some((line) => {
+      const m = (line.metadata || {}) as SalesLineMetadata;
+      return m.bayar != null || m.kurangBayar != null;
+    });
+
+    if (hasLineLevelPayment) {
+      sisaTagihan = lines.reduce((sum, line) => sum + lineKurangBayar(line), 0);
+    } else {
+      grandTotal = grandTotal || orderTotal;
+      sisaTagihan = Math.max(0, grandTotal - orderBayar);
     }
   } else {
-    const total = Number((order as { total?: number }).total) || 0;
-    grandTotal = total;
-    const bayar = Number(meta.bayar) || 0;
-    sisaTagihan = Math.max(0, total - bayar);
+    grandTotal = orderTotal;
+    sisaTagihan = Math.max(0, orderTotal - orderBayar);
   }
 
-  if (sisaTagihan <= 0) return null;
+  const effectiveTotal = grandTotal || orderTotal;
+  if (paymentStatus === "PENJUALAN TUNAI" && orderBayar >= effectiveTotal - 0.01) {
+    sisaTagihan = 0;
+  }
+
+  if (sisaTagihan <= 0.01) return null;
 
   return {
     salesOrderId: order.id,

@@ -17,6 +17,15 @@ export async function GET(request: Request) {
   const end = url.searchParams.get("end");
   const customerId = url.searchParams.get("customer_id");
 
+  const { data: customers } = await supabase
+    .from("customers")
+    .select("id, code, name")
+    .eq("organization_id", org.id)
+    .eq("active", true)
+    .order("name");
+
+  const customerMap = new Map((customers || []).map((c) => [c.id, c.name]));
+
   let ordersQuery = supabase
     .from("sales_orders")
     .select("id, order_no, order_date, total, customer_id, metadata, status")
@@ -44,28 +53,27 @@ export async function GET(request: Request) {
   });
 
   const items = (orders || [])
-    .map((order) =>
-      summarizePiutangFromLines(
+    .map((order) => {
+      const row = summarizePiutangFromLines(
         order as {
           id: string;
           order_no: string;
           order_date: string;
           customer_id: string | null;
+          total: number;
           metadata: Record<string, unknown>;
         },
         linesByOrder.get(order.id) || []
-      )
-    )
+      );
+      if (!row) return null;
+      if (!row.customerName && order.customer_id) {
+        row.customerName = customerMap.get(order.customer_id) || "";
+      }
+      return row;
+    })
     .filter((row): row is NonNullable<typeof row> => row != null);
 
   const totalPiutang = items.reduce((sum, row) => sum + row.sisaTagihan, 0);
-
-  const { data: customers } = await supabase
-    .from("customers")
-    .select("id, code, name")
-    .eq("organization_id", org.id)
-    .eq("active", true)
-    .order("name");
 
   return NextResponse.json({
     items,

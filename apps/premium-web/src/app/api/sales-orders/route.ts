@@ -174,7 +174,13 @@ async function createLabInvoice(
     unit_price: total,
     line_total: total,
     sort_order: 0,
-    metadata: { transactionId, akunPendapatan: metadata.akunPendapatan }
+    metadata: {
+      transactionId,
+      akunPendapatan: metadata.akunPendapatan,
+      bayar,
+      kurangBayar: Math.max(0, total - bayar),
+      paymentStatus
+    }
   });
 
   if (lineErr) {

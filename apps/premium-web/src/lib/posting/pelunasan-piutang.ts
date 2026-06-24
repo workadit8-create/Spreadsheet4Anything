@@ -60,6 +60,7 @@ export function buildSyncPelunasanPayload(
     invoiceNo: string;
     customerName: string;
     rekening: string;
+    coaAccountName?: string;
     keterangan?: string;
     transactionId: string;
     tanggalBayar: string;
@@ -67,6 +68,7 @@ export function buildSyncPelunasanPayload(
   nominal: number,
   config: HybridBackendConfig
 ): SyncPelunasanPayload {
+  const akunKas = meta.coaAccountName || meta.rekening;
   return {
     apiKey: config.apiKey,
     spreadsheetId: config.spreadsheetId,
@@ -75,7 +77,7 @@ export function buildSyncPelunasanPayload(
     invoice: meta.invoiceNo,
     customer: meta.customerName,
     nominal,
-    rekening: meta.rekening,
+    rekening: akunKas,
     keterangan: meta.keterangan || `Pelunasan ${meta.invoiceNo}`,
     transactionId: meta.transactionId,
     alreadyPosted: true,
@@ -88,6 +90,7 @@ export async function syncPelunasanToSheet(
     invoiceNo: string;
     customerName: string;
     rekening: string;
+    coaAccountName?: string;
     keterangan?: string;
     transactionId: string;
     tanggalBayar: string;

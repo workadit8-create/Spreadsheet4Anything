@@ -16,7 +16,7 @@ type PiutangItem = {
 };
 
 type Customer = { id: string; code: string | null; name: string };
-type KasBank = { id: string; name: string };
+type KasBank = { id: string; name: string; coa_account_name?: string };
 
 function formatRp(n: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
@@ -78,11 +78,13 @@ export default function PiutangPageClient() {
   }, [load]);
 
   useEffect(() => {
-    fetch("/api/invoices/bootstrap")
+    fetch("/api/piutang/kas-bank")
       .then((r) => r.json())
       .then((data) => {
-        setKasBank(data.kasBank || []);
-        if (data.kasBank?.length) setPayRekening(data.kasBank[0].name);
+        const items = data.items || [];
+        setKasBank(items);
+        const kas = items.find((k: KasBank) => k.name.toLowerCase() === "kas") || items[0];
+        if (kas) setPayRekening(kas.name);
       })
       .catch(() => undefined);
   }, []);
@@ -249,15 +251,20 @@ export default function PiutangPageClient() {
                 <Label>Tanggal bayar</Label>
                 <Input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
               </div>
-              <div>
-                <Label>Masuk ke rekening</Label>
-                <Select value={payRekening} onChange={(e) => setPayRekening(e.target.value)}>
-                  {kasBank.map((k) => (
-                    <option key={k.id} value={k.name}>{k.name}</option>
-                  ))}
-                  {!kasBank.length && <option value="Kas">Kas</option>}
-                </Select>
-              </div>
+          <div>
+            <Label>Masuk ke rekening</Label>
+            <Select value={payRekening} onChange={(e) => setPayRekening(e.target.value)}>
+              {kasBank.length ? (
+                kasBank.map((k) => (
+                  <option key={k.id} value={k.name}>
+                    {k.name}{k.coa_account_name ? ` (${k.coa_account_name})` : ""}
+                  </option>
+                ))
+              ) : (
+                <option value="">Tambah rekening di Master Kas & Bank</option>
+              )}
+            </Select>
+          </div>
               <div>
                 <Label>Nominal</Label>
                 <Input
