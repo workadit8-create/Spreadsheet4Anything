@@ -456,7 +456,7 @@ export async function processPelunasanSheetSyncRetries(
     .from("payments")
     .select("*")
     .eq("doc_type", "PIUTANG_PAYMENT")
-    .order("created_at", { ascending: false })
+    .order("paid_at", { ascending: false })
     .limit(limit);
 
   if (error) throw new Error(error.message);
