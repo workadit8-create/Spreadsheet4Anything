@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { confirmPostPoJournal, poDebtStatusLabel } from "@/lib/pembelian/po-status-label";
 
 type HutangItem = {
   purchaseOrderId: string;
@@ -155,6 +156,7 @@ export default function HutangPageClient() {
   }
 
   async function postOrder(row: HutangItem) {
+    if (!confirmPostPoJournal(row.poNo, row.sisaTagihan)) return;
     setActingOrderId(row.purchaseOrderId);
     setListMessage(null);
     try {
@@ -289,7 +291,7 @@ export default function HutangPageClient() {
       <PageHeader
         badge="Hutang"
         title="Daftar hutang"
-        description="PO kredit / kurang bayar. Post jurnal dulu (CONFIRMED), lalu bayar pelunasan (POSTED)."
+        description="PO kredit / kurang bayar. Post jurnal = catat ke buku besar. Pelunasan (Bayar) dilakukan setelah jurnal pembelian diposting."
       />
 
       <Card className="mb-6">
@@ -378,7 +380,7 @@ export default function HutangPageClient() {
                     <td className="px-4 py-3 font-semibold text-red-700">{formatRp(row.sisaTagihan)}</td>
                     <td className="px-4 py-3">
                       <span className={row.status === "POSTED" ? "font-semibold text-emerald-600" : "font-semibold text-amber-600"}>
-                        {row.status}
+                        {poDebtStatusLabel(row.status, row.sisaTagihan)}
                       </span>
                     </td>
                     <td className="px-4 py-3">

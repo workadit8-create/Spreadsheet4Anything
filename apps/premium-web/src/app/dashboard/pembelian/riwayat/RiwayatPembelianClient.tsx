@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { confirmPostPoJournal, poDebtStatusLabel } from "@/lib/pembelian/po-status-label";
 
 type HistoryRow = {
   id: string;
@@ -119,7 +120,8 @@ export default function RiwayatPembelianClient() {
     }
   }
 
-  async function postOrder(id: string, poNo: string) {
+  async function postOrder(id: string, poNo: string, sisaTagihan = 0) {
+    if (!confirmPostPoJournal(poNo, sisaTagihan)) return;
     setActingId(id);
     setMessage(null);
     try {
@@ -239,14 +241,16 @@ export default function RiwayatPembelianClient() {
                       <td className="border-b border-slate-100 px-2 py-2">{formatRp(row.grandTotal)}</td>
                       <td className="border-b border-slate-100 px-2 py-2">{formatRp(row.sisaTagihan)}</td>
                       <td className="border-b border-slate-100 px-2 py-2">
-                        <span className={`font-semibold ${statusClass(row.status)}`}>{row.status}</span>
+                        <span className={`font-semibold ${statusClass(row.status)}`}>
+                          {poDebtStatusLabel(row.status, row.sisaTagihan)}
+                        </span>
                       </td>
                       <td className="border-b border-slate-100 px-2 py-2">
                         <div className="flex flex-wrap gap-1">
                           <Button type="button" variant="ghost" onClick={() => openDetail(row)}>Detail</Button>
                           {row.status === "CONFIRMED" && (
                             <>
-                              <Button type="button" variant="secondary" disabled={busy} onClick={() => postOrder(row.id, row.poNo)}>Post</Button>
+                              <Button type="button" variant="secondary" disabled={busy} onClick={() => postOrder(row.id, row.poNo, row.sisaTagihan)}>Post jurnal</Button>
                               <Button type="button" variant="ghost" disabled={busy} onClick={() => deleteOrder(row.id, row.poNo)}>Hapus</Button>
                             </>
                           )}
