@@ -9,7 +9,7 @@ export default function InvoicesPageClient() {
   const [listKey, setListKey] = useState(0);
 
   return (
-    <main style={{ maxWidth: 960, margin: "0 auto", padding: "32px 20px" }}>
+    <main style={{ padding: "28px 24px", maxWidth: 960 }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 28 }}>
         <div>
           <p style={{ margin: 0, color: "#2563eb", fontSize: 12, fontWeight: 700 }}>STEP 3 · BRIDGE</p>

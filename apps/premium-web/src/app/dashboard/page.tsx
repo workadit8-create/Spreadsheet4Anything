@@ -43,7 +43,7 @@ export default async function DashboardPage() {
     (!hasSession ? "Session JWT tidak ada di cookie — login ulang" : null);
 
   return (
-    <main style={{ maxWidth: 960, margin: "0 auto", padding: "32px 20px" }}>
+    <main style={{ padding: "28px 24px", maxWidth: 960 }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap", marginBottom: 28 }}>
         <div>
           <p style={{ margin: 0, color: "#2563eb", fontSize: 12, fontWeight: 700 }}>PREMIUM · HYBRID LAB</p>
@@ -74,6 +74,28 @@ export default async function DashboardPage() {
           <div style={{ fontSize: 16, fontWeight: 600, color: "#059669" }}>Terhubung</div>
         </div>
       </div>
+
+      <section style={{ background: "#fff", padding: 20, borderRadius: 12, border: "1px solid #e2e8f0", marginBottom: 20 }}>
+        <h2 style={{ margin: "0 0 12px", fontSize: 16 }}>Master Data</h2>
+        <p style={{ margin: "0 0 12px", color: "#64748b", fontSize: 14 }}>
+          Customer, produk, kas/bank, supplier, kategori pembelian — simpan ke Supabase.
+        </p>
+        <Link
+          href="/dashboard/master"
+          style={{
+            display: "inline-block",
+            padding: "8px 14px",
+            background: "#2563eb",
+            color: "#fff",
+            borderRadius: 8,
+            fontSize: 14,
+            fontWeight: 600,
+            textDecoration: "none"
+          }}
+        >
+          Buka Master Data →
+        </Link>
+      </section>
 
       <section style={{ background: "#fff", padding: 20, borderRadius: 12, border: "1px solid #e2e8f0", marginBottom: 20 }}>
         <h2 style={{ margin: "0 0 12px", fontSize: 16 }}>Step 3 — Bridge ke GAS</h2>
