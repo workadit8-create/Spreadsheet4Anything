@@ -42,8 +42,11 @@ export default function LaporanPageClient({ stats, syncEvents, gasWebappUrl, dat
       const res = await fetch("/api/posting/sync-sheet", { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      const ok = (data.results || []).filter((r: { ok: boolean }) => r.ok).length;
-      setMessage(`Sync sheet: ${ok} berhasil dari ${data.synced} order`);
+      const orderOk = (data.orders || []).filter((r: { ok: boolean }) => r.ok).length;
+      const pelunasanOk = (data.pelunasan || []).filter((r: { ok: boolean }) => r.ok).length;
+      setMessage(
+        `Sync sheet: ${orderOk} invoice + ${pelunasanOk} pelunasan berhasil (total ${data.synced || 0} dicoba)`
+      );
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Gagal sync");
     } finally {
