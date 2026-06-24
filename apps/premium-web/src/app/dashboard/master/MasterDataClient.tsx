@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { MasterCrudPanel } from "@/components/master/MasterCrudPanel";
+import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 const TABS = [
   { id: "customers", label: "Customer" },
@@ -17,38 +19,31 @@ export default function MasterDataClient() {
   const [tab, setTab] = useState<TabId>("customers");
 
   return (
-    <main style={{ padding: "28px 24px", maxWidth: 1100 }}>
-      <header style={{ marginBottom: 24 }}>
-        <p style={{ margin: 0, color: "#2563eb", fontSize: 12, fontWeight: 700 }}>FASE 1 · MASTER DATA</p>
-        <h1 style={{ margin: "6px 0 4px" }}>Master Data</h1>
-        <p style={{ margin: 0, color: "#64748b", fontSize: 14 }}>
-          Simpan ke Supabase (&lt; 2 detik). Sync ke sheet GAS menyusul per modul transaksi.
-        </p>
-      </header>
+    <main className="mx-auto max-w-5xl px-6 py-8">
+      <PageHeader
+        badge="Fase 1 · Master Data"
+        title="Master Data"
+        description="Simpan ke Supabase (< 2 detik). Sync ke sheet GAS menyusul per modul transaksi."
+      />
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+      <div className="mb-6 flex flex-wrap gap-2">
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
-            style={{
-              padding: "8px 14px",
-              borderRadius: 8,
-              border: tab === t.id ? "1px solid #2563eb" : "1px solid #e2e8f0",
-              background: tab === t.id ? "#eff6ff" : "#fff",
-              color: tab === t.id ? "#2563eb" : "#334155",
-              fontWeight: tab === t.id ? 600 : 400,
-              cursor: "pointer",
-              fontSize: 13
-            }}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+              tab === t.id
+                ? "bg-brand-600 text-white shadow-sm"
+                : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+            }`}
           >
             {t.label}
           </button>
         ))}
       </div>
 
-      <section style={{ background: "#fff", padding: 20, borderRadius: 12, border: "1px solid #e2e8f0" }}>
+      <Card>
         {tab === "customers" && (
           <MasterCrudPanel
             title="Customer"
@@ -148,10 +143,10 @@ export default function MasterDataClient() {
             ]}
           />
         )}
-      </section>
+      </Card>
 
-      <p style={{ marginTop: 16, fontSize: 12, color: "#94a3b8" }}>
-        COA penuh & sync ke sheet MASTER_* — fase berikutnya. Pondasi stok/POS: tabel products, warehouses, units sudah di schema.
+      <p className="mt-4 text-xs text-slate-400">
+        Pondasi stok/POS: products, warehouses, units sudah di schema — UI menyusul di fase terakhir.
       </p>
     </main>
   );

@@ -4,10 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV = [
-  { href: "/dashboard", label: "Dashboard", icon: "🏠" },
-  { href: "/dashboard/master", label: "Master Data", icon: "📚" },
-  { href: "/dashboard/invoices", label: "Invoice lab", icon: "🧾" },
-  { href: "/dashboard/laporan", label: "Laporan bridge", icon: "📊" }
+  { href: "/dashboard", label: "Dashboard", icon: "◆" },
+  { href: "/dashboard/master", label: "Master Data", icon: "◇" },
+  { href: "/dashboard/invoices", label: "Invoice lab", icon: "◇" },
+  { href: "/dashboard/laporan", label: "Laporan", icon: "◇" }
 ];
 
 const COMING_SOON = [
@@ -32,51 +32,55 @@ export function AppShell({
   const pathname = usePathname();
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
-      <aside
-        style={{
-          width: 220,
-          background: "#1f2937",
-          color: "#fff",
-          padding: "20px 0",
-          flexShrink: 0
-        }}
-      >
-        <div style={{ padding: "0 16px 20px", fontWeight: 700, fontSize: 14 }}>PREMIUM · HYBRID LAB</div>
-        {NAV.map((item) => {
-          const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              style={{
-                display: "block",
-                padding: "10px 16px",
-                margin: "0 8px 4px",
-                borderRadius: 8,
-                textDecoration: "none",
-                color: "#fff",
-                fontSize: 14,
-                background: active ? "#374151" : "transparent"
-              }}
-            >
-              {item.icon} {item.label}
-            </Link>
-          );
-        })}
-        <div style={{ margin: "16px 12px 0", padding: 12, background: "#374151", borderRadius: 8, fontSize: 11, color: "#9ca3af" }}>
-          <div style={{ color: "#e5e7eb", fontSize: 12, marginBottom: 6 }}>Coming soon</div>
-          {COMING_SOON.map((label) => (
-            <div key={label} style={{ marginBottom: 2 }}>· {label}</div>
-          ))}
+    <div className="flex min-h-screen bg-slate-50">
+      <aside className="flex w-60 shrink-0 flex-col border-r border-slate-200/80 bg-slate-900 text-white">
+        <div className="border-b border-white/10 px-5 py-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Premium</p>
+          <p className="mt-1 text-sm font-semibold text-white">HYBRID LAB</p>
         </div>
-        {userEmail && (
-          <div style={{ margin: "16px 12px 0", padding: 12, background: "#374151", borderRadius: 8, fontSize: 11, color: "#d1d5db" }}>
-            {userEmail}
+
+        <nav className="flex-1 space-y-1 p-3">
+          {NAV.map((item) => {
+            const active =
+              pathname === item.href ||
+              (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  active
+                    ? "bg-white/10 text-white shadow-inner"
+                    : "text-slate-300 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                <span className={`text-xs ${active ? "text-brand-500" : "text-slate-500"}`}>
+                  {item.icon}
+                </span>
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="space-y-3 p-3">
+          <div className="rounded-lg bg-white/5 px-3 py-3 text-[11px] text-slate-400">
+            <p className="mb-2 font-semibold text-slate-300">Coming soon</p>
+            <ul className="space-y-0.5">
+              {COMING_SOON.map((label) => (
+                <li key={label}>· {label}</li>
+              ))}
+            </ul>
           </div>
-        )}
+          {userEmail && (
+            <div className="rounded-lg bg-white/5 px-3 py-2 text-[11px] text-slate-400">
+              {userEmail}
+            </div>
+          )}
+        </div>
       </aside>
-      <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
+
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
 }

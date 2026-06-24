@@ -2,6 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardOrgsClient } from "@/components/DashboardOrgsClient";
+import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StatCard } from "@/components/ui/StatCard";
 
 type OrgRow = { id: string; slug: string; name: string };
 
@@ -43,117 +46,80 @@ export default async function DashboardPage() {
     (!hasSession ? "Session JWT tidak ada di cookie — login ulang" : null);
 
   return (
-    <main style={{ padding: "28px 24px", maxWidth: 960 }}>
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap", marginBottom: 28 }}>
-        <div>
-          <p style={{ margin: 0, color: "#2563eb", fontSize: 12, fontWeight: 700 }}>PREMIUM · HYBRID LAB</p>
-          <h1 style={{ margin: "6px 0 4px" }}>Dashboard</h1>
-          <p style={{ margin: 0, color: "#64748b", fontSize: 14 }}>{user.email}</p>
-          <p style={{ margin: "4px 0 0", color: "#94a3b8", fontSize: 11 }}>user id: {user.id}</p>
-        </div>
-        <Link href="/" style={{ color: "#64748b", fontSize: 14 }}>← Home</Link>
-      </header>
+    <main className="mx-auto max-w-4xl px-6 py-8">
+      <PageHeader
+        badge="Premium · Hybrid Lab"
+        title="Dashboard"
+        description={user.email ?? undefined}
+      >
+        <Link href="/" className="text-sm text-slate-500 hover:text-slate-700">← Home</Link>
+      </PageHeader>
 
       {debugError && (
-        <div style={{ background: "#fef2f2", border: "1px solid #fecaca", padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 13, color: "#991b1b" }}>
-          Server query: {debugError}
+        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {debugError}
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 28 }}>
-        <div style={{ background: "#fff", padding: 20, borderRadius: 12, border: "1px solid #e2e8f0" }}>
-          <div style={{ fontSize: 12, color: "#64748b" }}>Organisasi</div>
-          <div style={{ fontSize: 28, fontWeight: 700 }}>{orgsFromServer.length}</div>
-        </div>
-        <div style={{ background: "#fff", padding: 20, borderRadius: 12, border: "1px solid #e2e8f0" }}>
-          <div style={{ fontSize: 12, color: "#64748b" }}>Produk</div>
-          <div style={{ fontSize: 28, fontWeight: 700 }}>{productCount ?? 0}</div>
-        </div>
-        <div style={{ background: "#fff", padding: 20, borderRadius: 12, border: "1px solid #e2e8f0" }}>
-          <div style={{ fontSize: 12, color: "#64748b" }}>Supabase</div>
-          <div style={{ fontSize: 16, fontWeight: 600, color: "#059669" }}>Terhubung</div>
-        </div>
+      <div className="mb-8 grid gap-4 sm:grid-cols-3">
+        <StatCard label="Organisasi" value={orgsFromServer.length} />
+        <StatCard label="Produk" value={productCount ?? 0} />
+        <StatCard label="Supabase" value="Terhubung" tone="success" />
       </div>
 
-      <section style={{ background: "#fff", padding: 20, borderRadius: 12, border: "1px solid #e2e8f0", marginBottom: 20 }}>
-        <h2 style={{ margin: "0 0 12px", fontSize: 16 }}>Master Data</h2>
-        <p style={{ margin: "0 0 12px", color: "#64748b", fontSize: 14 }}>
-          Customer, produk, kas/bank, supplier, kategori pembelian — simpan ke Supabase.
-        </p>
-        <Link
-          href="/dashboard/master"
-          style={{
-            display: "inline-block",
-            padding: "8px 14px",
-            background: "#2563eb",
-            color: "#fff",
-            borderRadius: 8,
-            fontSize: 14,
-            fontWeight: 600,
-            textDecoration: "none"
-          }}
-        >
-          Buka Master Data →
-        </Link>
-      </section>
+      <div className="space-y-4">
+        <Card>
+          <h2 className="text-base font-semibold text-slate-900">Master Data</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Customer, produk, kas/bank, supplier, kategori pembelian.
+          </p>
+          <Link
+            href="/dashboard/master"
+            className="mt-4 inline-flex rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
+          >
+            Buka Master Data →
+          </Link>
+        </Card>
 
-      <section style={{ background: "#fff", padding: 20, borderRadius: 12, border: "1px solid #e2e8f0", marginBottom: 20 }}>
-        <h2 style={{ margin: "0 0 12px", fontSize: 16 }}>Step 3 — Bridge ke GAS</h2>
-        <p style={{ margin: "0 0 12px", color: "#64748b", fontSize: 14 }}>
-          Buat invoice dari Premium Web → <code>posting_jobs</code> → BACKENDengine HYBRID LAB.
-        </p>
-        <Link
-          href="/dashboard/invoices"
-          style={{
-            display: "inline-block",
-            padding: "8px 14px",
-            background: "#2563eb",
-            color: "#fff",
-            borderRadius: 8,
-            fontSize: 14,
-            fontWeight: 600,
-            textDecoration: "none"
-          }}
-        >
-          Invoice lab →
-        </Link>
-        <Link
-          href="/dashboard/laporan"
-          style={{
-            display: "inline-block",
-            padding: "8px 14px",
-            background: "#fff",
-            color: "#334155",
-            borderRadius: 8,
-            fontSize: 14,
-            fontWeight: 600,
-            textDecoration: "none",
-            border: "1px solid #e2e8f0",
-            marginLeft: 8
-          }}
-        >
-          Laporan bridge →
-        </Link>
-      </section>
+        <Card>
+          <h2 className="text-base font-semibold text-slate-900">Bridge ke GAS</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Invoice → <code className="text-xs">posting_jobs</code> → BACKENDengine
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href="/dashboard/invoices"
+              className="inline-flex rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
+            >
+              Invoice lab →
+            </Link>
+            <Link
+              href="/dashboard/laporan"
+              className="inline-flex rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Laporan →
+            </Link>
+          </div>
+        </Card>
 
-      <section style={{ background: "#fff", padding: 20, borderRadius: 12, border: "1px solid #e2e8f0" }}>
-        <h2 style={{ margin: "0 0 12px", fontSize: 16 }}>Tenant lab</h2>
-        {orgsFromServer.length ? (
-          <ul style={{ margin: 0, paddingLeft: 18 }}>
-            {orgsFromServer.map((o) => (
-              <li key={o.id} style={{ marginBottom: 6 }}>
-                <strong>{o.name}</strong> <code style={{ fontSize: 12 }}>{o.slug}</code>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <DashboardOrgsClient />
-        )}
-      </section>
-
-      <p style={{ marginTop: 24, fontSize: 13, color: "#94a3b8" }}>
-        Step 3 aktif — <Link href="/dashboard/invoices" style={{ color: "#2563eb" }}>Invoice lab</Link>
-      </p>
+        <Card>
+          <h2 className="text-base font-semibold text-slate-900">Tenant lab</h2>
+          {orgsFromServer.length ? (
+            <ul className="mt-3 space-y-2 text-sm text-slate-700">
+              {orgsFromServer.map((o) => (
+                <li key={o.id}>
+                  <strong>{o.name}</strong>{" "}
+                  <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">{o.slug}</code>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="mt-3">
+              <DashboardOrgsClient />
+            </div>
+          )}
+        </Card>
+      </div>
     </main>
   );
 }

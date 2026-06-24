@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { loginAction } from "./actions";
+import { Button } from "@/components/ui/Button";
+import { Input, Label } from "@/components/ui/Input";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("workadit8@gmail.com");
@@ -18,13 +20,9 @@ export default function LoginPage() {
       formData.set("email", email);
       formData.set("password", password);
       const result = await loginAction(formData);
-      if (result?.error) {
-        setMessage(result.error);
-      }
+      if (result?.error) setMessage(result.error);
     } catch (err) {
-      if (err instanceof Error && err.message === "NEXT_REDIRECT") {
-        return;
-      }
+      if (err instanceof Error && err.message === "NEXT_REDIRECT") return;
       setMessage(err instanceof Error ? err.message : "Login gagal");
     } finally {
       setLoading(false);
@@ -32,62 +30,46 @@ export default function LoginPage() {
   }
 
   return (
-    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24 }}>
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
       <form
         onSubmit={onSubmit}
-        style={{
-          width: "100%",
-          maxWidth: 400,
-          background: "#fff",
-          padding: 24,
-          borderRadius: 12,
-          boxShadow: "0 4px 24px rgba(0,0,0,0.06)"
-        }}
+        className="w-full max-w-md rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-slate-900/50"
       >
-        <h1 style={{ margin: "0 0 8px", fontSize: 22 }}>Login Premium</h1>
-        <p style={{ margin: "0 0 20px", color: "#64748b", fontSize: 14 }}>
-          HYBRID LAB · Supabase Auth
-        </p>
-        <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Email</label>
-        <input
-          type="email"
-          name="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={{ width: "100%", padding: 10, marginBottom: 14, borderRadius: 8, border: "1px solid #e2e8f0", boxSizing: "border-box" }}
-        />
-        <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Password</label>
-        <input
-          type="password"
-          name="password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={{ width: "100%", padding: 10, marginBottom: 16, borderRadius: 8, border: "1px solid #e2e8f0", boxSizing: "border-box" }}
-        />
-        {message && (
-          <p style={{ color: "#dc2626", fontSize: 13, marginBottom: 12 }}>{message}</p>
-        )}
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            width: "100%",
-            padding: 12,
-            background: "#2563eb",
-            color: "#fff",
-            border: "none",
-            borderRadius: 8,
-            fontWeight: 600,
-            cursor: loading ? "wait" : "pointer"
-          }}
-        >
+        <p className="text-xs font-bold uppercase tracking-widest text-brand-600">Premium</p>
+        <h1 className="mt-2 text-2xl font-bold text-slate-900">Masuk ke akun</h1>
+        <p className="mt-1 text-sm text-slate-500">HYBRID LAB · Supabase Auth</p>
+
+        <div className="mt-6 space-y-4">
+          <div>
+            <Label>Email</Label>
+            <Input
+              type="email"
+              name="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Password</Label>
+            <Input
+              type="password"
+              name="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {message && <p className="mt-4 text-sm text-red-600">{message}</p>}
+
+        <Button type="submit" disabled={loading} className="mt-6 w-full py-2.5">
           {loading ? "Memuat..." : "Masuk"}
-        </button>
-        <p style={{ marginTop: 16, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
-          Lab: Supabase → Users → <strong>Create user</strong> (email + password), centang{" "}
-          <strong>Auto Confirm User</strong>. Jangan pakai Invite saja.
+        </Button>
+
+        <p className="mt-5 text-xs leading-relaxed text-slate-500">
+          Lab: Supabase → Users → <strong>Create user</strong>, centang <strong>Auto Confirm</strong>.
         </p>
       </form>
     </main>

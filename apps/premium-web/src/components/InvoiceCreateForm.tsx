@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { Input, Label, Select } from "@/components/ui/Input";
 
 type PaymentStatus = "PENJUALAN TUNAI" | "PENJUALAN KREDIT";
 
@@ -65,83 +67,46 @@ export function InvoiceCreateForm({ onCreated }: { onCreated: () => void }) {
   }
 
   return (
-    <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
+    <form onSubmit={onSubmit} className="grid gap-4">
       <div>
-        <label style={{ fontSize: 13, fontWeight: 600 }}>Keterangan</label>
-        <input
-          value={keterangan}
-          onChange={(e) => setKeterangan(e.target.value)}
-          style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 8, border: "1px solid #e2e8f0", boxSizing: "border-box" }}
-        />
+        <Label>Keterangan</Label>
+        <Input value={keterangan} onChange={(e) => setKeterangan(e.target.value)} />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label style={{ fontSize: 13, fontWeight: 600 }}>Total (Rp)</label>
-          <input
-            type="number"
-            min={1}
-            value={total}
-            onChange={(e) => setTotal(e.target.value)}
-            style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 8, border: "1px solid #e2e8f0", boxSizing: "border-box" }}
-          />
+          <Label>Total (Rp)</Label>
+          <Input type="number" min={1} value={total} onChange={(e) => setTotal(e.target.value)} />
         </div>
         <div>
-          <label style={{ fontSize: 13, fontWeight: 600 }}>Bayar (Rp)</label>
-          <input
-            type="number"
-            min={0}
-            value={bayar}
-            onChange={(e) => setBayar(e.target.value)}
-            style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 8, border: "1px solid #e2e8f0", boxSizing: "border-box" }}
-          />
+          <Label>Bayar (Rp)</Label>
+          <Input type="number" min={0} value={bayar} onChange={(e) => setBayar(e.target.value)} />
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label style={{ fontSize: 13, fontWeight: 600 }}>Status pembayaran</label>
-          <select
+          <Label>Status pembayaran</Label>
+          <Select
             value={paymentStatus}
             onChange={(e) => setPaymentStatus(e.target.value as PaymentStatus)}
-            style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 8, border: "1px solid #e2e8f0", boxSizing: "border-box" }}
           >
             <option value="PENJUALAN TUNAI">PENJUALAN TUNAI</option>
             <option value="PENJUALAN KREDIT">PENJUALAN KREDIT</option>
-          </select>
+          </Select>
         </div>
         <div>
-          <label style={{ fontSize: 13, fontWeight: 600 }}>Rekening (Kas/Bank)</label>
-          <input
-            value={rekening}
-            onChange={(e) => setRekening(e.target.value)}
-            style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 8, border: "1px solid #e2e8f0", boxSizing: "border-box" }}
-          />
+          <Label>Rekening (Kas/Bank)</Label>
+          <Input value={rekening} onChange={(e) => setRekening(e.target.value)} />
         </div>
       </div>
       <div>
-        <label style={{ fontSize: 13, fontWeight: 600 }}>Akun pendapatan</label>
-        <input
-          value={akunPendapatan}
-          onChange={(e) => setAkunPendapatan(e.target.value)}
-          style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 8, border: "1px solid #e2e8f0", boxSizing: "border-box" }}
-        />
+        <Label>Akun pendapatan</Label>
+        <Input value={akunPendapatan} onChange={(e) => setAkunPendapatan(e.target.value)} />
       </div>
-      {message && <p style={{ color: "#059669", fontSize: 13 }}>{message}</p>}
-      {error && <p style={{ color: "#dc2626", fontSize: 13 }}>{error}</p>}
-      <button
-        type="submit"
-        disabled={loading}
-        style={{
-          padding: 10,
-          background: "#2563eb",
-          color: "#fff",
-          border: "none",
-          borderRadius: 8,
-          fontWeight: 600,
-          cursor: loading ? "wait" : "pointer"
-        }}
-      >
+      {message && <p className="text-sm text-emerald-600">{message}</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <Button type="submit" disabled={loading} className="w-full sm:w-auto">
         {loading ? "Memproses..." : "Buat invoice + post ke jurnal"}
-      </button>
+      </Button>
     </form>
   );
 }

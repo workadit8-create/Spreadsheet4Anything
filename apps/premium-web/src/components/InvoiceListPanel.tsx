@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/Button";
 
 type PostingJob = {
   id: string;
@@ -20,11 +21,11 @@ type OrderRow = {
   postingJob: PostingJob | null;
 };
 
-function statusColor(status: string) {
-  if (status === "POSTED") return "#059669";
-  if (status === "FAILED") return "#dc2626";
-  if (status === "RUNNING") return "#d97706";
-  return "#64748b";
+function statusClass(status: string) {
+  if (status === "POSTED") return "text-emerald-600";
+  if (status === "FAILED") return "text-red-600";
+  if (status === "RUNNING") return "text-amber-600";
+  return "text-slate-500";
 }
 
 export function InvoiceListPanel() {
@@ -74,72 +75,66 @@ export function InvoiceListPanel() {
   }
 
   if (loading) {
-    return <p style={{ color: "#64748b", fontSize: 14 }}>Memuat invoice...</p>;
+    return <p className="text-sm text-slate-500">Memuat invoice...</p>;
   }
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 12 }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>Invoice terbaru</h2>
-        <button
-          type="button"
-          onClick={processQueue}
-          disabled={processing}
-          style={{
-            padding: "6px 12px",
-            fontSize: 13,
-            borderRadius: 8,
-            border: "1px solid #e2e8f0",
-            background: "#fff",
-            cursor: processing ? "wait" : "pointer"
-          }}
-        >
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-base font-semibold text-slate-900">Invoice terbaru</h2>
+        <Button variant="secondary" type="button" onClick={processQueue} disabled={processing}>
           {processing ? "Memproses..." : "Proses queue"}
-        </button>
+        </Button>
       </div>
-      {message && <p style={{ fontSize: 13, color: "#64748b", marginBottom: 12 }}>{message}</p>}
+      {message && <p className="mb-3 text-sm text-slate-500">{message}</p>}
       {!orders.length ? (
-        <p style={{ color: "#64748b", fontSize: 14 }}>Belum ada invoice.</p>
+        <p className="text-sm text-slate-500">Belum ada invoice.</p>
       ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-          <thead>
-            <tr style={{ textAlign: "left", color: "#64748b" }}>
-              <th style={{ padding: "8px 6px", borderBottom: "1px solid #e2e8f0" }}>Invoice</th>
-              <th style={{ padding: "8px 6px", borderBottom: "1px solid #e2e8f0" }}>Total</th>
-              <th style={{ padding: "8px 6px", borderBottom: "1px solid #e2e8f0" }}>Order</th>
-              <th style={{ padding: "8px 6px", borderBottom: "1px solid #e2e8f0" }}>Posting</th>
-              <th style={{ padding: "8px 6px", borderBottom: "1px solid #e2e8f0" }}>Sheet</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.map((o) => {
-              const postStatus = o.postingJob?.status || "—";
-              return (
-                <tr key={o.id}>
-                  <td style={{ padding: "8px 6px", borderBottom: "1px solid #f1f5f9" }}>
-                    <code style={{ fontSize: 12 }}>{o.order_no}</code>
-                    <div style={{ fontSize: 11, color: "#94a3b8" }}>{o.metadata?.transactionId}</div>
-                  </td>
-                  <td style={{ padding: "8px 6px", borderBottom: "1px solid #f1f5f9" }}>
-                    {Number(o.total).toLocaleString("id-ID")}
-                  </td>
-                  <td style={{ padding: "8px 6px", borderBottom: "1px solid #f1f5f9" }}>{o.status}</td>
-                  <td style={{ padding: "8px 6px", borderBottom: "1px solid #f1f5f9" }}>
-                    <span style={{ color: statusColor(postStatus), fontWeight: 600 }}>{postStatus}</span>
-                    {o.postingJob?.last_error && (
-                      <div style={{ fontSize: 11, color: "#dc2626" }}>{o.postingJob.last_error}</div>
-                    )}
-                  </td>
-                  <td style={{ padding: "8px 6px", borderBottom: "1px solid #f1f5f9" }}>
-                    <span style={{ color: o.metadata?.sheetSynced ? "#059669" : "#d97706", fontWeight: 600 }}>
-                      {o.metadata?.sheetSynced ? "SYNCED" : postStatus === "POSTED" ? "PENDING" : "—"}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="text-left text-xs font-medium text-slate-500">
+                <th className="border-b border-slate-200 px-2 py-2">Invoice</th>
+                <th className="border-b border-slate-200 px-2 py-2">Total</th>
+                <th className="border-b border-slate-200 px-2 py-2">Order</th>
+                <th className="border-b border-slate-200 px-2 py-2">Posting</th>
+                <th className="border-b border-slate-200 px-2 py-2">Sheet</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((o) => {
+                const postStatus = o.postingJob?.status || "—";
+                return (
+                  <tr key={o.id} className="hover:bg-slate-50/80">
+                    <td className="border-b border-slate-100 px-2 py-2">
+                      <code className="text-xs">{o.order_no}</code>
+                      <div className="text-xs text-slate-400">{o.metadata?.transactionId}</div>
+                    </td>
+                    <td className="border-b border-slate-100 px-2 py-2">
+                      {Number(o.total).toLocaleString("id-ID")}
+                    </td>
+                    <td className="border-b border-slate-100 px-2 py-2">{o.status}</td>
+                    <td className="border-b border-slate-100 px-2 py-2">
+                      <span className={`font-semibold ${statusClass(postStatus)}`}>{postStatus}</span>
+                      {o.postingJob?.last_error && (
+                        <div className="text-xs text-red-600">{o.postingJob.last_error}</div>
+                      )}
+                    </td>
+                    <td className="border-b border-slate-100 px-2 py-2">
+                      <span
+                        className={`font-semibold ${
+                          o.metadata?.sheetSynced ? "text-emerald-600" : "text-amber-600"
+                        }`}
+                      >
+                        {o.metadata?.sheetSynced ? "SYNCED" : postStatus === "POSTED" ? "PENDING" : "—"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

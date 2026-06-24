@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StatCard } from "@/components/ui/StatCard";
+import { Button } from "@/components/ui/Button";
 
 type SyncEvent = {
   id: string;
@@ -52,106 +56,105 @@ export default function LaporanPageClient({ stats, syncEvents, gasWebappUrl, dat
     : null;
 
   return (
-    <main style={{ padding: "28px 24px", maxWidth: 960 }}>
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 28 }}>
-        <div>
-          <p style={{ margin: 0, color: "#2563eb", fontSize: 12, fontWeight: 700 }}>STEP 4 · SYNC BALIK</p>
-          <h1 style={{ margin: "6px 0 4px" }}>Laporan bridge</h1>
-          <p style={{ margin: 0, color: "#64748b", fontSize: 14 }}>
-            Status posting jurnal + sync ke sheet PEMASUKAN
-          </p>
-        </div>
-        <Link href="/dashboard" style={{ color: "#64748b", fontSize: 14 }}>← Dashboard</Link>
-      </header>
+    <main className="mx-auto max-w-4xl px-6 py-8">
+      <PageHeader
+        badge="Step 4 · Sync balik"
+        title="Laporan bridge"
+        description="Status posting jurnal + sync ke sheet PEMASUKAN"
+      >
+        <Link href="/dashboard" className="text-sm text-slate-500 hover:text-slate-700">← Dashboard</Link>
+      </PageHeader>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 24 }}>
-        {[
-          { label: "Invoice total", value: stats.totalOrders },
-          { label: "Jurnal POSTED", value: stats.postedJobs, color: "#059669" },
-          { label: "Jurnal FAILED", value: stats.failedJobs, color: "#dc2626" },
-          { label: "Queue PENDING", value: stats.pendingJobs },
-          { label: "Sheet synced", value: stats.sheetSynced, color: "#059669" },
-          { label: "Sheet pending", value: stats.sheetPending, color: "#d97706" }
-        ].map((s) => (
-          <div key={s.label} style={{ background: "#fff", padding: 16, borderRadius: 12, border: "1px solid #e2e8f0" }}>
-            <div style={{ fontSize: 11, color: "#64748b" }}>{s.label}</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: s.color || "#0f172a" }}>{s.value}</div>
-          </div>
-        ))}
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <StatCard label="Invoice total" value={stats.totalOrders} />
+        <StatCard label="Jurnal POSTED" value={stats.postedJobs} tone="success" />
+        <StatCard label="Jurnal FAILED" value={stats.failedJobs} tone="danger" />
+        <StatCard label="Queue PENDING" value={stats.pendingJobs} />
+        <StatCard label="Sheet synced" value={stats.sheetSynced} tone="success" />
+        <StatCard label="Sheet pending" value={stats.sheetPending} tone="warning" />
       </div>
 
-      <section style={{ background: "#fff", padding: 20, borderRadius: 12, border: "1px solid #e2e8f0", marginBottom: 20 }}>
-        <h2 style={{ margin: "0 0 12px", fontSize: 16 }}>Aksi</h2>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-          <button
-            type="button"
-            onClick={retrySheetSync}
-            disabled={syncing}
-            style={{
-              padding: "8px 14px",
-              background: "#2563eb",
-              color: "#fff",
-              border: "none",
-              borderRadius: 8,
-              fontWeight: 600,
-              cursor: syncing ? "wait" : "pointer",
-              fontSize: 14
-            }}
-          >
+      <Card className="mb-6">
+        <h2 className="mb-3 text-base font-semibold text-slate-900">Aksi</h2>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" onClick={retrySheetSync} disabled={syncing}>
             {syncing ? "Syncing..." : "Retry sync sheet PEMASUKAN"}
-          </button>
-          <Link href="/dashboard/invoices" style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 14, color: "#334155", textDecoration: "none" }}>
+          </Button>
+          <Link
+            href="/dashboard/invoices"
+            className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 no-underline transition hover:bg-slate-50"
+          >
             Invoice lab
           </Link>
           {sheetUrl && (
-            <a href={sheetUrl} target="_blank" rel="noreferrer" style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 14, color: "#334155", textDecoration: "none" }}>
+            <a
+              href={sheetUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 no-underline transition hover:bg-slate-50"
+            >
               Buka client DB sheet
             </a>
           )}
           {gasWebappUrl && (
-            <a href={gasWebappUrl} target="_blank" rel="noreferrer" style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 14, color: "#334155", textDecoration: "none" }}>
+            <a
+              href={gasWebappUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 no-underline transition hover:bg-slate-50"
+            >
               Buka GAS web app
             </a>
           )}
         </div>
-        {message && <p style={{ marginTop: 12, fontSize: 13, color: "#64748b" }}>{message}</p>}
-      </section>
+        {message && <p className="mt-3 text-sm text-slate-500">{message}</p>}
+      </Card>
 
-      <section style={{ background: "#fff", padding: 20, borderRadius: 12, border: "1px solid #e2e8f0" }}>
-        <h2 style={{ margin: "0 0 12px", fontSize: 16 }}>Sync events (terbaru)</h2>
+      <Card>
+        <h2 className="mb-3 text-base font-semibold text-slate-900">Sync events (terbaru)</h2>
         {!syncEvents.length ? (
-          <p style={{ color: "#64748b", fontSize: 14 }}>Belum ada sync event.</p>
+          <p className="text-sm text-slate-500">Belum ada sync event.</p>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr style={{ textAlign: "left", color: "#64748b" }}>
-                <th style={{ padding: "6px", borderBottom: "1px solid #e2e8f0" }}>Waktu</th>
-                <th style={{ padding: "6px", borderBottom: "1px solid #e2e8f0" }}>Invoice</th>
-                <th style={{ padding: "6px", borderBottom: "1px solid #e2e8f0" }}>Status</th>
-                <th style={{ padding: "6px", borderBottom: "1px solid #e2e8f0" }}>Error</th>
-              </tr>
-            </thead>
-            <tbody>
-              {syncEvents.map((e) => (
-                <tr key={e.id}>
-                  <td style={{ padding: "6px", borderBottom: "1px solid #f1f5f9", fontSize: 12 }}>
-                    {new Date(e.created_at).toLocaleString("id-ID")}
-                  </td>
-                  <td style={{ padding: "6px", borderBottom: "1px solid #f1f5f9" }}>
-                    <code>{e.payload?.orderNo || "—"}</code>
-                  </td>
-                  <td style={{ padding: "6px", borderBottom: "1px solid #f1f5f9", fontWeight: 600, color: e.status === "DONE" ? "#059669" : e.status === "FAILED" ? "#dc2626" : "#64748b" }}>
-                    {e.status}
-                  </td>
-                  <td style={{ padding: "6px", borderBottom: "1px solid #f1f5f9", fontSize: 12, color: "#dc2626" }}>
-                    {e.error || "—"}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="text-left text-xs font-medium text-slate-500">
+                  <th className="border-b border-slate-200 px-2 py-2">Waktu</th>
+                  <th className="border-b border-slate-200 px-2 py-2">Invoice</th>
+                  <th className="border-b border-slate-200 px-2 py-2">Status</th>
+                  <th className="border-b border-slate-200 px-2 py-2">Error</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {syncEvents.map((e) => (
+                  <tr key={e.id} className="hover:bg-slate-50/80">
+                    <td className="border-b border-slate-100 px-2 py-2 text-xs">
+                      {new Date(e.created_at).toLocaleString("id-ID")}
+                    </td>
+                    <td className="border-b border-slate-100 px-2 py-2">
+                      <code className="text-xs">{e.payload?.orderNo || "—"}</code>
+                    </td>
+                    <td
+                      className={`border-b border-slate-100 px-2 py-2 font-semibold ${
+                        e.status === "DONE"
+                          ? "text-emerald-600"
+                          : e.status === "FAILED"
+                            ? "text-red-600"
+                            : "text-slate-500"
+                      }`}
+                    >
+                      {e.status}
+                    </td>
+                    <td className="border-b border-slate-100 px-2 py-2 text-xs text-red-600">
+                      {e.error || "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-      </section>
+      </Card>
     </main>
   );
 }

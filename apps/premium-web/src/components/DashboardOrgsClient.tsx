@@ -44,12 +44,12 @@ export function DashboardOrgsClient() {
   }, []);
 
   if (loading) {
-    return <p style={{ color: "#64748b", fontSize: 14 }}>Memuat organisasi...</p>;
+    return <p className="text-sm text-slate-500">Memuat organisasi...</p>;
   }
 
   if (error) {
     return (
-      <p style={{ color: "#dc2626", fontSize: 14, lineHeight: 1.6 }}>
+      <p className="text-sm leading-relaxed text-red-600">
         Error baca organisasi: {error}
       </p>
     );
@@ -57,19 +57,20 @@ export function DashboardOrgsClient() {
 
   if (!orgs.length) {
     return (
-      <p style={{ color: "#64748b", fontSize: 14, lineHeight: 1.6 }}>
+      <p className="text-sm leading-relaxed text-slate-500">
         Belum ada organisasi untuk session ini. Coba logout → login ulang.
         <br />
-        Jika masih 0, jalankan: <code>./scripts/run-supabase-post-setup.sh</code>
+        Jika masih 0, jalankan: <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">./scripts/run-supabase-post-setup.sh</code>
       </p>
     );
   }
 
   return (
-    <ul style={{ margin: 0, paddingLeft: 18 }}>
+    <ul className="mt-3 space-y-2 text-sm text-slate-700">
       {orgs.map((o) => (
-        <li key={o.id} style={{ marginBottom: 6 }}>
-          <strong>{o.name}</strong> <code style={{ fontSize: 12 }}>{o.slug}</code>
+        <li key={o.id}>
+          <strong>{o.name}</strong>{" "}
+          <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">{o.slug}</code>
         </li>
       ))}
     </ul>

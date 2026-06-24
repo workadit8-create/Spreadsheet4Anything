@@ -57,6 +57,12 @@
       "namedRegex": "^/dashboard/laporan(?:/)?$"
     },
     {
+      "page": "/dashboard/master",
+      "regex": "^/dashboard/master(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/master(?:/)?$"
+    },
+    {
       "page": "/login",
       "regex": "^/login(?:/)?$",
       "routeKeys": {},

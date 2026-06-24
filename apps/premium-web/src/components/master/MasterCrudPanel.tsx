@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { Input, Label, Select } from "@/components/ui/Input";
 
 type FieldType = "text" | "number" | "checkbox" | "select";
 
@@ -87,9 +89,6 @@ export function MasterCrudPanel({
     setError(null);
     try {
       const payload: Row = { ...form };
-      if (fieldValue({ key: "active", label: "", type: "checkbox" }) === false) {
-        payload.active = false;
-      }
       fields.forEach((f) => {
         if (f.type === "number" && f.key in payload) payload[f.key] = Number(payload[f.key]);
       });
@@ -115,27 +114,28 @@ export function MasterCrudPanel({
 
   return (
     <div>
-      <h2 style={{ margin: "0 0 16px", fontSize: 16 }}>{title}</h2>
-      {error && (
-        <p style={{ color: "#dc2626", fontSize: 13, marginBottom: 12 }}>{error}</p>
-      )}
-      <form onSubmit={onSubmit} style={{ display: "grid", gap: 10, marginBottom: 20, maxWidth: 640 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+      <h2 className="mb-4 text-base font-semibold text-slate-900">{title}</h2>
+      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+
+      <form onSubmit={onSubmit} className="mb-6 max-w-3xl space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {fields.map((field) => (
             <div key={field.key + (field.metaKey || "")}>
-              <label style={{ fontSize: 12, fontWeight: 600 }}>{field.label}</label>
+              {field.type !== "checkbox" && <Label>{field.label}</Label>}
               {field.type === "checkbox" ? (
-                <input
-                  type="checkbox"
-                  checked={Boolean(form.active)}
-                  onChange={(e) => setForm({ ...form, active: e.target.checked })}
-                  style={{ marginTop: 6 }}
-                />
+                <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(form.active)}
+                    onChange={(e) => setForm({ ...form, active: e.target.checked })}
+                    className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                  />
+                  {field.label}
+                </label>
               ) : field.type === "select" && field.optionsKey ? (
-                <select
+                <Select
                   value={String(fieldValue(field) || "")}
                   onChange={(e) => setFieldValue(field, e.target.value || null)}
-                  style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 8, border: "1px solid #e2e8f0", boxSizing: "border-box" }}
                 >
                   <option value="">—</option>
                   {(extras[field.optionsKey] || []).map((u) => (
@@ -143,83 +143,70 @@ export function MasterCrudPanel({
                       {String(u.code)} — {String(u.name)}
                     </option>
                   ))}
-                </select>
+                </Select>
               ) : (
-                <input
+                <Input
                   type={field.type === "number" ? "number" : "text"}
                   required={field.required}
                   placeholder={field.placeholder}
                   value={String(fieldValue(field) ?? "")}
-                  onChange={(e) =>
-                    setFieldValue(field, field.type === "number" ? e.target.value : e.target.value)
-                  }
-                  style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 8, border: "1px solid #e2e8f0", boxSizing: "border-box" }}
+                  onChange={(e) => setFieldValue(field, e.target.value)}
                 />
               )}
             </div>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            type="submit"
-            disabled={saving}
-            style={{
-              padding: "8px 14px",
-              background: "#2563eb",
-              color: "#fff",
-              border: "none",
-              borderRadius: 8,
-              fontWeight: 600,
-              cursor: saving ? "wait" : "pointer"
-            }}
-          >
+        <div className="flex gap-2">
+          <Button type="submit" disabled={saving}>
             {saving ? "Menyimpan..." : form.id ? "Update" : "Tambah"}
-          </button>
+          </Button>
           {form.id != null && form.id !== "" && (
-            <button
-              type="button"
-              onClick={() => setForm({ active: true })}
-              style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff" }}
-            >
+            <Button type="button" variant="secondary" onClick={() => setForm({ active: true })}>
               Batal edit
-            </button>
+            </Button>
           )}
         </div>
       </form>
 
       {loading ? (
-        <p style={{ color: "#64748b", fontSize: 14 }}>Memuat...</p>
+        <p className="text-sm text-slate-500">Memuat...</p>
       ) : !items.length ? (
-        <p style={{ color: "#64748b", fontSize: 14 }}>Belum ada data.</p>
+        <p className="text-sm text-slate-500">Belum ada data.</p>
       ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-          <thead>
-            <tr style={{ textAlign: "left", color: "#64748b" }}>
-              {columns.map((c) => (
-                <th key={c.key + (c.metaKey || "")} style={{ padding: "8px 6px", borderBottom: "1px solid #e2e8f0" }}>
-                  {c.label}
-                </th>
-              ))}
-              <th style={{ padding: "8px 6px", borderBottom: "1px solid #e2e8f0" }} />
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((row) => (
-              <tr key={String(row.id)}>
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr>
                 {columns.map((c) => (
-                  <td key={c.key + (c.metaKey || "")} style={{ padding: "8px 6px", borderBottom: "1px solid #f1f5f9" }}>
-                    {String(getCell(row, c))}
-                  </td>
+                  <th key={c.key + (c.metaKey || "")} className="px-4 py-3">
+                    {c.label}
+                  </th>
                 ))}
-                <td style={{ padding: "8px 6px", borderBottom: "1px solid #f1f5f9" }}>
-                  <button type="button" onClick={() => editRow(row)} style={{ fontSize: 13, color: "#2563eb", background: "none", border: "none", cursor: "pointer" }}>
-                    Edit
-                  </button>
-                </td>
+                <th className="px-4 py-3" />
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {items.map((row) => (
+                <tr key={String(row.id)} className="hover:bg-slate-50/80">
+                  {columns.map((c) => (
+                    <td key={c.key + (c.metaKey || "")} className="px-4 py-3 text-slate-700">
+                      {String(getCell(row, c))}
+                    </td>
+                  ))}
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => editRow(row)}
+                      className="text-sm font-medium text-brand-600 hover:text-brand-700"
+                    >
+                      Edit
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
