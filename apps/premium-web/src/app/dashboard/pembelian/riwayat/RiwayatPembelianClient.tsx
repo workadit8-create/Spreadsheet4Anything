@@ -65,6 +65,7 @@ export default function RiwayatPembelianClient() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
+  const [exporting, setExporting] = useState<string | null>(null);
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -174,9 +175,36 @@ export default function RiwayatPembelianClient() {
     }
   }
 
+  async function exportData(type: "produk" | "supplier") {
+    setExporting(type);
+    setMessage(null);
+    try {
+      const params = new URLSearchParams({ start, end, type });
+      if (supplierId) params.set("supplier_id", supplierId);
+      const res = await fetch(`/api/pembelian/export?${params}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Export gagal");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download =
+        res.headers.get("Content-Disposition")?.match(/filename="([^"]+)"/)?.[1] ||
+        `pembelian_${type}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Gagal export");
+    } finally {
+      setExporting(null);
+    }
+  }
+
   return (
     <main className="mx-auto max-w-6xl px-6 py-8">
-      <PageHeader badge="Pembelian" title="Riwayat PO" description="Filter, detail, post jurnal, void">
+      <PageHeader badge="Pembelian" title="Riwayat PO" description="Filter, detail, export, post jurnal, void">
         <Link href="/dashboard/pembelian" className="text-sm text-slate-500 hover:text-slate-700">← Pembelian</Link>
       </PageHeader>
 
@@ -203,9 +231,29 @@ export default function RiwayatPembelianClient() {
         </div>
       </Card>
 
-      <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3">
-        <p className="text-sm font-medium text-sky-800">Total (sesuai filter, tidak termasuk dibatalkan)</p>
-        <p className="text-2xl font-bold text-sky-950">{formatRp(grandTotalSum)}</p>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3">
+          <p className="text-sm font-medium text-sky-800">Total (sesuai filter, tidak termasuk dibatalkan)</p>
+          <p className="text-2xl font-bold text-sky-950">{formatRp(grandTotalSum)}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={exporting !== null}
+            onClick={() => exportData("supplier")}
+          >
+            {exporting === "supplier" ? "..." : "Export per supplier"}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={exporting !== null}
+            onClick={() => exportData("produk")}
+          >
+            {exporting === "produk" ? "..." : "Export per barang"}
+          </Button>
+        </div>
       </div>
 
       {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
