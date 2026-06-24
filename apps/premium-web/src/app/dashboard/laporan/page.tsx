@@ -32,10 +32,27 @@ export default async function LaporanPage() {
 
   let pelunasanSheetSynced = 0;
   let pelunasanSheetPending = 0;
+
+  const paymentIds = (payments || []).map((p) => p.id);
+  const { data: pelunasanJobs } = paymentIds.length
+    ? await supabase
+        .from("posting_jobs")
+        .select("doc_id, status")
+        .eq("doc_type", "PIUTANG_PAYMENT")
+        .in("doc_id", paymentIds)
+    : { data: [] };
+
+  const postedPaymentIds = new Set(
+    (pelunasanJobs || []).filter((j) => j.status === "POSTED").map((j) => j.doc_id)
+  );
+
   (payments || []).forEach((p) => {
     const meta = (p.metadata || {}) as Record<string, unknown>;
-    if (meta.sheetSynced === true) pelunasanSheetSynced += 1;
-    else pelunasanSheetPending += 1;
+    if (meta.sheetSynced === true) {
+      pelunasanSheetSynced += 1;
+    } else if (postedPaymentIds.has(p.id)) {
+      pelunasanSheetPending += 1;
+    }
   });
 
   const { data: syncEvents } = await supabase

@@ -114,9 +114,14 @@ export async function POST(request: Request) {
     if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
   }
 
+  const newSisaFromLines = lineRows.reduce((sum, line) => {
+    const updated = updates.find((u) => u.lineId === line.id);
+    if (updated) return sum + (updated.metadata.kurangBayar || 0);
+    return sum + lineKurangBayar(line);
+  }, 0);
+  const newOrderBayar = Math.max(0, summary.grandTotal - newSisaFromLines);
+  const newSisa = newSisaFromLines;
   const orderMeta = (order.metadata || {}) as Record<string, unknown>;
-  const newOrderBayar = Number(orderMeta.bayar || 0) + nominal;
-  const newSisa = Math.max(0, summary.grandTotal - newOrderBayar);
   await supabase
     .from("sales_orders")
     .update({

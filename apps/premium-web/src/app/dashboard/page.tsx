@@ -82,16 +82,22 @@ export default async function DashboardPage() {
         </Card>
 
         <Card>
-          <h2 className="text-base font-semibold text-slate-900">Bridge ke GAS</h2>
+          <h2 className="text-base font-semibold text-slate-900">Transaksi</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Invoice → <code className="text-xs">posting_jobs</code> → BACKENDengine
+            Invoice, piutang, pelunasan, dan bridge ke sheet client.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
               href="/dashboard/invoices"
               className="inline-flex rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
             >
-              Invoice lab →
+              Invoice →
+            </Link>
+            <Link
+              href="/dashboard/piutang"
+              className="inline-flex rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Piutang →
             </Link>
             <Link
               href="/dashboard/laporan"
@@ -100,6 +106,13 @@ export default async function DashboardPage() {
               Laporan →
             </Link>
           </div>
+        </Card>
+
+        <Card>
+          <h2 className="text-base font-semibold text-slate-900">Bridge ke GAS</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Invoice / pelunasan → <code className="text-xs">posting_jobs</code> → BACKENDengine
+          </p>
         </Card>
 
         <Card>

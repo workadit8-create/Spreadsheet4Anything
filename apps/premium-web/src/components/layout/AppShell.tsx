@@ -12,7 +12,6 @@ const NAV = [
 ];
 
 const COMING_SOON = [
-  "Kas & Bank",
   "Quotation",
   "Pembelian",
   "Hutang",

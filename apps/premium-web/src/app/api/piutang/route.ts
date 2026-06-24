@@ -16,6 +16,7 @@ export async function GET(request: Request) {
   const start = url.searchParams.get("start");
   const end = url.searchParams.get("end");
   const customerId = url.searchParams.get("customer_id");
+  const allOutstanding = url.searchParams.get("all_outstanding") === "true";
 
   const { data: customers } = await supabase
     .from("customers")
@@ -33,8 +34,10 @@ export async function GET(request: Request) {
     .in("status", ["CONFIRMED", "POSTED"])
     .order("order_date", { ascending: false });
 
-  if (start) ordersQuery = ordersQuery.gte("order_date", start);
-  if (end) ordersQuery = ordersQuery.lte("order_date", end);
+  if (!allOutstanding) {
+    if (start) ordersQuery = ordersQuery.gte("order_date", start);
+    if (end) ordersQuery = ordersQuery.lte("order_date", end);
+  }
   if (customerId) ordersQuery = ordersQuery.eq("customer_id", customerId);
 
   const { data: orders, error: ordersErr } = await ordersQuery.limit(200);

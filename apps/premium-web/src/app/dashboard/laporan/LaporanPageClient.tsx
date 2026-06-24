@@ -14,7 +14,7 @@ type SyncEvent = {
   status: string;
   error: string | null;
   created_at: string;
-  payload: { orderNo?: string; transactionId?: string };
+  payload: { orderNo?: string; invoiceNo?: string; transactionId?: string };
 };
 
 type Props = {
@@ -69,7 +69,7 @@ export default function LaporanPageClient({ stats, syncEvents, gasWebappUrl, dat
       <PageHeader
         badge="Step 4 · Sync balik"
         title="Laporan bridge"
-        description="Status posting jurnal + sync ke sheet PEMASUKAN"
+        description="Posting jurnal + sync ke sheet PEMASUKAN & PELUNASAN_PIUTANG"
       >
         <Link href="/dashboard" className="text-sm text-slate-500 hover:text-slate-700">← Dashboard</Link>
       </PageHeader>
@@ -89,7 +89,7 @@ export default function LaporanPageClient({ stats, syncEvents, gasWebappUrl, dat
         <h2 className="mb-3 text-base font-semibold text-slate-900">Aksi</h2>
         <div className="flex flex-wrap gap-2">
           <Button type="button" onClick={retrySheetSync} disabled={syncing}>
-            {syncing ? "Syncing..." : "Retry sync sheet PEMASUKAN"}
+            {syncing ? "Syncing..." : "Retry sync sheet (PEMASUKAN + pelunasan)"}
           </Button>
           <Link
             href="/dashboard/invoices"
@@ -143,7 +143,9 @@ export default function LaporanPageClient({ stats, syncEvents, gasWebappUrl, dat
                       {new Date(e.created_at).toLocaleString("id-ID")}
                     </td>
                     <td className="border-b border-slate-100 px-2 py-2">
-                      <code className="text-xs">{e.payload?.orderNo || "—"}</code>
+                      <code className="text-xs">
+                        {e.payload?.invoiceNo || e.payload?.orderNo || "—"}
+                      </code>
                     </td>
                     <td
                       className={`border-b border-slate-100 px-2 py-2 font-semibold ${

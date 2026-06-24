@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -36,6 +37,7 @@ export default function PiutangPageClient() {
   const defaults = useMemo(() => defaultDateRange(), []);
   const [start, setStart] = useState(defaults.start);
   const [end, setEnd] = useState(defaults.end);
+  const [allOutstanding, setAllOutstanding] = useState(false);
   const [customerId, setCustomerId] = useState("");
   const [items, setItems] = useState<PiutangItem[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -56,7 +58,13 @@ export default function PiutangPageClient() {
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ start, end });
+      const params = new URLSearchParams();
+      if (allOutstanding) {
+        params.set("all_outstanding", "true");
+      } else {
+        params.set("start", start);
+        params.set("end", end);
+      }
       if (customerId) params.set("customer_id", customerId);
       const res = await fetch(`/api/piutang?${params}`);
       const data = await res.json();
@@ -71,14 +79,14 @@ export default function PiutangPageClient() {
     } finally {
       setLoading(false);
     }
-  }, [start, end, customerId]);
+  }, [start, end, customerId, allOutstanding]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   useEffect(() => {
-    fetch("/api/piutang/kas-bank")
+    fetch("/api/master/kas-bank")
       .then((r) => r.json())
       .then((data) => {
         const items = data.items || [];
@@ -88,6 +96,12 @@ export default function PiutangPageClient() {
       })
       .catch(() => undefined);
   }, []);
+
+  function closePayModal() {
+    if (paying) return;
+    setPayTarget(null);
+    setPayMessage(null);
+  }
 
   function openPay(row: PiutangItem) {
     setPayTarget(row);
@@ -99,6 +113,10 @@ export default function PiutangPageClient() {
 
   async function submitPelunasan() {
     if (!payTarget) return;
+    if (!kasBank.length || !payRekening) {
+      setPayMessage("Tambah rekening di Master Kas & Bank terlebih dahulu");
+      return;
+    }
     const nominal = Number(payNominal);
     if (!nominal || nominal <= 0) {
       setPayMessage("Nominal tidak valid");
@@ -129,18 +147,26 @@ export default function PiutangPageClient() {
       const processRes = await fetch("/api/posting/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ retryFailed: true })
+        body: JSON.stringify({
+          jobIds: data.postingJobId ? [data.postingJobId] : [],
+          retryFailed: false,
+          limit: 5
+        })
       });
       const processData = await processRes.json();
-      const ok = processData.results?.some((r: { ok: boolean }) => r.ok);
-      const synced = processData.results?.some((r: { sheetSynced?: boolean }) => r.sheetSynced);
+      const jobResult = (processData.results || []).find(
+        (r: { jobId?: string }) => r.jobId === data.postingJobId
+      ) as { ok?: boolean; sheetSynced?: boolean; error?: string } | undefined;
+
+      const ok = jobResult?.ok === true;
+      const synced = jobResult?.sheetSynced === true;
 
       setPayMessage(
         ok
           ? synced
-            ? `Pelunasan ${payTarget.invoiceNo} → jurnal POSTED + sheet`
-            : `Pelunasan ${payTarget.invoiceNo} → jurnal POSTED (sync sheet — deploy backend-hybrid)`
-          : `Pelunasan disimpan. Posting: ${processData.results?.[0]?.error || "cek queue"}`
+            ? `Pelunasan ${payTarget.invoiceNo} → jurnal + sheet PELUNASAN_PIUTANG`
+            : `Pelunasan ${payTarget.invoiceNo} → jurnal OK. Sync sheet: buka Laporan → Retry sync`
+          : `Pelunasan disimpan. Posting: ${jobResult?.error || processData.error || "cek queue di Laporan"}`
       );
 
       setPayTarget(null);
@@ -157,18 +183,28 @@ export default function PiutangPageClient() {
       <PageHeader
         badge="Piutang"
         title="Daftar piutang"
-        description="Invoice kredit / kurang bayar → pelunasan → jurnal + sheet PELUNASAN_PIUTANG"
+        description="Invoice kredit / kurang bayar → pelunasan → jurnal + sheet PELUNASAN_PIUTANG + update PEMASUKAN"
       />
 
       <Card className="mb-6">
         <div className="grid gap-4 sm:grid-cols-4">
           <div>
             <Label>Dari tanggal</Label>
-            <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+            <Input
+              type="date"
+              value={start}
+              disabled={allOutstanding}
+              onChange={(e) => setStart(e.target.value)}
+            />
           </div>
           <div>
             <Label>Sampai tanggal</Label>
-            <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+            <Input
+              type="date"
+              value={end}
+              disabled={allOutstanding}
+              onChange={(e) => setEnd(e.target.value)}
+            />
           </div>
           <div>
             <Label>Customer</Label>
@@ -185,8 +221,17 @@ export default function PiutangPageClient() {
             <Button type="button" variant="secondary" onClick={load}>Cari tagihan</Button>
           </div>
         </div>
+        <label className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            checked={allOutstanding}
+            onChange={(e) => setAllOutstanding(e.target.checked)}
+            className="rounded border-slate-300"
+          />
+          Tampilkan semua piutang outstanding (tanpa filter tanggal)
+        </label>
         <div className="mt-4 rounded-lg bg-red-50 px-4 py-3">
-          <span className="text-sm text-red-800">Total piutang (filter): </span>
+          <span className="text-sm text-red-800">Total piutang: </span>
           <strong className="text-lg text-red-900">{formatRp(totalPiutang)}</strong>
         </div>
       </Card>
@@ -196,7 +241,9 @@ export default function PiutangPageClient() {
         {loading ? (
           <p className="text-sm text-slate-500">Memuat piutang...</p>
         ) : !items.length ? (
-          <p className="text-sm text-slate-500">Tidak ada piutang outstanding di rentang ini.</p>
+          <p className="text-sm text-slate-500">
+            Tidak ada piutang outstanding{allOutstanding ? "" : " di rentang tanggal ini"}.
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -236,11 +283,17 @@ export default function PiutangPageClient() {
       </Card>
 
       {payTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          onClick={closePayModal}
+        >
+          <div
+            className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-lg font-semibold text-slate-900">Pelunasan piutang</h3>
             <p className="mt-1 text-sm text-slate-500">
-              Invoice <strong>{payTarget.invoiceNo}</strong> · {payTarget.customerName}
+              Invoice <strong>{payTarget.invoiceNo}</strong> · {payTarget.customerName || "—"}
             </p>
             <p className="mt-2 text-sm font-semibold text-red-700">
               Sisa: {formatRp(payTarget.sisaTagihan)}
@@ -251,20 +304,25 @@ export default function PiutangPageClient() {
                 <Label>Tanggal bayar</Label>
                 <Input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
               </div>
-          <div>
-            <Label>Masuk ke rekening</Label>
-            <Select value={payRekening} onChange={(e) => setPayRekening(e.target.value)}>
-              {kasBank.length ? (
-                kasBank.map((k) => (
-                  <option key={k.id} value={k.name}>
-                    {k.name}{k.coa_account_name ? ` (${k.coa_account_name})` : ""}
-                  </option>
-                ))
-              ) : (
-                <option value="">Tambah rekening di Master Kas & Bank</option>
-              )}
-            </Select>
-          </div>
+              <div>
+                <Label>Masuk ke rekening</Label>
+                {kasBank.length ? (
+                  <Select value={payRekening} onChange={(e) => setPayRekening(e.target.value)}>
+                    {kasBank.map((k) => (
+                      <option key={k.id} value={k.name}>
+                        {k.name}{k.coa_account_name ? ` (${k.coa_account_name})` : ""}
+                      </option>
+                    ))}
+                  </Select>
+                ) : (
+                  <p className="text-sm text-amber-700">
+                    Belum ada rekening.{" "}
+                    <Link href="/dashboard/master" className="font-medium underline">
+                      Tambah di Master Data → Kas & Bank
+                    </Link>
+                  </p>
+                )}
+              </div>
               <div>
                 <Label>Nominal</Label>
                 <Input
@@ -288,10 +346,14 @@ export default function PiutangPageClient() {
             {payMessage && <p className="mt-3 text-sm text-slate-600">{payMessage}</p>}
 
             <div className="mt-6 flex justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={() => setPayTarget(null)} disabled={paying}>
+              <Button type="button" variant="secondary" onClick={closePayModal} disabled={paying}>
                 Batal
               </Button>
-              <Button type="button" onClick={submitPelunasan} disabled={paying}>
+              <Button
+                type="button"
+                onClick={submitPelunasan}
+                disabled={paying || !kasBank.length}
+              >
                 {paying ? "Memproses..." : "Simpan pembayaran"}
               </Button>
             </div>

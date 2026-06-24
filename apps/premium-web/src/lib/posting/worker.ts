@@ -60,16 +60,55 @@ async function recordSyncEvent(
   organizationId: string,
   payload: Record<string, unknown>,
   status: string,
-  error?: string
+  error?: string,
+  source = "premium-web→pemasukan-sheet"
 ) {
   await supabase.from("sync_events").insert({
     organization_id: organizationId,
     direction: "PUSH",
-    source: "premium-web→pemasukan-sheet",
+    source,
     payload,
     status,
     error: error || null
   });
+}
+
+async function applyPelunasanSheetSyncResult(
+  supabase: SupabaseClient,
+  payment: { id: string; metadata: unknown; organization_id: string },
+  meta: PiutangPaymentMetadata,
+  syncResult: { skipped?: boolean; ledgerUpdate?: { ok?: boolean; message?: string } }
+): Promise<{ sheetSynced: boolean; ledgerWarning?: string }> {
+  const metaRaw = (payment.metadata || {}) as Record<string, unknown>;
+  const ledgerWarning =
+    syncResult.ledgerUpdate && syncResult.ledgerUpdate.ok === false
+      ? String(syncResult.ledgerUpdate.message || "Update PEMASUKAN gagal")
+      : undefined;
+
+  const merged = {
+    ...metaRaw,
+    sheetSynced: true,
+    sheetSyncedAt: new Date().toISOString(),
+    ...(ledgerWarning ? { ledgerSyncWarning: ledgerWarning } : {})
+  };
+  await supabase.from("payments").update({ metadata: merged }).eq("id", payment.id);
+
+  await recordSyncEvent(
+    supabase,
+    payment.organization_id,
+    {
+      paymentId: payment.id,
+      invoiceNo: meta.invoiceNo,
+      ok: true,
+      skipped: syncResult.skipped === true,
+      ledgerWarning
+    },
+    ledgerWarning ? "DONE" : "DONE",
+    ledgerWarning,
+    "premium-web→pelunasan-sheet"
+  );
+
+  return { sheetSynced: true, ledgerWarning };
 }
 
 async function postOrderToJurnal(
@@ -171,19 +210,29 @@ async function processPiutangPaymentJob(
       supabase,
       job.organization_id,
       { paymentId: payment.id, invoiceNo: meta.invoiceNo },
-      "RUNNING"
+      "RUNNING",
+      undefined,
+      "premium-web→pelunasan-sheet"
     );
-    await syncPelunasanToSheet(meta, Number(payment.amount), config);
-    const merged = { ...(payment.metadata as Record<string, unknown>), sheetSynced: true, sheetSyncedAt: new Date().toISOString() };
-    await supabase.from("payments").update({ metadata: merged }).eq("id", payment.id);
-    await recordSyncEvent(
+    const syncResult = await syncPelunasanToSheet(meta, Number(payment.amount), config) as {
+      skipped?: boolean;
+      ledgerUpdate?: { ok?: boolean; message?: string };
+    };
+    const { sheetSynced: synced, ledgerWarning } = await applyPelunasanSheetSyncResult(
       supabase,
-      job.organization_id,
-      { paymentId: payment.id, invoiceNo: meta.invoiceNo, ok: true },
-      "DONE"
+      payment,
+      meta,
+      syncResult
     );
-    sheetSynced = true;
-    await logJob(supabase, job.id, "INFO", "Sync PELUNASAN_PIUTANG sheet OK");
+    sheetSynced = synced;
+    await logJob(
+      supabase,
+      job.id,
+      ledgerWarning ? "WARN" : "INFO",
+      ledgerWarning
+        ? `Sync PELUNASAN_PIUTANG OK (PEMASUKAN: ${ledgerWarning})`
+        : "Sync PELUNASAN_PIUTANG sheet OK"
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await recordSyncEvent(
@@ -191,7 +240,8 @@ async function processPiutangPaymentJob(
       job.organization_id,
       { paymentId: payment.id, invoiceNo: meta.invoiceNo },
       "FAILED",
-      message
+      message,
+      "premium-web→pelunasan-sheet"
     );
     await logJob(supabase, job.id, "WARN", "Sync pelunasan sheet gagal: " + message);
   }
@@ -242,16 +292,22 @@ async function syncToSheet(
 
 export async function processPendingPostingJobs(
   supabase: SupabaseClient,
-  limit = 5
+  limit = 5,
+  jobIds?: string[]
 ): Promise<ProcessJobResult[]> {
   const config = getHybridBackendConfig();
 
-  const { data: jobs, error: listErr } = await supabase
-    .from("posting_jobs")
-    .select("*")
-    .eq("status", "PENDING")
+  let jobsQuery = supabase.from("posting_jobs").select("*");
+
+  if (jobIds?.length) {
+    jobsQuery = jobsQuery.in("id", jobIds);
+  } else {
+    jobsQuery = jobsQuery.eq("status", "PENDING");
+  }
+
+  const { data: jobs, error: listErr } = await jobsQuery
     .order("created_at", { ascending: true })
-    .limit(limit);
+    .limit(jobIds?.length ? Math.max(limit, jobIds.length) : limit);
 
   if (listErr) {
     throw new Error(listErr.message);
@@ -260,6 +316,11 @@ export async function processPendingPostingJobs(
   const results: ProcessJobResult[] = [];
 
   for (const job of jobs || []) {
+    if (job.status === "POSTED") {
+      results.push({ jobId: job.id, ok: true, sheetSynced: true });
+      continue;
+    }
+
     const attempts = (job.attempts as number) || 0;
 
     await supabase
@@ -467,6 +528,15 @@ export async function processPelunasanSheetSyncRetries(
     const metaRaw = (payment.metadata || {}) as Record<string, unknown>;
     if (!options?.includeSynced && metaRaw.sheetSynced === true) continue;
 
+    const { data: postingJob } = await supabase
+      .from("posting_jobs")
+      .select("status")
+      .eq("doc_type", "PIUTANG_PAYMENT")
+      .eq("doc_id", payment.id)
+      .maybeSingle();
+
+    if (!postingJob || postingJob.status !== "POSTED") continue;
+
     const meta = asPiutangPaymentMeta(payment.metadata);
     if (!meta.transactionId || !meta.invoiceNo) continue;
 
@@ -475,29 +545,20 @@ export async function processPelunasanSheetSyncRetries(
         supabase,
         payment.organization_id,
         { paymentId: payment.id, invoiceNo: meta.invoiceNo, retry: true, force: !!options?.includeSynced },
-        "RUNNING"
+        "RUNNING",
+        undefined,
+        "premium-web→pelunasan-sheet"
       );
       const syncResult = await syncPelunasanToSheet(meta, Number(payment.amount), config) as {
         skipped?: boolean;
-        message?: string;
+        ledgerUpdate?: { ok?: boolean; message?: string };
       };
-      if (syncResult?.skipped) {
-        results.push({ paymentId: payment.id, ok: true, skipped: true });
-        continue;
-      }
-      const merged = {
-        ...metaRaw,
-        sheetSynced: true,
-        sheetSyncedAt: new Date().toISOString()
-      };
-      await supabase.from("payments").update({ metadata: merged }).eq("id", payment.id);
-      await recordSyncEvent(
-        supabase,
-        payment.organization_id,
-        { paymentId: payment.id, invoiceNo: meta.invoiceNo, ok: true, retry: true },
-        "DONE"
-      );
-      results.push({ paymentId: payment.id, ok: true });
+      await applyPelunasanSheetSyncResult(supabase, payment, meta, syncResult);
+      results.push({
+        paymentId: payment.id,
+        ok: true,
+        skipped: syncResult.skipped === true
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       await recordSyncEvent(
@@ -505,7 +566,8 @@ export async function processPelunasanSheetSyncRetries(
         payment.organization_id,
         { paymentId: payment.id, invoiceNo: meta.invoiceNo, retry: true },
         "FAILED",
-        message
+        message,
+        "premium-web→pelunasan-sheet"
       );
       results.push({ paymentId: payment.id, ok: false, error: message });
     }

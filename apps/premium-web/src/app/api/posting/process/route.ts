@@ -11,10 +11,14 @@ export async function POST(request: Request) {
 
   let limit = 5;
   let retryFailed = true;
+  let jobIds: string[] = [];
   try {
     const body = await request.json().catch(() => ({}));
     if (body?.limit) limit = Math.min(20, Math.max(1, Number(body.limit)));
     if (body?.retryFailed === false) retryFailed = false;
+    if (Array.isArray(body?.jobIds)) {
+      jobIds = body.jobIds.map((id: unknown) => String(id)).filter(Boolean);
+    }
   } catch {
     /* empty body ok */
   }
@@ -27,7 +31,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    const results = await processPendingPostingJobs(supabase, limit);
+    const results = await processPendingPostingJobs(
+      supabase,
+      limit,
+      jobIds.length ? jobIds : undefined
+    );
     return NextResponse.json({ processed: results.length, results });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

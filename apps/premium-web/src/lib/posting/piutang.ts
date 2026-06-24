@@ -2,11 +2,13 @@ import type { SalesLineMetadata, SalesLineRow } from "./types";
 
 export function lineKurangBayar(line: SalesLineRow): number {
   const meta = (line.metadata || {}) as SalesLineMetadata;
+  const computed = Math.max(0, Number(line.line_total) - lineBayar(line));
   if (meta.kurangBayar != null && !Number.isNaN(Number(meta.kurangBayar))) {
-    return Math.max(0, Number(meta.kurangBayar));
+    const fromMeta = Math.max(0, Number(meta.kurangBayar));
+    if (fromMeta <= 0.01 && computed > 0.01) return computed;
+    return fromMeta;
   }
-  const bayar = Number(meta.bayar) || 0;
-  return Math.max(0, Number(line.line_total) - bayar);
+  return computed;
 }
 
 export function lineBayar(line: SalesLineRow): number {
