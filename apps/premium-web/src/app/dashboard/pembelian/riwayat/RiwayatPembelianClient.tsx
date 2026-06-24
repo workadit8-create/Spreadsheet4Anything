@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { confirmPostPoJournal, poDebtStatusLabel } from "@/lib/pembelian/po-status-label";
+import { buildPoPrintHtml, openPoPrintWindow, type PoPrintCompany } from "@/lib/pembelian/po-print";
 
 type HistoryRow = {
   id: string;
@@ -71,6 +72,7 @@ export default function RiwayatPembelianClient() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailOrder, setDetailOrder] = useState<HistoryRow | null>(null);
   const [detailLines, setDetailLines] = useState<DetailLine[]>([]);
+  const [detailCompany, setDetailCompany] = useState<PoPrintCompany>({ name: "HYBRID LAB" });
 
   useEffect(() => {
     fetch("/api/master/suppliers")
@@ -113,6 +115,19 @@ export default function RiwayatPembelianClient() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setDetailLines(data.lines || []);
+      setDetailCompany(data.company || { name: "HYBRID LAB" });
+      if (data.order) {
+        setDetailOrder({
+          id: row.id,
+          poNo: data.order.poNo,
+          orderDate: data.order.orderDate,
+          supplierName: data.order.supplierName,
+          status: data.order.status,
+          grandTotal: data.order.grandTotal,
+          bayar: data.order.bayar,
+          sisaTagihan: data.order.sisaTagihan
+        });
+      }
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Gagal memuat detail");
       setDetailOpen(false);
@@ -202,9 +217,39 @@ export default function RiwayatPembelianClient() {
     }
   }
 
+  function printDetail() {
+    if (!detailOrder || detailLoading) return;
+    try {
+      const html = buildPoPrintHtml(
+        {
+          order: {
+            poNo: detailOrder.poNo,
+            orderDate: detailOrder.orderDate,
+            supplierName: detailOrder.supplierName,
+            status: detailOrder.status,
+            grandTotal: detailOrder.grandTotal,
+            bayar: detailOrder.bayar,
+            sisaTagihan: detailOrder.sisaTagihan
+          },
+          lines: detailLines.map((l) => ({
+            description: l.description,
+            qty: l.qty,
+            unitCost: l.unitCost,
+            diskon: l.diskon,
+            lineTotal: l.lineTotal
+          }))
+        },
+        detailCompany
+      );
+      openPoPrintWindow(html);
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Gagal cetak PO");
+    }
+  }
+
   return (
     <main className="mx-auto max-w-6xl px-6 py-8">
-      <PageHeader badge="Pembelian" title="Riwayat PO" description="Filter, detail, export, post jurnal, void">
+      <PageHeader badge="Pembelian" title="Riwayat PO" description="Filter, detail, cetak, export, post jurnal, void">
         <Link href="/dashboard/pembelian" className="text-sm text-slate-500 hover:text-slate-700">← Pembelian</Link>
       </PageHeader>
 
@@ -324,30 +369,55 @@ export default function RiwayatPembelianClient() {
             {detailLoading ? (
               <p className="py-8 text-center text-sm text-slate-500">Memuat...</p>
             ) : (
-              <table className="mt-4 w-full text-sm">
-                <thead>
-                  <tr className="bg-emerald-800 text-left text-white">
-                    <th className="px-2 py-2">Barang</th>
-                    <th className="px-2 py-2 text-center">Qty</th>
-                    <th className="px-2 py-2 text-right">Harga</th>
-                    <th className="px-2 py-2 text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {detailLines.map((l) => (
-                    <tr key={l.id} className="border-b">
-                      <td className="px-2 py-2">{l.description}</td>
-                      <td className="px-2 py-2 text-center">{l.qty}</td>
-                      <td className="px-2 py-2 text-right">{formatRp(l.unitCost)}</td>
-                      <td className="px-2 py-2 text-right font-semibold">{formatRp(l.lineTotal)}</td>
+              <>
+                <table className="mt-4 w-full text-sm">
+                  <thead>
+                    <tr className="bg-emerald-800 text-left text-white">
+                      <th className="px-2 py-2">Barang</th>
+                      <th className="px-2 py-2 text-center">Qty</th>
+                      <th className="px-2 py-2 text-right">Harga</th>
+                      <th className="px-2 py-2 text-right">Diskon</th>
+                      <th className="px-2 py-2 text-right">Total</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {detailLines.map((l) => (
+                      <tr key={l.id} className="border-b">
+                        <td className="px-2 py-2">{l.description}</td>
+                        <td className="px-2 py-2 text-center">{l.qty}</td>
+                        <td className="px-2 py-2 text-right">{formatRp(l.unitCost)}</td>
+                        <td className="px-2 py-2 text-right">{formatRp(l.diskon)}</td>
+                        <td className="px-2 py-2 text-right font-semibold">{formatRp(l.lineTotal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colSpan={4} className="px-2 py-3 text-right font-bold">Grand Total</td>
+                      <td className="px-2 py-3 text-right text-lg font-bold text-brand-600">
+                        {formatRp(detailOrder.grandTotal)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td colSpan={4} className="px-2 py-1 text-right text-slate-600">Sudah dibayar</td>
+                      <td className="px-2 py-1 text-right">{formatRp(detailOrder.bayar)}</td>
+                    </tr>
+                    <tr>
+                      <td colSpan={4} className="px-2 py-1 text-right text-slate-600">Sisa hutang</td>
+                      <td className="px-2 py-1 text-right font-semibold text-red-700">
+                        {formatRp(detailOrder.sisaTagihan)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+                <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
+                  <Button type="button" onClick={printDetail} disabled={!detailLines.length}>
+                    Cetak PO
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => setDetailOpen(false)}>Tutup</Button>
+                </div>
+              </>
             )}
-            <div className="mt-4 text-right">
-              <Button type="button" variant="ghost" onClick={() => setDetailOpen(false)}>Tutup</Button>
-            </div>
           </div>
         </div>
       )}

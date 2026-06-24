@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUserPrimaryOrg } from "@/lib/org/get-user-org";
+import { lineBayar, summarizeHutangFromLines } from "@/lib/posting/hutang";
+import type { PurchaseLineRow } from "@/lib/posting/types";
 
 export async function GET(
   _request: Request,
@@ -30,8 +32,9 @@ export async function GET(
     .eq("purchase_order_id", id)
     .order("sort_order");
 
+  const lineRows = (lines || []) as PurchaseLineRow[];
   const meta = (order.metadata || {}) as Record<string, unknown>;
-  const mappedLines = (lines || []).map((l) => {
+  const mappedLines = lineRows.map((l) => {
     const lm = (l.metadata || {}) as Record<string, unknown>;
     return {
       id: l.id,
@@ -45,6 +48,32 @@ export async function GET(
     };
   });
 
+  const grandTotal =
+    lineRows.reduce((s, l) => s + Number(l.line_total) || 0, 0) || Number(order.total) || 0;
+  const hutang = summarizeHutangFromLines(
+    order as {
+      id: string;
+      po_no: string;
+      order_date: string;
+      supplier_id: string | null;
+      total: number;
+      status: string;
+      metadata: Record<string, unknown>;
+    },
+    lineRows
+  );
+  const isVoided = order.status === "VOIDED";
+  const bayar = lineRows.reduce((s, l) => s + lineBayar(l), 0) || Number(meta.bayar) || 0;
+  const sisaTagihan = isVoided ? 0 : (hutang?.sisaTagihan ?? 0);
+
+  const { data: settingsRow } = await supabase
+    .from("app_settings")
+    .select("settings")
+    .eq("organization_id", org.id)
+    .maybeSingle();
+
+  const business = (settingsRow?.settings as { business?: Record<string, unknown> } | null)?.business;
+
   return NextResponse.json({
     order: {
       id: order.id,
@@ -52,9 +81,16 @@ export async function GET(
       orderDate: order.order_date,
       supplierName: String(meta.supplierName || ""),
       status: order.status,
-      grandTotal: Number(order.total) || 0
+      grandTotal,
+      bayar: isVoided ? 0 : bayar,
+      sisaTagihan
     },
     lines: mappedLines,
-    isPosted: order.status === "POSTED" || order.status === "VOIDED"
+    isPosted: order.status === "POSTED" || order.status === "VOIDED",
+    company: {
+      name: String(business?.company_name || org.name || "HYBRID LAB"),
+      address: String(business?.address || ""),
+      phone: String(business?.phone || "")
+    }
   });
 }
