@@ -1,11 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { loginAction } from "./actions";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("workadit8@gmail.com");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -16,12 +14,17 @@ export default function LoginPage() {
     setLoading(true);
     setMessage(null);
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      router.push("/dashboard");
-      router.refresh();
+      const formData = new FormData();
+      formData.set("email", email);
+      formData.set("password", password);
+      const result = await loginAction(formData);
+      if (result?.error) {
+        setMessage(result.error);
+      }
     } catch (err) {
+      if (err instanceof Error && err.message === "NEXT_REDIRECT") {
+        return;
+      }
       setMessage(err instanceof Error ? err.message : "Login gagal");
     } finally {
       setLoading(false);
@@ -48,6 +51,7 @@ export default function LoginPage() {
         <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Email</label>
         <input
           type="email"
+          name="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -56,6 +60,7 @@ export default function LoginPage() {
         <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Password</label>
         <input
           type="password"
+          name="password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
