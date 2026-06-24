@@ -36,6 +36,7 @@ clients/*/appsscript.json
 clients/*/.claspignore
 clients/*/client.env
 clients/hybrid/.env.local
+clients/hybrid/supabase.db.env
 apps/premium-web/.env.local
 
 # Provision Level 3 (secrets)
