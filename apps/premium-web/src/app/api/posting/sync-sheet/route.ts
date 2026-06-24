@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getHybridBackendConfig } from "@/lib/hybrid/config";
+import { clearPremiumTransactionSheets } from "@/lib/posting/sync-sheet";
 import { processSheetSyncRetries, processPelunasanSheetSyncRetries } from "@/lib/posting/worker";
 
 export async function POST(request: Request) {
@@ -10,11 +12,24 @@ export async function POST(request: Request) {
   }
 
   let forcePelunasan = false;
+  let action = "";
   try {
     const body = await request.json().catch(() => ({}));
     forcePelunasan = body?.forcePelunasan === true;
+    action = String(body?.action || "");
   } catch {
     /* empty body ok */
+  }
+
+  if (action === "clear_transaction_sheets") {
+    try {
+      const config = getHybridBackendConfig();
+      const result = await clearPremiumTransactionSheets(config);
+      return NextResponse.json(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
   }
 
   try {

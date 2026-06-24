@@ -56,6 +56,10 @@ export function buildSyncSheetPayload(
   lines?: SalesLineRow[]
 ): SyncSheetPayload {
   const customer = meta.customerName || "Premium Web";
+  const headerKurang = Math.max(0, Number(order.total) - (Number(meta.bayar) || 0));
+  const headerStatus =
+    meta.paymentStatus ||
+    (headerKurang > 0.01 ? "PENJUALAN KREDIT" : "PENJUALAN TUNAI");
   const base: SyncSheetPayload = {
     apiKey: config.apiKey,
     spreadsheetId: config.spreadsheetId,
@@ -65,7 +69,7 @@ export function buildSyncSheetPayload(
     keterangan: meta.keterangan || order.order_no,
     total: Number(order.total),
     bayar: Number(meta.bayar) || 0,
-    status: meta.paymentStatus,
+    status: headerStatus,
     tanggalBayar: meta.tanggalBayar || order.order_date,
     akunPendapatan: meta.akunPendapatan || "Pendapatan",
     rekening: String(meta.rekening || ""),
@@ -83,6 +87,9 @@ export function buildSyncSheetPayload(
           ? lm.kurangBayar
           : Math.max(0, Number(line.line_total) - (lm.bayar || 0));
       const bayar = lm.bayar != null ? lm.bayar : Number(line.line_total) - kurang;
+      const lineStatus =
+        lm.paymentStatus ||
+        (kurang > 0.01 ? "PENJUALAN KREDIT" : "PENJUALAN TUNAI");
       return {
         produk: line.description,
         qty: Number(line.qty),
@@ -92,7 +99,7 @@ export function buildSyncSheetPayload(
         total: Number(line.line_total),
         bayar,
         kurangBayar: kurang,
-        status: lm.paymentStatus || meta.paymentStatus,
+        status: lineStatus,
         transactionId: lm.transactionId || meta.transactionId,
         akunPendapatan: lm.akunPendapatan || meta.akunPendapatan || "Pendapatan"
       };
@@ -110,4 +117,15 @@ export async function syncOrderToPemasukanSheet(
 ) {
   const payload = buildSyncSheetPayload(order, meta, config, lines);
   return callHybridBackend(payload, config.url);
+}
+
+export async function clearPremiumTransactionSheets(config: HybridBackendConfig) {
+  return callHybridBackend(
+    {
+      apiKey: config.apiKey,
+      spreadsheetId: config.spreadsheetId,
+      action: "CLEAR_PREMIUM_TRANSACTION_SHEETS"
+    },
+    config.url
+  );
 }

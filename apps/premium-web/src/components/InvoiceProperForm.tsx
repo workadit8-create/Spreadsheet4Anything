@@ -15,6 +15,7 @@ type Product = {
   akunPendapatan: string;
 };
 type KasBank = { id: string; code: string | null; name: string };
+type PaymentMode = "TUNAI" | "KREDIT" | "PARTIAL";
 
 type LineState = {
   key: string;
@@ -50,6 +51,7 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
   const [orderDate, setOrderDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [customerId, setCustomerId] = useState("");
   const [rekening, setRekening] = useState("");
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>("TUNAI");
   const [bayar, setBayar] = useState("");
   const [lines, setLines] = useState<LineState[]>([emptyLine()]);
 
@@ -63,8 +65,17 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
   });
 
   const subtotal = lineTotals.reduce((a, b) => a + b, 0);
-  const bayarNum = bayar === "" ? subtotal : Number(bayar) || 0;
+  const bayarNum =
+    paymentMode === "TUNAI"
+      ? subtotal
+      : paymentMode === "KREDIT"
+        ? 0
+        : Math.min(subtotal, Math.max(0, Number(bayar) || 0));
   const kurangBayar = Math.max(0, subtotal - bayarNum);
+  const paymentLabel =
+    paymentMode === "KREDIT" || kurangBayar > 0.01
+      ? "PENJUALAN KREDIT"
+      : "PENJUALAN TUNAI";
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -153,26 +164,34 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
       const processRes = await fetch("/api/posting/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ retryFailed: true })
+        body: JSON.stringify({
+          jobIds: data.postingJobId ? [data.postingJobId] : [],
+          retryFailed: false,
+          limit: 5
+        })
       });
       const processData = await processRes.json();
       if (!processRes.ok) {
         setMessage(`Invoice ${data.order.order_no} dibuat. Posting: ${processData.error}`);
       } else {
-        const ok = processData.results?.some((r: { ok: boolean }) => r.ok);
-        const synced = processData.results?.some((r: { sheetSynced?: boolean }) => r.sheetSynced);
+        const jobResult = (processData.results || []).find(
+          (r: { jobId?: string }) => r.jobId === data.postingJobId
+        ) as { ok?: boolean; sheetSynced?: boolean; error?: string } | undefined;
+        const ok = jobResult?.ok === true;
+        const synced = jobResult?.sheetSynced === true;
         setMessage(
           ok
             ? synced
-              ? `Invoice ${data.order.order_no} → jurnal POSTED + sheet PEMASUKAN`
-              : `Invoice ${data.order.order_no} → jurnal POSTED (sync sheet pending — deploy backend-hybrid)`
-            : `Invoice ${data.order.order_no} dibuat. Posting: ${processData.results?.[0]?.error || "cek queue"}`
+              ? `Invoice ${data.order.order_no} → jurnal POSTED + sheet PEMASUKAN (${paymentLabel})`
+              : `Invoice ${data.order.order_no} → jurnal POSTED. Sync sheet: buka Laporan → Retry sync`
+            : `Invoice ${data.order.order_no} dibuat. Posting: ${jobResult?.error || "cek Laporan"}`
         );
       }
 
       setLines([emptyLine()]);
       setCustomerId("");
       setBayar("");
+      setPaymentMode("TUNAI");
       onCreated();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
@@ -300,23 +319,53 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4">
-        <div className="mx-auto max-w-sm space-y-2 text-sm">
+        <div className="mx-auto max-w-md space-y-3 text-sm">
           <div className="flex justify-between">
             <span className="text-slate-600">Subtotal</span>
             <strong>{formatRp(subtotal)}</strong>
           </div>
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-slate-600">Bayar</span>
-            <Input
-              type="number"
-              min={0}
-              className="max-w-[140px]"
-              value={bayar === "" && subtotal > 0 ? String(subtotal) : bayar}
-              onChange={(e) => setBayar(e.target.value)}
-            />
+          <div>
+            <p className="mb-2 text-sm font-medium text-slate-700">Tipe pembayaran</p>
+            <div className="flex flex-wrap gap-2">
+              {(["TUNAI", "KREDIT", "PARTIAL"] as PaymentMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => {
+                    setPaymentMode(mode);
+                    if (mode === "TUNAI") setBayar("");
+                    if (mode === "KREDIT") setBayar("0");
+                  }}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                    paymentMode === mode
+                      ? "bg-brand-600 text-white"
+                      : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {mode === "TUNAI" ? "Lunas tunai" : mode === "KREDIT" ? "Kredit penuh" : "Kurang bayar"}
+                </button>
+              ))}
+            </div>
+          </div>
+          {paymentMode === "PARTIAL" && (
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-slate-600">Bayar sekarang</span>
+              <Input
+                type="number"
+                min={0}
+                max={subtotal}
+                className="max-w-[140px]"
+                value={bayar}
+                onChange={(e) => setBayar(e.target.value)}
+              />
+            </div>
+          )}
+          <div className="flex justify-between text-slate-600">
+            <span>Bayar (efektif)</span>
+            <strong>{formatRp(bayarNum)}</strong>
           </div>
           <div className="flex justify-between text-amber-700">
-            <span>Kurang bayar</span>
+            <span>Kurang bayar · {paymentLabel}</span>
             <strong>{formatRp(kurangBayar)}</strong>
           </div>
         </div>

@@ -35,6 +35,7 @@ type Props = {
 
 export default function LaporanPageClient({ stats, syncEvents, gasWebappUrl, databaseSheetId }: Props) {
   const [syncing, setSyncing] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   async function retrySheetSync() {
@@ -57,6 +58,35 @@ export default function LaporanPageClient({ stats, syncEvents, gasWebappUrl, dat
       setMessage(err instanceof Error ? err.message : "Gagal sync");
     } finally {
       setSyncing(false);
+    }
+  }
+
+  async function clearTransactionSheets() {
+    if (
+      !window.confirm(
+        "Kosongkan semua baris transaksi di sheet PEMASUKAN dan PELUNASAN_PIUTANG? Header tetap ada."
+      )
+    ) {
+      return;
+    }
+    setClearing(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/posting/sync-sheet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "clear_transaction_sheets" })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || data.message);
+      const cleared = data.cleared || {};
+      setMessage(
+        `Sheet dikosongkan: PEMASUKAN ${cleared.PEMASUKAN ?? 0} baris, PELUNASAN_PIUTANG ${cleared.PELUNASAN_PIUTANG ?? 0} baris`
+      );
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Gagal kosongkan sheet");
+    } finally {
+      setClearing(false);
     }
   }
 
@@ -88,8 +118,16 @@ export default function LaporanPageClient({ stats, syncEvents, gasWebappUrl, dat
       <Card className="mb-6">
         <h2 className="mb-3 text-base font-semibold text-slate-900">Aksi</h2>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" onClick={retrySheetSync} disabled={syncing}>
+          <Button type="button" onClick={retrySheetSync} disabled={syncing || clearing}>
             {syncing ? "Syncing..." : "Retry sync sheet (PEMASUKAN + pelunasan)"}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={clearTransactionSheets}
+            disabled={syncing || clearing}
+          >
+            {clearing ? "Menghapus..." : "Kosongkan sheet transaksi"}
           </Button>
           <Link
             href="/dashboard/invoices"
