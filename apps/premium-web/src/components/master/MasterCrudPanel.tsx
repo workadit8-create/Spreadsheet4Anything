@@ -55,17 +55,28 @@ export function MasterCrudPanel({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal memuat");
       setItems(data.items || []);
-      const extraKeys = ["units", "categories"];
+      const extraKeys = ["units", "categories", "coa_accounts"];
       extraKeys.forEach((k) => {
         if (data[k]) setExtras((prev) => ({ ...prev, [k]: data[k] }));
       });
+      const needsCoa = fields.some((f) => f.optionsKey === "coa_accounts");
+      if (needsCoa && !data.coa_accounts) {
+        const coaRes = await fetch("/api/master/coa");
+        const coaData = await coaRes.json();
+        if (coaRes.ok) {
+          setExtras((prev) => ({
+            ...prev,
+            coa_accounts: (coaData.items || []).filter((a: Row) => a.active !== false)
+          }));
+        }
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error");
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [apiPath]);
+  }, [apiPath, fields]);
 
   useEffect(() => {
     load();
@@ -136,6 +147,12 @@ export function MasterCrudPanel({
 
   function selectOptions(field: FieldDef) {
     if (field.options) return field.options;
+    if (field.optionsKey === "coa_accounts") {
+      return (extras.coa_accounts || []).map((a) => ({
+        value: String(a.name),
+        label: `${String(a.code)} — ${String(a.name)}`
+      }));
+    }
     if (field.optionsKey) {
       return (extras[field.optionsKey] || []).map((u) => ({
         value: String(u.id),

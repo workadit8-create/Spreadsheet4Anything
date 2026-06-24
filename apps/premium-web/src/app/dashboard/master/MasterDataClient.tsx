@@ -243,7 +243,7 @@ export default function MasterDataClient() {
             fields={[
               { key: "category", label: "Kategori", type: "text", required: true },
               { key: "sub_category", label: "Sub-kategori", type: "text", required: true },
-              { key: "coa_account", label: "Akun COA", type: "text", required: true },
+              { key: "coa_account", label: "Akun COA", type: "select", optionsKey: "coa_accounts", required: true },
               { key: "active", label: "Aktif", type: "checkbox" }
             ]}
             columns={[
