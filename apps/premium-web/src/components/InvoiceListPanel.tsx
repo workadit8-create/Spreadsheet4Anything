@@ -55,7 +55,11 @@ export function InvoiceListPanel() {
     setProcessing(true);
     setMessage(null);
     try {
-      const res = await fetch("/api/posting/process", { method: "POST" });
+      const res = await fetch("/api/posting/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ retryFailed: true })
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       const ok = (data.results || []).filter((r: { ok: boolean }) => r.ok).length;

@@ -10,11 +10,20 @@ export async function POST(request: Request) {
   }
 
   let limit = 5;
+  let retryFailed = true;
   try {
     const body = await request.json().catch(() => ({}));
     if (body?.limit) limit = Math.min(20, Math.max(1, Number(body.limit)));
+    if (body?.retryFailed === false) retryFailed = false;
   } catch {
     /* empty body ok */
+  }
+
+  if (retryFailed) {
+    await supabase
+      .from("posting_jobs")
+      .update({ status: "PENDING", updated_at: new Date().toISOString() })
+      .eq("status", "FAILED");
   }
 
   try {

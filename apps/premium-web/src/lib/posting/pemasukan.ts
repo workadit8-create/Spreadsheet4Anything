@@ -40,24 +40,12 @@ export function buildPemasukanPayload(
 }
 
 export async function callHybridBackend(payload: PemasukanPayload, backendUrl: string) {
-  let res = await fetch(backendUrl, {
+  const res = await fetch(backendUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
-    redirect: "manual"
+    redirect: "follow"
   });
-
-  if (res.status === 302 || res.status === 301 || res.status === 307) {
-    const location = res.headers.get("location");
-    if (location) {
-      res = await fetch(location, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        redirect: "follow"
-      });
-    }
-  }
 
   const text = await res.text();
   let result: { success?: boolean; message?: string } = {};

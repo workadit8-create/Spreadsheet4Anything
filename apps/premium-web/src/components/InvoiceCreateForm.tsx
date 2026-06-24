@@ -37,7 +37,11 @@ export function InvoiceCreateForm({ onCreated }: { onCreated: () => void }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal buat invoice");
 
-      const processRes = await fetch("/api/posting/process", { method: "POST" });
+      const processRes = await fetch("/api/posting/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ retryFailed: true })
+      });
       const processData = await processRes.json();
       if (!processRes.ok) {
         setMessage(`Invoice ${data.order.order_no} dibuat. Posting: ${processData.error}`);
