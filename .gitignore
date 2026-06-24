@@ -35,6 +35,8 @@ clients/*/index.html
 clients/*/appsscript.json
 clients/*/.claspignore
 clients/*/client.env
+clients/hybrid/.env.local
+apps/premium-web/.env.local
 
 # Provision Level 3 (secrets)
 provision/master.env

@@ -7,7 +7,10 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "premium:install": "npm install --prefix apps/premium-web",
+    "premium:dev": "npm run dev --prefix apps/premium-web",
+    "premium:build": "npm run build --prefix apps/premium-web"
   },
   "repository": {
     "type": "git",
