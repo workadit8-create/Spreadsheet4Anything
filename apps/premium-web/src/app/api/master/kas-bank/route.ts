@@ -26,11 +26,16 @@ export async function POST(request: Request) {
   const name = String(body.name || "").trim();
   if (!name) return NextResponse.json({ error: "Nama rekening wajib" }, { status: 400 });
 
+  const coaAccountName = String(body.coa_account_name || "").trim();
+  if (!coaAccountName) {
+    return NextResponse.json({ error: "Akun COA wajib dipilih" }, { status: 400 });
+  }
+
   const row = {
     organization_id: org.id,
     code: String(body.code || "").trim() || null,
     name,
-    coa_account_name: String(body.coa_account_name || name).trim(),
+    coa_account_name: coaAccountName,
     active: body.active !== false
   };
 

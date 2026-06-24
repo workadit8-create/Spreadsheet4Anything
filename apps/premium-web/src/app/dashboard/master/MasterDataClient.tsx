@@ -206,7 +206,14 @@ export default function MasterDataClient() {
             fields={[
               { key: "code", label: "Kode", type: "text" },
               { key: "name", label: "Nama rekening", type: "text", required: true },
-              { key: "coa_account_name", label: "Nama akun COA", type: "text", required: true },
+              {
+                key: "coa_account_name",
+                label: "Akun COA",
+                type: "select",
+                optionsKey: "coa_accounts",
+                coaAccountTypes: ["Aset"],
+                required: true
+              },
               { key: "active", label: "Aktif", type: "checkbox" }
             ]}
             columns={[
