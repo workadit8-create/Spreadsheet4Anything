@@ -75,10 +75,12 @@ Buka http://localhost:3000
 ## Uji alur transaksi
 
 1. **Master Data** — customer, produk, kas/bank, COA
-2. **Invoice** — buat invoice → posting otomatis ke jurnal Supabase
-3. **Piutang** — pelunasan invoice kredit → jurnal `PELUNASAN_PIUTANG`
-4. **Jurnal** — `/dashboard/jurnal` (read-only)
-5. **Laporan** — `/dashboard/laporan` (stat posting + jurnal terbaru)
+2. **Invoice** — simpan → status `CONFIRMED` (belum jurnal)
+3. **Post jurnal** — dari daftar invoice → `POSTED` + `journal_entries`
+4. **Batal (void)** — invoice `POSTED` → jurnal pembalik + status `VOIDED`
+5. **Hapus** — hanya invoice `CONFIRMED` (belum posting)
+6. **Piutang** — pelunasan hanya untuk invoice `POSTED`
+7. **Jurnal** — `/dashboard/jurnal` (read-only)
 
 Verifikasi di Supabase Table Editor: `journal_entries`, `journal_lines`.
 

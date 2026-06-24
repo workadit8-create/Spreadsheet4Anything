@@ -311,6 +311,10 @@ export async function processPendingPostingJobs(
           throw new Error(linesErr.message);
         }
 
+        if (order.status !== "CONFIRMED") {
+          throw new Error("Invoice tidak dalam status CONFIRMED");
+        }
+
         const meta = asMetadata(order.metadata);
         if (!meta.transactionId) {
           throw new Error("transactionId kosong di metadata sales_order");

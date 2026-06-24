@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     .from("sales_orders")
     .select("id, order_no, order_date, total, customer_id, metadata, status")
     .eq("organization_id", org.id)
-    .in("status", ["CONFIRMED", "POSTED"])
+    .in("status", ["POSTED"])
     .order("order_date", { ascending: false });
 
   if (!allOutstanding) {

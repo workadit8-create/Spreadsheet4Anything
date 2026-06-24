@@ -161,29 +161,9 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal buat invoice");
 
-      const processRes = await fetch("/api/posting/process", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jobIds: data.postingJobId ? [data.postingJobId] : [],
-          retryFailed: false,
-          limit: 5
-        })
-      });
-      const processData = await processRes.json();
-      if (!processRes.ok) {
-        setMessage(`Invoice ${data.order.order_no} dibuat. Posting: ${processData.error}`);
-      } else {
-        const jobResult = (processData.results || []).find(
-          (r: { jobId?: string }) => r.jobId === data.postingJobId
-        ) as { ok?: boolean; error?: string } | undefined;
-        const ok = jobResult?.ok === true;
-        setMessage(
-          ok
-            ? `Invoice ${data.order.order_no} → jurnal Supabase POSTED (${paymentLabel})`
-            : `Invoice ${data.order.order_no} dibuat. Posting: ${jobResult?.error || "cek Laporan"}`
-        );
-      }
+      setMessage(
+        `Invoice ${data.order.order_no} disimpan (CONFIRMED). Klik Post jurnal di daftar invoice.`
+      );
 
       setLines([emptyLine()]);
       setCustomerId("");
@@ -372,7 +352,7 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
       {message && <p className="text-sm text-emerald-600">{message}</p>}
 
       <Button type="submit" disabled={saving || !products.length}>
-        {saving ? "Memproses..." : "Simpan invoice + post ke jurnal"}
+        {saving ? "Memproses..." : "Simpan invoice"}
       </Button>
       {!products.length && (
         <p className="text-xs text-slate-500">Tambah produk di Master Data terlebih dahulu.</p>

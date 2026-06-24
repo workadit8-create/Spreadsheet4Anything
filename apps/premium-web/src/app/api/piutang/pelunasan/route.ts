@@ -66,6 +66,12 @@ export async function POST(request: Request) {
   if (orderErr || !order) {
     return NextResponse.json({ error: "Invoice tidak ditemukan" }, { status: 400 });
   }
+  if (order.status !== "POSTED") {
+    return NextResponse.json(
+      { error: "Pelunasan hanya untuk invoice yang sudah diposting ke jurnal" },
+      { status: 400 }
+    );
+  }
 
   const { data: lines, error: linesErr } = await supabase
     .from("sales_lines")

@@ -39,22 +39,9 @@ export function InvoiceCreateForm({ onCreated }: { onCreated: () => void }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal buat invoice");
 
-      const processRes = await fetch("/api/posting/process", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ retryFailed: true })
-      });
-      const processData = await processRes.json();
-      if (!processRes.ok) {
-        setMessage(`Invoice ${data.order.order_no} dibuat. Posting: ${processData.error}`);
-      } else {
-        const ok = processData.results?.some((r: { ok: boolean }) => r.ok);
-        setMessage(
-          ok
-            ? `Invoice ${data.order.order_no} → jurnal Supabase POSTED`
-            : `Invoice ${data.order.order_no} dibuat. Posting: ${processData.results?.[0]?.error || "cek queue"}`
-        );
-      }
+      setMessage(
+        `Invoice ${data.order.order_no} disimpan (CONFIRMED). Klik Post jurnal di daftar invoice.`
+      );
       onCreated();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
@@ -102,7 +89,7 @@ export function InvoiceCreateForm({ onCreated }: { onCreated: () => void }) {
       {message && <p className="text-sm text-emerald-600">{message}</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
       <Button type="submit" disabled={loading} className="w-full sm:w-auto">
-        {loading ? "Memproses..." : "Buat invoice + post ke jurnal"}
+        {loading ? "Memproses..." : "Simpan invoice"}
       </Button>
     </form>
   );

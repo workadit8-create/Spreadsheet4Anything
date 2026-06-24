@@ -188,12 +188,10 @@ async function createLabInvoice(
     return NextResponse.json({ error: lineErr.message }, { status: 500 });
   }
 
-  const jobId = await enqueuePostingJob(supabase, organizationId, order.id);
   return NextResponse.json({
     order,
     transactionId,
-    postingJobId: jobId,
-    message: "Invoice lab dibuat + posting job PENDING"
+    message: "Invoice lab disimpan (CONFIRMED). Posting ke jurnal dari daftar invoice."
   });
 }
 
@@ -362,43 +360,9 @@ async function createProperInvoice(
     return NextResponse.json({ error: lineErr.message }, { status: 500 });
   }
 
-  const jobId = await enqueuePostingJob(supabase, organizationId, order.id);
   return NextResponse.json({
     order,
     transactionId: headerTransactionId,
-    postingJobId: jobId,
-    message: "Invoice dibuat + posting job PENDING"
+    message: "Invoice disimpan (CONFIRMED). Posting ke jurnal dari daftar invoice."
   });
-}
-
-async function enqueuePostingJob(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  organizationId: string,
-  orderId: string
-) {
-  const { data: existingJob } = await supabase
-    .from("posting_jobs")
-    .select("id, status")
-    .eq("doc_type", "SALES_ORDER")
-    .eq("doc_id", orderId)
-    .in("status", ["PENDING", "RUNNING", "POSTED"])
-    .maybeSingle();
-
-  if (existingJob?.id) return existingJob.id;
-
-  const { data: job, error: jobErr } = await supabase
-    .from("posting_jobs")
-    .insert({
-      organization_id: organizationId,
-      doc_type: "SALES_ORDER",
-      doc_id: orderId,
-      status: "PENDING"
-    })
-    .select("id, status")
-    .single();
-
-  if (jobErr || !job) {
-    throw new Error(jobErr?.message || "Gagal enqueue posting job");
-  }
-  return job.id;
 }
