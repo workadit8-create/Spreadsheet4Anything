@@ -83,6 +83,15 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
+// Validate ../../src/app/dashboard/piutang/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/dashboard/piutang">> = Specific
+  const handler = {} as typeof import("../../src/app/dashboard/piutang/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../src/app/login/page.tsx
 {
   type __IsExpected<Specific extends AppPageConfig<"/login">> = Specific
@@ -186,6 +195,24 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/org/business-profile">> = Specific
   const handler = {} as typeof import("../../src/app/api/org/business-profile/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../src/app/api/piutang/pelunasan/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/piutang/pelunasan">> = Specific
+  const handler = {} as typeof import("../../src/app/api/piutang/pelunasan/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../src/app/api/piutang/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/piutang">> = Specific
+  const handler = {} as typeof import("../../src/app/api/piutang/route.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check

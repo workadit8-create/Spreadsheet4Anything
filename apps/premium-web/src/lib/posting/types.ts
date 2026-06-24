@@ -21,6 +21,7 @@ export type SalesLineMetadata = {
   bayar?: number;
   kurangBayar?: number;
   paymentStatus?: PaymentStatus;
+  tanggalBayar?: string;
 };
 
 export type SalesOrderRow = {

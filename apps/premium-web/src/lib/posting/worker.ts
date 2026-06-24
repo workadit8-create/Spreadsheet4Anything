@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getHybridBackendConfig } from "@/lib/hybrid/config";
 import { buildPemasukanPayload, callHybridBackend } from "./pemasukan";
+import { buildPelunasanPiutangPayload, syncPelunasanToSheet } from "./pelunasan-piutang";
 import { syncOrderToPemasukanSheet } from "./sync-sheet";
 import type {
   SalesLineMetadata,
@@ -107,6 +108,88 @@ async function postOrderToJurnal(
   }
 }
 
+type PiutangPaymentMetadata = {
+  transactionId: string;
+  invoiceNo: string;
+  customerName: string;
+  salesOrderId: string;
+  rekening: string;
+  keterangan?: string;
+  tanggalBayar: string;
+  sheetSynced?: boolean;
+};
+
+function asPiutangPaymentMeta(raw: unknown): PiutangPaymentMetadata {
+  const m = (raw || {}) as Record<string, unknown>;
+  return {
+    transactionId: String(m.transactionId || ""),
+    invoiceNo: String(m.invoiceNo || ""),
+    customerName: String(m.customerName || ""),
+    salesOrderId: String(m.salesOrderId || ""),
+    rekening: String(m.rekening || ""),
+    keterangan: m.keterangan ? String(m.keterangan) : undefined,
+    tanggalBayar: String(m.tanggalBayar || new Date().toISOString().slice(0, 10)),
+    sheetSynced: m.sheetSynced === true
+  };
+}
+
+async function processPiutangPaymentJob(
+  supabase: SupabaseClient,
+  job: { id: string; organization_id: string; doc_id: string },
+  config: ReturnType<typeof getHybridBackendConfig>
+): Promise<{ sheetSynced: boolean }> {
+  const { data: payment, error: payErr } = await supabase
+    .from("payments")
+    .select("*")
+    .eq("id", job.doc_id)
+    .single();
+
+  if (payErr || !payment) {
+    throw new Error(payErr?.message || "Payment tidak ditemukan");
+  }
+
+  const meta = asPiutangPaymentMeta(payment.metadata);
+  if (!meta.transactionId || !meta.invoiceNo) {
+    throw new Error("Metadata pelunasan tidak lengkap");
+  }
+
+  const payload = buildPelunasanPiutangPayload(meta, Number(payment.amount), config);
+  await callHybridBackend(payload, config.url);
+
+  let sheetSynced = false;
+  try {
+    await recordSyncEvent(
+      supabase,
+      job.organization_id,
+      { paymentId: payment.id, invoiceNo: meta.invoiceNo },
+      "RUNNING"
+    );
+    await syncPelunasanToSheet(meta, Number(payment.amount), config);
+    const merged = { ...(payment.metadata as Record<string, unknown>), sheetSynced: true, sheetSyncedAt: new Date().toISOString() };
+    await supabase.from("payments").update({ metadata: merged }).eq("id", payment.id);
+    await recordSyncEvent(
+      supabase,
+      job.organization_id,
+      { paymentId: payment.id, invoiceNo: meta.invoiceNo, ok: true },
+      "DONE"
+    );
+    sheetSynced = true;
+    await logJob(supabase, job.id, "INFO", "Sync PELUNASAN_PIUTANG sheet OK");
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await recordSyncEvent(
+      supabase,
+      job.organization_id,
+      { paymentId: payment.id, invoiceNo: meta.invoiceNo },
+      "FAILED",
+      message
+    );
+    await logJob(supabase, job.id, "WARN", "Sync pelunasan sheet gagal: " + message);
+  }
+
+  return { sheetSynced };
+}
+
 async function syncToSheet(
   supabase: SupabaseClient,
   job: { id: string; organization_id: string },
@@ -180,64 +263,94 @@ export async function processPendingPostingJobs(
       .eq("id", job.id);
 
     try {
-      if (job.doc_type !== "SALES_ORDER") {
-        throw new Error(`doc_type tidak didukung: ${job.doc_type}`);
+      if (job.doc_type === "SALES_ORDER") {
+        const { data: order, error: orderErr } = await supabase
+          .from("sales_orders")
+          .select("*")
+          .eq("id", job.doc_id)
+          .single();
+
+        if (orderErr || !order) {
+          throw new Error(orderErr?.message || "Sales order tidak ditemukan");
+        }
+
+        const { data: lines, error: linesErr } = await supabase
+          .from("sales_lines")
+          .select("*")
+          .eq("sales_order_id", order.id)
+          .order("sort_order");
+
+        if (linesErr) {
+          throw new Error(linesErr.message);
+        }
+
+        const meta = asMetadata(order.metadata);
+        if (!meta.transactionId) {
+          throw new Error("transactionId kosong di metadata sales_order");
+        }
+
+        await postOrderToJurnal(order as SalesOrderRow, meta, (lines || []) as SalesLineRow[], config);
+
+        await supabase
+          .from("posting_jobs")
+          .update({
+            status: "POSTED",
+            engine_ref: meta.transactionId,
+            last_error: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", job.id);
+
+        await supabase
+          .from("sales_orders")
+          .update({ status: "POSTED", updated_at: new Date().toISOString() })
+          .eq("id", order.id);
+
+        await logJob(supabase, job.id, "INFO", "Posted ke BACKENDengine HYBRID LAB");
+
+        const sheetSynced = await syncToSheet(
+          supabase,
+          job as { id: string; organization_id: string },
+          order as SalesOrderRow,
+          meta,
+          (lines || []) as SalesLineRow[],
+          config
+        );
+
+        results.push({ jobId: job.id, ok: true, sheetSynced });
+        continue;
       }
 
-      const { data: order, error: orderErr } = await supabase
-        .from("sales_orders")
-        .select("*")
-        .eq("id", job.doc_id)
-        .single();
+      if (job.doc_type === "PIUTANG_PAYMENT") {
+        const { sheetSynced } = await processPiutangPaymentJob(
+          supabase,
+          job as { id: string; organization_id: string; doc_id: string },
+          config
+        );
 
-      if (orderErr || !order) {
-        throw new Error(orderErr?.message || "Sales order tidak ditemukan");
+        const { data: payment } = await supabase
+          .from("payments")
+          .select("metadata")
+          .eq("id", job.doc_id)
+          .single();
+        const payMeta = asPiutangPaymentMeta(payment?.metadata);
+
+        await supabase
+          .from("posting_jobs")
+          .update({
+            status: "POSTED",
+            engine_ref: payMeta.transactionId,
+            last_error: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", job.id);
+
+        await logJob(supabase, job.id, "INFO", "Pelunasan piutang posted");
+        results.push({ jobId: job.id, ok: true, sheetSynced });
+        continue;
       }
 
-      const { data: lines, error: linesErr } = await supabase
-        .from("sales_lines")
-        .select("*")
-        .eq("sales_order_id", order.id)
-        .order("sort_order");
-
-      if (linesErr) {
-        throw new Error(linesErr.message);
-      }
-
-      const meta = asMetadata(order.metadata);
-      if (!meta.transactionId) {
-        throw new Error("transactionId kosong di metadata sales_order");
-      }
-
-      await postOrderToJurnal(order as SalesOrderRow, meta, (lines || []) as SalesLineRow[], config);
-
-      await supabase
-        .from("posting_jobs")
-        .update({
-          status: "POSTED",
-          engine_ref: meta.transactionId,
-          last_error: null,
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", job.id);
-
-      await supabase
-        .from("sales_orders")
-        .update({ status: "POSTED", updated_at: new Date().toISOString() })
-        .eq("id", order.id);
-
-      await logJob(supabase, job.id, "INFO", "Posted ke BACKENDengine HYBRID LAB");
-
-      const sheetSynced = await syncToSheet(
-        supabase,
-        job as { id: string; organization_id: string },
-        order as SalesOrderRow,
-        meta,
-        (lines || []) as SalesLineRow[],
-        config
-      );
-
-      results.push({ jobId: job.id, ok: true, sheetSynced });
+      throw new Error(`doc_type tidak didukung: ${job.doc_type}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       await supabase
