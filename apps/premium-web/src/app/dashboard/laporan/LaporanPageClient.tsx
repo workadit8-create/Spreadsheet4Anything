@@ -24,6 +24,8 @@ type Props = {
     pendingJobs: number;
     sheetSynced: number;
     sheetPending: number;
+    pelunasanSheetSynced: number;
+    pelunasanSheetPending: number;
     totalOrders: number;
   };
   syncEvents: SyncEvent[];
@@ -75,6 +77,8 @@ export default function LaporanPageClient({ stats, syncEvents, gasWebappUrl, dat
         <StatCard label="Queue PENDING" value={stats.pendingJobs} />
         <StatCard label="Sheet synced" value={stats.sheetSynced} tone="success" />
         <StatCard label="Sheet pending" value={stats.sheetPending} tone="warning" />
+        <StatCard label="Pelunasan synced" value={stats.pelunasanSheetSynced} tone="success" />
+        <StatCard label="Pelunasan pending" value={stats.pelunasanSheetPending} tone="warning" />
       </div>
 
       <Card className="mb-6">

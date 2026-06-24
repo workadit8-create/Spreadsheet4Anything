@@ -16,6 +16,11 @@ export default async function LaporanPage() {
     .from("sales_orders")
     .select("id, metadata, status");
 
+  const { data: payments } = await supabase
+    .from("payments")
+    .select("id, metadata, doc_type")
+    .eq("doc_type", "PIUTANG_PAYMENT");
+
   const totalOrders = orders?.length ?? 0;
   let sheetSynced = 0;
   let sheetPending = 0;
@@ -23,6 +28,14 @@ export default async function LaporanPage() {
     const meta = (o.metadata || {}) as Record<string, unknown>;
     if (meta.sheetSynced === true) sheetSynced += 1;
     else if (o.status === "POSTED") sheetPending += 1;
+  });
+
+  let pelunasanSheetSynced = 0;
+  let pelunasanSheetPending = 0;
+  (payments || []).forEach((p) => {
+    const meta = (p.metadata || {}) as Record<string, unknown>;
+    if (meta.sheetSynced === true) pelunasanSheetSynced += 1;
+    else pelunasanSheetPending += 1;
   });
 
   const { data: syncEvents } = await supabase
@@ -42,6 +55,8 @@ export default async function LaporanPage() {
         pendingJobs,
         sheetSynced,
         sheetPending,
+        pelunasanSheetSynced,
+        pelunasanSheetPending,
         totalOrders
       }}
       syncEvents={(syncEvents || []) as Parameters<typeof LaporanPageClient>[0]["syncEvents"]}
