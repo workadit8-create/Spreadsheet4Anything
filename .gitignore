@@ -39,6 +39,7 @@ clients/hybrid/.env.local
 clients/hybrid/supabase.db.env
 apps/premium-web/.env.local
 apps/premium-web/.vercel
+.npm-cache/
 
 # Provision Level 3 (secrets)
 provision/master.env

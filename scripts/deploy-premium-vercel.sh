@@ -1,31 +1,30 @@
 #!/usr/bin/env bash
 # Deploy apps/premium-web ke Vercel (production).
-# Butuh: npx vercel login (sekali) ATAU env VERCEL_TOKEN
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP="$ROOT/apps/premium-web"
+# shellcheck source=scripts/premium-vercel-lib.sh
+source "$ROOT/scripts/premium-vercel-lib.sh"
 
 if [[ ! -f "$APP/package.json" ]]; then
   echo "Tidak ada apps/premium-web" >&2
   exit 1
 fi
 
-cd "$APP"
+VERCEL_BIN="$(premium_vercel_bin "$APP" "$ROOT")"
 
 echo "==> Build lokal (cek error sebelum deploy)..."
+cd "$APP"
 npm run build
 
 echo "==> Deploy ke Vercel..."
 if [[ -n "${VERCEL_TOKEN:-}" ]]; then
-  npx vercel deploy --prod --yes --token "$VERCEL_TOKEN"
+  "$VERCEL_BIN" deploy --prod --yes --token "$VERCEL_TOKEN"
 else
-  npx vercel deploy --prod
+  "$VERCEL_BIN" deploy --prod --yes
 fi
 
 echo ""
-echo "Setelah deploy pertama:"
-echo "  1. Supabase → Auth → URL Configuration"
-echo "     Site URL: https://<domain-vercel>"
-echo "     Redirect: https://<domain-vercel>/auth/callback"
-echo "  2. Vercel → Settings → Environment Variables (lihat apps/premium-web/.env.example)"
+echo "Production: https://premium-web-ruby.vercel.app"
+echo "Supabase Auth → Site URL + Redirect /auth/callback (lihat README)"

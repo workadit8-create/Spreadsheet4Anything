@@ -6,7 +6,9 @@
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start -p 3000",
-    "lint": "next lint"
+    "lint": "next lint",
+    "vercel:deploy": "vercel deploy --prod --yes",
+    "vercel:env": "vercel env"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",
@@ -19,6 +21,7 @@
     "@types/node": "^22.15.21",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vercel": "^54.15.1"
   }
 }
