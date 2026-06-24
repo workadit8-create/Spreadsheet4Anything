@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { processSheetSyncRetries } from "@/lib/posting/worker";
+import { processSheetSyncRetries, processPelunasanSheetSyncRetries } from "@/lib/posting/worker";
 
 export async function POST() {
   const supabase = await createClient();
@@ -10,8 +10,13 @@ export async function POST() {
   }
 
   try {
-    const results = await processSheetSyncRetries(supabase, 20);
-    return NextResponse.json({ synced: results.length, results });
+    const orderResults = await processSheetSyncRetries(supabase, 20);
+    const pelunasanResults = await processPelunasanSheetSyncRetries(supabase, 20);
+    return NextResponse.json({
+      synced: orderResults.length + pelunasanResults.length,
+      orders: orderResults,
+      pelunasan: pelunasanResults
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: message }, { status: 500 });

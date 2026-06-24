@@ -443,3 +443,65 @@ export async function processSheetSyncRetries(
 
   return results;
 }
+
+/** Retry sync PELUNASAN_PIUTANG untuk payment yang sudah posted tapi belum sheetSynced. */
+export async function processPelunasanSheetSyncRetries(
+  supabase: SupabaseClient,
+  limit = 20
+): Promise<{ paymentId: string; ok: boolean; error?: string }[]> {
+  const config = getHybridBackendConfig();
+
+  const { data: payments, error } = await supabase
+    .from("payments")
+    .select("*")
+    .eq("doc_type", "PIUTANG_PAYMENT")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(error.message);
+
+  const results: { paymentId: string; ok: boolean; error?: string }[] = [];
+
+  for (const payment of payments || []) {
+    const metaRaw = (payment.metadata || {}) as Record<string, unknown>;
+    if (metaRaw.sheetSynced === true) continue;
+
+    const meta = asPiutangPaymentMeta(payment.metadata);
+    if (!meta.transactionId || !meta.invoiceNo) continue;
+
+    try {
+      await recordSyncEvent(
+        supabase,
+        payment.organization_id,
+        { paymentId: payment.id, invoiceNo: meta.invoiceNo, retry: true },
+        "RUNNING"
+      );
+      await syncPelunasanToSheet(meta, Number(payment.amount), config);
+      const merged = {
+        ...metaRaw,
+        sheetSynced: true,
+        sheetSyncedAt: new Date().toISOString()
+      };
+      await supabase.from("payments").update({ metadata: merged }).eq("id", payment.id);
+      await recordSyncEvent(
+        supabase,
+        payment.organization_id,
+        { paymentId: payment.id, invoiceNo: meta.invoiceNo, ok: true, retry: true },
+        "DONE"
+      );
+      results.push({ paymentId: payment.id, ok: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await recordSyncEvent(
+        supabase,
+        payment.organization_id,
+        { paymentId: payment.id, invoiceNo: meta.invoiceNo, retry: true },
+        "FAILED",
+        message
+      );
+      results.push({ paymentId: payment.id, ok: false, error: message });
+    }
+  }
+
+  return results;
+}
