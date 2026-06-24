@@ -63,5 +63,21 @@ Buka http://localhost:3000
 
 4. Verifikasi jurnal di spreadsheet **Backend Engine** HYBRID LAB.
 
+## Step 4 — Sync balik ke sheet PEMASUKAN
+
+Setelah jurnal POSTED, worker menulis baris ke sheet **PEMASUKAN** (client DB).
+
+1. Deploy backend hybrid (wajib setelah update code):
+   ```bash
+   ./scripts/deploy-to.sh backend-hybrid "Step 4 PremiumSync"
+   ```
+
+2. Buka http://localhost:3000/dashboard/laporan
+
+3. Invoice POSTED tanpa sheet sync → **Retry sync sheet PEMASUKAN**
+
+4. Cek client DB spreadsheet → sheet **PEMASUKAN** (kolom Posted = TRUE)
+
+## Deploy
 
 Vercel (nanti) — project terpisah, root directory `apps/premium-web`.

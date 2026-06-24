@@ -47,9 +47,12 @@ export function InvoiceCreateForm({ onCreated }: { onCreated: () => void }) {
         setMessage(`Invoice ${data.order.order_no} dibuat. Posting: ${processData.error}`);
       } else {
         const ok = processData.results?.some((r: { ok: boolean }) => r.ok);
+        const synced = processData.results?.some((r: { sheetSynced?: boolean }) => r.sheetSynced);
         setMessage(
           ok
-            ? `Invoice ${data.order.order_no} → jurnal POSTED`
+            ? synced
+              ? `Invoice ${data.order.order_no} → jurnal POSTED + sheet PEMASUKAN`
+              : `Invoice ${data.order.order_no} → jurnal POSTED (sheet sync pending — deploy backend-hybrid)`
             : `Invoice ${data.order.order_no} dibuat. Posting: ${processData.results?.[0]?.error || "cek queue"}`
         );
       }

@@ -56,6 +56,15 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
+// Validate ../../src/app/dashboard/laporan/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/dashboard/laporan">> = Specific
+  const handler = {} as typeof import("../../src/app/dashboard/laporan/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../src/app/dashboard/page.tsx
 {
   type __IsExpected<Specific extends AppPageConfig<"/dashboard">> = Specific
@@ -87,6 +96,15 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/posting/process">> = Specific
   const handler = {} as typeof import("../../src/app/api/posting/process/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../src/app/api/posting/sync-sheet/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/posting/sync-sheet">> = Specific
+  const handler = {} as typeof import("../../src/app/api/posting/sync-sheet/route.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check

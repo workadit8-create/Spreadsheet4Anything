@@ -93,7 +93,24 @@ export default async function DashboardPage() {
             textDecoration: "none"
           }}
         >
-          Buka Invoice Lab →
+          Invoice lab →
+        </Link>
+        <Link
+          href="/dashboard/laporan"
+          style={{
+            display: "inline-block",
+            padding: "8px 14px",
+            background: "#fff",
+            color: "#334155",
+            borderRadius: 8,
+            fontSize: 14,
+            fontWeight: 600,
+            textDecoration: "none",
+            border: "1px solid #e2e8f0",
+            marginLeft: 8
+          }}
+        >
+          Laporan bridge →
         </Link>
       </section>
 

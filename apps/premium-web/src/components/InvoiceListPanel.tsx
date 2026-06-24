@@ -16,7 +16,7 @@ type OrderRow = {
   order_date: string;
   total: number;
   status: string;
-  metadata: { transactionId?: string };
+  metadata: { transactionId?: string; sheetSynced?: boolean };
   postingJob: PostingJob | null;
 };
 
@@ -108,6 +108,7 @@ export function InvoiceListPanel() {
               <th style={{ padding: "8px 6px", borderBottom: "1px solid #e2e8f0" }}>Total</th>
               <th style={{ padding: "8px 6px", borderBottom: "1px solid #e2e8f0" }}>Order</th>
               <th style={{ padding: "8px 6px", borderBottom: "1px solid #e2e8f0" }}>Posting</th>
+              <th style={{ padding: "8px 6px", borderBottom: "1px solid #e2e8f0" }}>Sheet</th>
             </tr>
           </thead>
           <tbody>
@@ -128,6 +129,11 @@ export function InvoiceListPanel() {
                     {o.postingJob?.last_error && (
                       <div style={{ fontSize: 11, color: "#dc2626" }}>{o.postingJob.last_error}</div>
                     )}
+                  </td>
+                  <td style={{ padding: "8px 6px", borderBottom: "1px solid #f1f5f9" }}>
+                    <span style={{ color: o.metadata?.sheetSynced ? "#059669" : "#d97706", fontWeight: 600 }}>
+                      {o.metadata?.sheetSynced ? "SYNCED" : postStatus === "POSTED" ? "PENDING" : "—"}
+                    </span>
                   </td>
                 </tr>
               );

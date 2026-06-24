@@ -1,8 +1,7 @@
 {
   "/api/sales-orders/route": "app/api/sales-orders/route.js",
-  "/api/posting/process/route": "app/api/posting/process/route.js",
-  "/dashboard/invoices/page": "app/dashboard/invoices/page.js",
-  "/page": "app/page.js",
   "/login/page": "app/login/page.js",
-  "/dashboard/page": "app/dashboard/page.js"
+  "/page": "app/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/invoices/page": "app/dashboard/invoices/page.js"
 }

@@ -39,7 +39,10 @@ export function buildPemasukanPayload(
   };
 }
 
-export async function callHybridBackend(payload: PemasukanPayload, backendUrl: string) {
+export async function callHybridBackend(
+  payload: PemasukanPayload | Record<string, unknown>,
+  backendUrl: string
+) {
   const res = await fetch(backendUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
