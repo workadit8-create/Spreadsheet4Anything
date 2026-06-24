@@ -1,0 +1,105 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import {
+  BUSINESS_SECTOR_LABELS,
+  type BusinessSector
+} from "@/lib/products/inventory-policy";
+import { Button } from "@/components/ui/Button";
+
+const ALL_SECTORS = Object.keys(BUSINESS_SECTOR_LABELS) as BusinessSector[];
+
+export function BusinessProfilePanel() {
+  const [sectors, setSectors] = useState<BusinessSector[]>(["retail"]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/org/business-profile");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setSectors(data.sectors || ["retail"]);
+    } catch {
+      setSectors(["retail"]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  function toggleSector(sector: BusinessSector) {
+    setSectors((prev) =>
+      prev.includes(sector) ? prev.filter((s) => s !== sector) : [...prev, sector]
+    );
+  }
+
+  async function save() {
+    if (!sectors.length) {
+      setMessage("Pilih minimal satu sektor usaha");
+      return;
+    }
+    setSaving(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/org/business-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sectors, inventory_mode: "mixed" })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setMessage("Profil usaha disimpan");
+      setSectors(data.sectors);
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Gagal simpan");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return <p className="text-sm text-slate-500">Memuat profil usaha...</p>;
+  }
+
+  return (
+    <div className="mb-6 rounded-xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white p-4 shadow-[var(--shadow-card)]">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">Profil usaha</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Sistem terbuka untuk retail, F&B, manufaktur, dan jasa. Kategori produk menentukan pola stok.
+          </p>
+        </div>
+        <Button type="button" variant="secondary" onClick={save} disabled={saving}>
+          {saving ? "Menyimpan..." : "Simpan profil"}
+        </Button>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {ALL_SECTORS.map((sector) => {
+          const active = sectors.includes(sector);
+          return (
+            <button
+              key={sector}
+              type="button"
+              onClick={() => toggleSector(sector)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                active
+                  ? "bg-brand-600 text-white"
+                  : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              {BUSINESS_SECTOR_LABELS[sector]}
+            </button>
+          );
+        })}
+      </div>
+      {message && <p className="mt-2 text-xs text-slate-500">{message}</p>}
+    </div>
+  );
+}

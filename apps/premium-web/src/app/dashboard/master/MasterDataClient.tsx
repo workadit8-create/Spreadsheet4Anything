@@ -2,11 +2,19 @@
 
 import { useState } from "react";
 import { MasterCrudPanel } from "@/components/master/MasterCrudPanel";
+import { BusinessProfilePanel } from "@/components/master/BusinessProfilePanel";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { PRODUCT_KIND_LABELS } from "@/lib/products/inventory-policy";
+
+const PRODUCT_KIND_OPTIONS = Object.entries(PRODUCT_KIND_LABELS).map(([value, label]) => ({
+  value,
+  label
+}));
 
 const TABS = [
   { id: "customers", label: "Customer" },
+  { id: "product-categories", label: "Kategori Produk" },
   { id: "products", label: "Produk" },
   { id: "kas-bank", label: "Kas & Bank" },
   { id: "suppliers", label: "Supplier" },
@@ -23,8 +31,10 @@ export default function MasterDataClient() {
       <PageHeader
         badge="Fase 1 · Master Data"
         title="Master Data"
-        description="Simpan ke Supabase (< 2 detik). Sync ke sheet GAS menyusul per modul transaksi."
+        description="Multi-usaha: retail, F&B, manufaktur, jasa. Kategori produk atur apakah item kelola stok."
       />
+
+      <BusinessProfilePanel />
 
       <div className="mb-6 flex flex-wrap gap-2">
         {TABS.map((t) => (
@@ -66,6 +76,34 @@ export default function MasterDataClient() {
             ]}
           />
         )}
+        {tab === "product-categories" && (
+          <MasterCrudPanel
+            title="Kategori Produk"
+            apiPath="/api/master/product-categories"
+            fields={[
+              { key: "code", label: "Kode", type: "text", placeholder: "GOODS" },
+              { key: "name", label: "Nama kategori", type: "text", required: true },
+              { key: "sort_order", label: "Urutan", type: "number" },
+              {
+                key: "product_kind",
+                label: "Jenis item",
+                type: "select",
+                options: PRODUCT_KIND_OPTIONS
+              },
+              { key: "tracks_stock", label: "Kelola stok (ada persediaan)", type: "checkbox" },
+              { key: "uses_recipe", label: "Pakai resep/BOM (FNB/manufaktur)", type: "checkbox" },
+              { key: "active", label: "Aktif", type: "checkbox" }
+            ]}
+            columns={[
+              { key: "code", label: "Kode" },
+              { key: "name", label: "Nama" },
+              { key: "product_kind", label: "Jenis", format: "product_kind" },
+              { key: "tracks_stock", label: "Stok", format: "boolean" },
+              { key: "uses_recipe", label: "Resep", format: "boolean" },
+              { key: "active", label: "Status" }
+            ]}
+          />
+        )}
         {tab === "products" && (
           <MasterCrudPanel
             title="Produk"
@@ -74,13 +112,37 @@ export default function MasterDataClient() {
               { key: "sku", label: "Kode/SKU", type: "text" },
               { key: "name", label: "Nama", type: "text", required: true },
               { key: "sell_price", label: "Harga", type: "number", required: true },
+              {
+                key: "category_id",
+                label: "Kategori",
+                type: "select",
+                optionsKey: "categories"
+              },
+              {
+                key: "stock_policy",
+                label: "Kebijakan stok",
+                type: "select",
+                options: [
+                  { value: "inherit", label: "Ikuti kategori" },
+                  { value: "track", label: "Selalu kelola stok" },
+                  { value: "no_track", label: "Tanpa stok" }
+                ]
+              },
               { key: "unit_id", label: "Satuan", type: "select", optionsKey: "units" },
-              { key: "akunPendapatan", label: "Akun pendapatan", type: "text", metaKey: "akunPendapatan", placeholder: "Pendapatan" },
+              {
+                key: "akunPendapatan",
+                label: "Akun pendapatan",
+                type: "text",
+                metaKey: "akunPendapatan",
+                placeholder: "Pendapatan"
+              },
               { key: "active", label: "Aktif", type: "checkbox" }
             ]}
             columns={[
               { key: "sku", label: "SKU" },
               { key: "name", label: "Nama" },
+              { key: "category_name", label: "Kategori" },
+              { key: "tracks_stock_label", label: "Stok" },
               { key: "sell_price", label: "Harga" },
               { key: "akunPendapatan", label: "Akun", metaKey: "akunPendapatan" },
               { key: "active", label: "Status" }
@@ -146,7 +208,8 @@ export default function MasterDataClient() {
       </Card>
 
       <p className="mt-4 text-xs text-slate-400">
-        Pondasi stok/POS: products, warehouses, units sudah di schema — UI menyusul di fase terakhir.
+        Pondasi POS/stok: warehouses, stock_levels, product_recipes sudah di schema. UI POS menyusul —
+        deduct stok hanya untuk produk dengan <code className="text-[11px]">effective_tracks_stock = true</code>.
       </p>
     </main>
   );

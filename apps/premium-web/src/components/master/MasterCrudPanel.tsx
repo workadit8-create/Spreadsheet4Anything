@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select } from "@/components/ui/Input";
+import { PRODUCT_KIND_LABELS } from "@/lib/products/inventory-policy";
 
 type FieldType = "text" | "number" | "checkbox" | "select";
 
@@ -14,9 +15,17 @@ export type FieldDef = {
   placeholder?: string;
   metaKey?: string;
   optionsKey?: string;
+  options?: { value: string; label: string }[];
 };
 
 type Row = Record<string, unknown>;
+
+export type ColumnDef = {
+  key: string;
+  label: string;
+  metaKey?: string;
+  format?: "boolean" | "product_kind";
+};
 
 export function MasterCrudPanel({
   title,
@@ -27,7 +36,7 @@ export function MasterCrudPanel({
   title: string;
   apiPath: string;
   fields: FieldDef[];
-  columns: { key: string; label: string; metaKey?: string }[];
+  columns: ColumnDef[];
 }) {
   const [items, setItems] = useState<Row[]>([]);
   const [extras, setExtras] = useState<Record<string, Row[]>>({});
@@ -44,7 +53,10 @@ export function MasterCrudPanel({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal memuat");
       setItems(data.items || []);
-      if (data.units) setExtras({ units: data.units });
+      const extraKeys = ["units", "categories"];
+      extraKeys.forEach((k) => {
+        if (data[k]) setExtras((prev) => ({ ...prev, [k]: data[k] }));
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error");
       setItems([]);
@@ -57,13 +69,21 @@ export function MasterCrudPanel({
     load();
   }, [load]);
 
-  function getCell(row: Row, col: { key: string; metaKey?: string }) {
+  function getCell(row: Row, col: ColumnDef) {
     if (col.metaKey) {
       const meta = (row.metadata || {}) as Record<string, unknown>;
       return meta[col.metaKey] ?? "";
     }
+    const raw = row[col.key];
+    if (col.format === "boolean") {
+      return raw ? "Ya" : "Tidak";
+    }
+    if (col.format === "product_kind") {
+      const kind = String(raw || "");
+      return PRODUCT_KIND_LABELS[kind as keyof typeof PRODUCT_KIND_LABELS] || kind;
+    }
     if (col.key === "active") return row.active ? "Aktif" : "Nonaktif";
-    return row[col.key] ?? "";
+    return raw ?? "";
   }
 
   function fieldValue(field: FieldDef) {
@@ -112,6 +132,19 @@ export function MasterCrudPanel({
     setForm({ ...row, metadata: row.metadata || {} });
   }
 
+  function selectOptions(field: FieldDef) {
+    if (field.options) return field.options;
+    if (field.optionsKey) {
+      return (extras[field.optionsKey] || []).map((u) => ({
+        value: String(u.id),
+        label: field.optionsKey === "categories"
+          ? `${String(u.code || u.name)} — ${String(u.name)}`
+          : `${String(u.code)} — ${String(u.name)}`
+      }));
+    }
+    return [];
+  }
+
   return (
     <div>
       <h2 className="mb-4 text-base font-semibold text-slate-900">{title}</h2>
@@ -121,37 +154,41 @@ export function MasterCrudPanel({
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {fields.map((field) => (
             <div key={field.key + (field.metaKey || "")}>
-              {field.type !== "checkbox" && <Label>{field.label}</Label>}
               {field.type === "checkbox" ? (
-                <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
+                <label className="flex items-center gap-2 text-sm text-slate-700">
                   <input
                     type="checkbox"
-                    checked={Boolean(form.active)}
-                    onChange={(e) => setForm({ ...form, active: e.target.checked })}
+                    checked={Boolean(form[field.key])}
+                    onChange={(e) => setForm({ ...form, [field.key]: e.target.checked })}
                     className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
                   />
                   {field.label}
                 </label>
-              ) : field.type === "select" && field.optionsKey ? (
-                <Select
-                  value={String(fieldValue(field) || "")}
-                  onChange={(e) => setFieldValue(field, e.target.value || null)}
-                >
-                  <option value="">—</option>
-                  {(extras[field.optionsKey] || []).map((u) => (
-                    <option key={String(u.id)} value={String(u.id)}>
-                      {String(u.code)} — {String(u.name)}
-                    </option>
-                  ))}
-                </Select>
               ) : (
-                <Input
-                  type={field.type === "number" ? "number" : "text"}
-                  required={field.required}
-                  placeholder={field.placeholder}
-                  value={String(fieldValue(field) ?? "")}
-                  onChange={(e) => setFieldValue(field, e.target.value)}
-                />
+                <>
+                  <Label>{field.label}</Label>
+                  {field.type === "select" ? (
+                    <Select
+                      value={String(fieldValue(field) || "")}
+                      onChange={(e) => setFieldValue(field, e.target.value || null)}
+                    >
+                      <option value="">—</option>
+                      {selectOptions(field).map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </Select>
+                  ) : (
+                    <Input
+                      type={field.type === "number" ? "number" : "text"}
+                      required={field.required}
+                      placeholder={field.placeholder}
+                      value={String(fieldValue(field) ?? "")}
+                      onChange={(e) => setFieldValue(field, e.target.value)}
+                    />
+                  )}
+                </>
               )}
             </div>
           ))}
