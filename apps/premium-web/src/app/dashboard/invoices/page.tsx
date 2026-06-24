@@ -1,11 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import InvoicesPageClient from "./InvoicesPageClient";
 
-export default async function InvoicesPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  return <InvoicesPageClient />;
+export default function InvoicesRedirectPage() {
+  redirect("/dashboard/penjualan");
 }

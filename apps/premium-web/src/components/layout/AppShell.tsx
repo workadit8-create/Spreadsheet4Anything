@@ -6,7 +6,8 @@ import { usePathname } from "next/navigation";
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "◆" },
   { href: "/dashboard/master", label: "Master Data", icon: "◇" },
-  { href: "/dashboard/invoices", label: "Invoice", icon: "◇" },
+  { href: "/dashboard/penjualan", label: "Penjualan", icon: "◇" },
+  { href: "/dashboard/penjualan/riwayat", label: "Riwayat Invoice", icon: "◇" },
   { href: "/dashboard/piutang", label: "Piutang", icon: "◇" },
   { href: "/dashboard/jurnal", label: "Jurnal", icon: "◇" },
   { href: "/dashboard/laporan", label: "Laporan", icon: "◇" }
@@ -41,7 +42,9 @@ export function AppShell({
           {NAV.map((item) => {
             const active =
               pathname === item.href ||
-              (item.href !== "/dashboard" && pathname.startsWith(item.href));
+              (item.href !== "/dashboard" &&
+                item.href !== "/dashboard/penjualan" &&
+                pathname.startsWith(item.href));
             return (
               <Link
                 key={item.href}

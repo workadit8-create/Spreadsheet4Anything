@@ -88,10 +88,16 @@ export default async function DashboardPage() {
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
-              href="/dashboard/invoices"
+              href="/dashboard/penjualan"
               className="inline-flex rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
             >
-              Invoice →
+              Penjualan →
+            </Link>
+            <Link
+              href="/dashboard/penjualan/riwayat"
+              className="inline-flex rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Riwayat →
             </Link>
             <Link
               href="/dashboard/piutang"
