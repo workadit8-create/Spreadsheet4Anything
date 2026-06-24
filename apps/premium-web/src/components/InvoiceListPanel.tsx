@@ -17,7 +17,9 @@ type OrderRow = {
   order_date: string;
   total: number;
   status: string;
-  metadata: { transactionId?: string; sheetSynced?: boolean };
+  customerName?: string;
+  invoiceMode?: string;
+  metadata: { transactionId?: string; sheetSynced?: boolean; customerName?: string };
   postingJob: PostingJob | null;
 };
 
@@ -94,6 +96,7 @@ export function InvoiceListPanel() {
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="text-left text-xs font-medium text-slate-500">
+                <th className="border-b border-slate-200 px-2 py-2">Customer</th>
                 <th className="border-b border-slate-200 px-2 py-2">Invoice</th>
                 <th className="border-b border-slate-200 px-2 py-2">Total</th>
                 <th className="border-b border-slate-200 px-2 py-2">Order</th>
@@ -106,6 +109,9 @@ export function InvoiceListPanel() {
                 const postStatus = o.postingJob?.status || "—";
                 return (
                   <tr key={o.id} className="hover:bg-slate-50/80">
+                    <td className="border-b border-slate-100 px-2 py-2 text-slate-700">
+                      {o.customerName || o.metadata?.customerName || "—"}
+                    </td>
                     <td className="border-b border-slate-100 px-2 py-2">
                       <code className="text-xs">{o.order_no}</code>
                       <div className="text-xs text-slate-400">{o.metadata?.transactionId}</div>

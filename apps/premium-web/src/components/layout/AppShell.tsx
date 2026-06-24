@@ -6,14 +6,13 @@ import { usePathname } from "next/navigation";
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "◆" },
   { href: "/dashboard/master", label: "Master Data", icon: "◇" },
-  { href: "/dashboard/invoices", label: "Invoice lab", icon: "◇" },
+  { href: "/dashboard/invoices", label: "Invoice", icon: "◇" },
   { href: "/dashboard/laporan", label: "Laporan", icon: "◇" }
 ];
 
 const COMING_SOON = [
   "Kas & Bank",
   "Quotation",
-  "Pemasukan",
   "Piutang",
   "Pembelian",
   "Hutang",

@@ -1,5 +1,5 @@
 import type { HybridBackendConfig } from "@/lib/hybrid/config";
-import type { SalesOrderMetadata, SalesOrderRow } from "./types";
+import type { PaymentStatus, SalesOrderMetadata, SalesOrderRow } from "./types";
 
 export type PemasukanPayload = {
   apiKey: string;
@@ -20,22 +20,34 @@ export type PemasukanPayload = {
 export function buildPemasukanPayload(
   order: SalesOrderRow,
   meta: SalesOrderMetadata,
-  config: HybridBackendConfig
+  config: HybridBackendConfig,
+  overrides?: {
+    total?: number;
+    bayar?: number;
+    paymentStatus?: PaymentStatus;
+    keterangan?: string;
+    transactionId?: string;
+    akunPendapatan?: string;
+    tanggalBayar?: string;
+  }
 ): PemasukanPayload {
+  const total = overrides?.total ?? Number(order.total);
+  const bayar = overrides?.bayar ?? (Number(meta.bayar) || 0);
+  const paymentStatus = overrides?.paymentStatus ?? meta.paymentStatus;
   return {
     apiKey: config.apiKey,
     spreadsheetId: config.spreadsheetId,
     modul: "PEMASUKAN",
     tanggalPesan: order.order_date,
     invoice: order.order_no,
-    keterangan: meta.keterangan || order.order_no,
-    total: Number(order.total),
-    bayar: Number(meta.bayar) || 0,
-    status: meta.paymentStatus,
-    tanggalBayar: meta.tanggalBayar || order.order_date,
-    akunPendapatan: meta.akunPendapatan || "Pendapatan",
+    keterangan: overrides?.keterangan || meta.keterangan || order.order_no,
+    total,
+    bayar,
+    status: paymentStatus,
+    tanggalBayar: overrides?.tanggalBayar || meta.tanggalBayar || order.order_date,
+    akunPendapatan: overrides?.akunPendapatan || meta.akunPendapatan || "Pendapatan",
     rekening: String(meta.rekening || "").trim(),
-    transactionId: meta.transactionId
+    transactionId: overrides?.transactionId || meta.transactionId
   };
 }
 

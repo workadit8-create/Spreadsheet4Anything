@@ -2,7 +2,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getHybridBackendConfig } from "@/lib/hybrid/config";
 import { buildPemasukanPayload, callHybridBackend } from "./pemasukan";
 import { syncOrderToPemasukanSheet } from "./sync-sheet";
-import type { SalesOrderMetadata, SalesOrderRow } from "./types";
+import type {
+  SalesLineMetadata,
+  SalesOrderMetadata,
+  SalesOrderRow,
+  SalesLineRow
+} from "./types";
 
 export type ProcessJobResult = {
   jobId: string;
@@ -20,7 +25,23 @@ function asMetadata(raw: unknown): SalesOrderMetadata {
     akunPendapatan: String(m.akunPendapatan || "Pendapatan"),
     paymentStatus: (m.paymentStatus as SalesOrderMetadata["paymentStatus"]) || "PENJUALAN TUNAI",
     tanggalBayar: m.tanggalBayar ? String(m.tanggalBayar) : undefined,
-    keterangan: m.keterangan ? String(m.keterangan) : undefined
+    keterangan: m.keterangan ? String(m.keterangan) : undefined,
+    customerId: m.customerId ? String(m.customerId) : undefined,
+    customerName: m.customerName ? String(m.customerName) : undefined,
+    invoiceMode: m.invoiceMode === "proper" ? "proper" : "lab"
+  };
+}
+
+function asLineMeta(raw: unknown): SalesLineMetadata {
+  const m = (raw || {}) as Record<string, unknown>;
+  return {
+    transactionId: String(m.transactionId || ""),
+    akunPendapatan: m.akunPendapatan ? String(m.akunPendapatan) : undefined,
+    diskon: Number(m.diskon) || 0,
+    unitCode: m.unitCode ? String(m.unitCode) : undefined,
+    bayar: m.bayar != null ? Number(m.bayar) : undefined,
+    kurangBayar: m.kurangBayar != null ? Number(m.kurangBayar) : undefined,
+    paymentStatus: m.paymentStatus as SalesLineMetadata["paymentStatus"]
   };
 }
 
@@ -50,22 +71,60 @@ async function recordSyncEvent(
   });
 }
 
+async function postOrderToJurnal(
+  order: SalesOrderRow,
+  meta: SalesOrderMetadata,
+  lines: SalesLineRow[],
+  config: ReturnType<typeof getHybridBackendConfig>
+) {
+  const isProperMulti =
+    meta.invoiceMode === "proper" && lines.length > 0 && lines.some((l) => l.product_id);
+
+  if (!isProperMulti) {
+    const payload = buildPemasukanPayload(order as SalesOrderRow, meta, config);
+    await callHybridBackend(payload, config.url);
+    return;
+  }
+
+  for (const line of lines) {
+    const lm = asLineMeta(line.metadata);
+    const txId = lm.transactionId || meta.transactionId;
+    if (!txId) throw new Error("transactionId kosong pada baris invoice");
+
+    const bayar = lm.bayar != null ? lm.bayar : Number(line.line_total);
+    const paymentStatus = lm.paymentStatus || meta.paymentStatus;
+
+    const payload = buildPemasukanPayload(order as SalesOrderRow, meta, config, {
+      total: Number(line.line_total),
+      bayar,
+      paymentStatus,
+      keterangan: line.description,
+      transactionId: txId,
+      akunPendapatan: lm.akunPendapatan || meta.akunPendapatan,
+      tanggalBayar: meta.tanggalBayar || order.order_date
+    });
+    await callHybridBackend(payload, config.url);
+  }
+}
+
 async function syncToSheet(
   supabase: SupabaseClient,
   job: { id: string; organization_id: string },
   order: SalesOrderRow,
   meta: SalesOrderMetadata,
+  lines: SalesLineRow[],
   config: ReturnType<typeof getHybridBackendConfig>
 ): Promise<boolean> {
   const syncPayload = {
     orderId: order.id,
     orderNo: order.order_no,
-    transactionId: meta.transactionId
+    transactionId: meta.transactionId,
+    lineCount: lines.length
   };
 
   try {
     await recordSyncEvent(supabase, job.organization_id, syncPayload, "RUNNING");
-    await syncOrderToPemasukanSheet(order, meta, config);
+    await syncOrderToPemasukanSheet(order, meta, config, lines);
 
     const mergedMeta = {
       ...(order.metadata as Record<string, unknown>),
@@ -135,13 +194,22 @@ export async function processPendingPostingJobs(
         throw new Error(orderErr?.message || "Sales order tidak ditemukan");
       }
 
+      const { data: lines, error: linesErr } = await supabase
+        .from("sales_lines")
+        .select("*")
+        .eq("sales_order_id", order.id)
+        .order("sort_order");
+
+      if (linesErr) {
+        throw new Error(linesErr.message);
+      }
+
       const meta = asMetadata(order.metadata);
       if (!meta.transactionId) {
         throw new Error("transactionId kosong di metadata sales_order");
       }
 
-      const payload = buildPemasukanPayload(order as SalesOrderRow, meta, config);
-      await callHybridBackend(payload, config.url);
+      await postOrderToJurnal(order as SalesOrderRow, meta, (lines || []) as SalesLineRow[], config);
 
       await supabase
         .from("posting_jobs")
@@ -165,6 +233,7 @@ export async function processPendingPostingJobs(
         job as { id: string; organization_id: string },
         order as SalesOrderRow,
         meta,
+        (lines || []) as SalesLineRow[],
         config
       );
 
@@ -212,8 +281,19 @@ export async function processSheetSyncRetries(
     const meta = asMetadata(order.metadata);
     if (!meta.transactionId) continue;
 
+    const { data: lines } = await supabase
+      .from("sales_lines")
+      .select("*")
+      .eq("sales_order_id", order.id)
+      .order("sort_order");
+
     try {
-      await syncOrderToPemasukanSheet(order as SalesOrderRow, meta, config);
+      await syncOrderToPemasukanSheet(
+        order as SalesOrderRow,
+        meta,
+        config,
+        (lines || []) as SalesLineRow[]
+      );
       const mergedMeta = { ...metaRaw, sheetSynced: true, sheetSyncedAt: new Date().toISOString() };
       await supabase
         .from("sales_orders")

@@ -1,16 +1,32 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateOrderNo, generateTransactionId } from "@/lib/posting/ids";
-import type { PaymentStatus } from "@/lib/posting/types";
+import {
+  allocatePaymentAcrossLines,
+  buildKeteranganSummary,
+  computeLineTotal,
+  deriveOrderPaymentStatus
+} from "@/lib/posting/invoice-lines";
+import type { PaymentStatus, SalesLineMetadata } from "@/lib/posting/types";
+
+type LineInput = {
+  product_id: string;
+  qty?: number;
+  unit_price?: number;
+  diskon?: number;
+};
 
 type CreateBody = {
   keterangan?: string;
-  total: number;
+  total?: number;
   bayar?: number;
   paymentStatus?: PaymentStatus;
   rekening?: string;
   akunPendapatan?: string;
   organizationId?: string;
+  customer_id?: string;
+  order_date?: string;
+  lines?: LineInput[];
 };
 
 export async function GET() {
@@ -22,7 +38,7 @@ export async function GET() {
 
   const { data: orders, error } = await supabase
     .from("sales_orders")
-    .select("id, order_no, order_date, total, status, metadata, created_at")
+    .select("id, order_no, order_date, total, status, customer_id, metadata, created_at")
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -42,10 +58,15 @@ export async function GET() {
   const jobsByDoc = new Map((jobs || []).map((j) => [j.doc_id, j]));
 
   return NextResponse.json({
-    orders: (orders || []).map((o) => ({
-      ...o,
-      postingJob: jobsByDoc.get(o.id) || null
-    }))
+    orders: (orders || []).map((o) => {
+      const meta = (o.metadata || {}) as Record<string, unknown>;
+      return {
+        ...o,
+        customerName: meta.customerName || "",
+        invoiceMode: meta.invoiceMode || "lab",
+        postingJob: jobsByDoc.get(o.id) || null
+      };
+    })
   });
 }
 
@@ -57,6 +78,38 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json()) as CreateBody;
+  const isProper = Array.isArray(body.lines) && body.lines.length > 0 && body.customer_id;
+
+  if (isProper) {
+    try {
+      return await createProperInvoice(supabase, body);
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Gagal buat invoice" },
+        { status: 400 }
+      );
+    }
+  }
+
+  return createLabInvoice(supabase, body);
+}
+
+async function resolveOrgId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId?: string
+) {
+  if (organizationId) return organizationId;
+  const { data: orgs, error: orgErr } = await supabase.rpc("get_my_organizations");
+  if (orgErr || !orgs?.length) {
+    throw new Error(orgErr?.message || "Tidak ada organisasi");
+  }
+  return orgs[0].id as string;
+}
+
+async function createLabInvoice(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  body: CreateBody
+) {
   const total = Number(body.total);
   if (!total || total <= 0) {
     return NextResponse.json({ error: "total harus > 0" }, { status: 400 });
@@ -65,20 +118,11 @@ export async function POST(request: Request) {
   const paymentStatus: PaymentStatus =
     body.paymentStatus === "PENJUALAN KREDIT" ? "PENJUALAN KREDIT" : "PENJUALAN TUNAI";
   const bayar =
-    paymentStatus === "PENJUALAN TUNAI"
-      ? Number(body.bayar ?? total)
-      : Number(body.bayar ?? 0);
+    paymentStatus === "PENJUALAN TUNAI" ? Number(body.bayar ?? total) : Number(body.bayar ?? 0);
   const rekening = String(body.rekening || (paymentStatus === "PENJUALAN TUNAI" ? "Kas" : "")).trim();
   const keterangan = String(body.keterangan || "Penjualan Premium Web").trim();
 
-  let organizationId = body.organizationId;
-  if (!organizationId) {
-    const { data: orgs, error: orgErr } = await supabase.rpc("get_my_organizations");
-    if (orgErr || !orgs?.length) {
-      return NextResponse.json({ error: orgErr?.message || "Tidak ada organisasi" }, { status: 400 });
-    }
-    organizationId = orgs[0].id;
-  }
+  const organizationId = await resolveOrgId(supabase, body.organizationId);
 
   const { data: warehouse } = await supabase
     .from("warehouses")
@@ -99,7 +143,8 @@ export async function POST(request: Request) {
     akunPendapatan: String(body.akunPendapatan || "Pendapatan"),
     paymentStatus,
     tanggalBayar: orderDate,
-    keterangan
+    keterangan,
+    invoiceMode: "lab"
   };
 
   const { data: order, error: orderErr } = await supabase
@@ -128,7 +173,8 @@ export async function POST(request: Request) {
     qty: 1,
     unit_price: total,
     line_total: total,
-    sort_order: 0
+    sort_order: 0,
+    metadata: { transactionId, akunPendapatan: metadata.akunPendapatan }
   });
 
   if (lineErr) {
@@ -136,38 +182,217 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: lineErr.message }, { status: 500 });
   }
 
-  const { data: existingJob } = await supabase
-    .from("posting_jobs")
-    .select("id, status")
-    .eq("doc_type", "SALES_ORDER")
-    .eq("doc_id", order.id)
-    .in("status", ["PENDING", "RUNNING", "POSTED"])
-    .maybeSingle();
-
-  let jobId: string | null = existingJob?.id ?? null;
-
-  if (!existingJob) {
-    const { data: job, error: jobErr } = await supabase
-      .from("posting_jobs")
-      .insert({
-        organization_id: organizationId,
-        doc_type: "SALES_ORDER",
-        doc_id: order.id,
-        status: "PENDING"
-      })
-      .select("id, status")
-      .single();
-
-    if (jobErr || !job) {
-      return NextResponse.json({ error: jobErr?.message || "Gagal enqueue posting job" }, { status: 500 });
-    }
-    jobId = job.id;
-  }
-
+  const jobId = await enqueuePostingJob(supabase, organizationId, order.id);
   return NextResponse.json({
     order,
     transactionId,
     postingJobId: jobId,
+    message: "Invoice lab dibuat + posting job PENDING"
+  });
+}
+
+async function createProperInvoice(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  body: CreateBody
+) {
+  const organizationId = await resolveOrgId(supabase, body.organizationId);
+  const customerId = String(body.customer_id || "").trim();
+  if (!customerId) {
+    return NextResponse.json({ error: "Customer wajib" }, { status: 400 });
+  }
+
+  const { data: customer, error: custErr } = await supabase
+    .from("customers")
+    .select("id, name")
+    .eq("id", customerId)
+    .eq("organization_id", organizationId)
+    .single();
+
+  if (custErr || !customer) {
+    return NextResponse.json({ error: "Customer tidak ditemukan" }, { status: 400 });
+  }
+
+  const productIds = body.lines!.map((l) => l.product_id);
+  const { data: products, error: prodErr } = await supabase
+    .from("products")
+    .select("id, name, sell_price, metadata, units(code, name)")
+    .eq("organization_id", organizationId)
+    .in("id", productIds);
+
+  if (prodErr) {
+    return NextResponse.json({ error: prodErr.message }, { status: 500 });
+  }
+
+  const productMap = new Map((products || []).map((p) => [p.id, p]));
+  const resolvedLines: Array<{
+    product_id: string;
+    description: string;
+    qty: number;
+    unit_price: number;
+    line_total: number;
+    sort_order: number;
+    unitCode: string;
+    akunPendapatan: string;
+    diskon: number;
+  }> = [];
+
+  for (let index = 0; index < body.lines!.length; index++) {
+    const line = body.lines![index];
+    const product = productMap.get(line.product_id);
+    if (!product) {
+      return NextResponse.json({ error: `Produk tidak ditemukan` }, { status: 400 });
+    }
+    const qty = Number(line.qty) || 1;
+    const unitPrice = line.unit_price != null ? Number(line.unit_price) : Number(product.sell_price);
+    const diskon = Number(line.diskon) || 0;
+    const lineTotal = computeLineTotal(qty, unitPrice, diskon);
+    const rawUnit = product.units as { code: string; name: string } | { code: string; name: string }[] | null;
+    const unit = Array.isArray(rawUnit) ? rawUnit[0] : rawUnit;
+    const meta = (product.metadata || {}) as Record<string, unknown>;
+    resolvedLines.push({
+      product_id: product.id,
+      description: product.name,
+      qty,
+      unit_price: unitPrice,
+      line_total: lineTotal,
+      sort_order: index,
+      unitCode: unit?.code || "PCS",
+      akunPendapatan: String(meta.akunPendapatan || "Pendapatan"),
+      diskon
+    });
+  }
+
+  if (!resolvedLines.length) {
+    return NextResponse.json({ error: "Minimal satu baris produk" }, { status: 400 });
+  }
+
+  const subtotal = resolvedLines.reduce((sum, l) => sum + l.line_total, 0);
+  if (subtotal <= 0) {
+    return NextResponse.json({ error: "Total invoice harus > 0" }, { status: 400 });
+  }
+
+  const totalBayar = Math.min(subtotal, Math.max(0, Number(body.bayar ?? subtotal)));
+  const paymentSlices = allocatePaymentAcrossLines(
+    resolvedLines.map((l) => l.line_total),
+    totalBayar
+  );
+  const paymentStatus = deriveOrderPaymentStatus(paymentSlices);
+  const rekening =
+    String(body.rekening || (totalBayar > 0 ? "Kas" : "")).trim();
+  const orderDate = body.order_date || new Date().toISOString().slice(0, 10);
+  const keterangan = buildKeteranganSummary(customer.name, resolvedLines.map((l) => l.description));
+
+  const { data: warehouse } = await supabase
+    .from("warehouses")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .order("is_default", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const orderNo = generateOrderNo();
+  const headerTransactionId = generateTransactionId();
+
+  const metadata = {
+    transactionId: headerTransactionId,
+    bayar: totalBayar,
+    rekening,
+    akunPendapatan: resolvedLines[0].akunPendapatan,
+    paymentStatus,
+    tanggalBayar: orderDate,
+    keterangan,
+    customerId: customer.id,
+    customerName: customer.name,
+    invoiceMode: "proper"
+  };
+
+  const { data: order, error: orderErr } = await supabase
+    .from("sales_orders")
+    .insert({
+      organization_id: organizationId,
+      warehouse_id: warehouse?.id ?? null,
+      customer_id: customer.id,
+      order_no: orderNo,
+      source_system: "PREMIUM_WEB",
+      status: "CONFIRMED",
+      order_date: orderDate,
+      subtotal,
+      total: subtotal,
+      metadata
+    })
+    .select("id, order_no, total, status")
+    .single();
+
+  if (orderErr || !order) {
+    return NextResponse.json({ error: orderErr?.message || "Gagal buat order" }, { status: 500 });
+  }
+
+  const lineRows = resolvedLines.map((line, index) => {
+    const slice = paymentSlices[index];
+    const lineMeta: SalesLineMetadata = {
+      transactionId: generateTransactionId(),
+      akunPendapatan: line.akunPendapatan,
+      diskon: line.diskon,
+      unitCode: line.unitCode,
+      bayar: slice.bayar,
+      kurangBayar: slice.kurangBayar,
+      paymentStatus: slice.paymentStatus
+    };
+    return {
+      sales_order_id: order.id,
+      product_id: line.product_id,
+      description: line.description,
+      qty: line.qty,
+      unit_price: line.unit_price,
+      line_total: line.line_total,
+      sort_order: line.sort_order,
+      metadata: lineMeta
+    };
+  });
+
+  const { error: lineErr } = await supabase.from("sales_lines").insert(lineRows);
+  if (lineErr) {
+    await supabase.from("sales_orders").delete().eq("id", order.id);
+    return NextResponse.json({ error: lineErr.message }, { status: 500 });
+  }
+
+  const jobId = await enqueuePostingJob(supabase, organizationId, order.id);
+  return NextResponse.json({
+    order,
+    transactionId: headerTransactionId,
+    postingJobId: jobId,
     message: "Invoice dibuat + posting job PENDING"
   });
+}
+
+async function enqueuePostingJob(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string,
+  orderId: string
+) {
+  const { data: existingJob } = await supabase
+    .from("posting_jobs")
+    .select("id, status")
+    .eq("doc_type", "SALES_ORDER")
+    .eq("doc_id", orderId)
+    .in("status", ["PENDING", "RUNNING", "POSTED"])
+    .maybeSingle();
+
+  if (existingJob?.id) return existingJob.id;
+
+  const { data: job, error: jobErr } = await supabase
+    .from("posting_jobs")
+    .insert({
+      organization_id: organizationId,
+      doc_type: "SALES_ORDER",
+      doc_id: orderId,
+      status: "PENDING"
+    })
+    .select("id, status")
+    .single();
+
+  if (jobErr || !job) {
+    throw new Error(jobErr?.message || "Gagal enqueue posting job");
+  }
+  return job.id;
 }
