@@ -23,6 +23,14 @@
       "rootFolderId": "1_4SslNXoWm3k3zPJfW8rICPxKZU2yPgK",
       "clientFolderId": "1OSyT3CMoEHKNKjONjaudlQiTEoQJfitS",
       "uploadsFolderId": "19g9M1HhQfDECwcjZV_COpZVfsYyz1NA8"
+    },
+    "hybrid": {
+      "label": "HYBRID LAB",
+      "databaseId": "18QA03LzJspoZi0sDyoJLnA_5s1HEqLpfgzJfPxUnp7c",
+      "backendEngineId": "1_jSqecgTC2QnYmRcH7xpcGS0walrerXdeWpxnffBrBc",
+      "rootFolderId": "1_4SslNXoWm3k3zPJfW8rICPxKZU2yPgK",
+      "clientFolderId": "1vchMLXN7PIFGbo1Y-XTn9gJ7rJJaPBbp",
+      "uploadsFolderId": "1LviwWX02DVk8EHdn4NqlanG0CZxvJF2P"
     }
   },
   "rootFolderName": "Akuntansi App",

@@ -7,8 +7,9 @@
 # Target:
 #   dev       — sandbox dev (clients/dev)
 #   demo      — akun demo
+#   hybrid    — lab migrasi Premium (clients/hybrid, tanpa sync root)
 #   client1   — client 1 production (repo root)
-#   backend-demo | backend-dev — backend engine saja
+#   backend-demo | backend-dev | backend-hybrid — backend engine saja
 #   all       — semua client yang punya client.env (+ client1)
 #
 # Contoh:
@@ -28,9 +29,11 @@ Usage: $0 <target> "deskripsi"
 Target:
   dev            Sandbox dev (clients/dev)
   demo           Akun demo
+  hybrid         Lab migrasi Premium (no sync root)
   client1        Client 1 production
   backend-dev    Backend sandbox
   backend-demo   Backend demo
+  backend-hybrid Backend hybrid lab
   all            Semua client aktif
 
 Alur disarankan: dev → demo → client1 (jangan skip uji)
@@ -81,6 +84,15 @@ case "$TARGET" in
     echo "==> Deploy DEMO"
     "$ROOT/clients/demo/deploy.sh" "$DESC"
     ;;
+  hybrid|lab|premium-lab)
+    if [ ! -x "$ROOT/clients/hybrid/deploy.sh" ]; then
+      echo "Hybrid lab belum ada. Jalankan:" >&2
+      echo "  ./scripts/provision-client.sh hybrid \"HYBRID LAB\"" >&2
+      exit 1
+    fi
+    echo "==> Deploy HYBRID LAB (Premium migration sandbox)"
+    "$ROOT/clients/hybrid/deploy.sh" "$DESC"
+    ;;
   client1|client|production|prod)
     echo "==> Deploy CLIENT 1 (production)"
     "$ROOT/scripts/deploy.sh" "$DESC"
@@ -90,6 +102,9 @@ case "$TARGET" in
     ;;
   backend-demo)
     deploy_backend "$ROOT/clients/demo" "demo"
+    ;;
+  backend-hybrid)
+    deploy_backend "$ROOT/clients/hybrid" "hybrid"
     ;;
   all)
     "$ROOT/scripts/deploy-all-clients.sh" "$DESC"

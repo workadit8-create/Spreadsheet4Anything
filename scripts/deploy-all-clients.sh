@@ -11,7 +11,7 @@ echo "==> Deploy Client 1 (root)"
 for dir in "$ROOT"/clients/*/; do
   [ -d "$dir" ] || continue
   name="$(basename "$dir")"
-  if [ "$name" = "_template" ]; then continue
+  if [ "$name" = "_template" ] || [ "$name" = "hybrid" ]; then continue
   if [ ! -f "$dir/client.env" ]; then
     echo "==> Skip $name (belum ada client.env)"
     continue
