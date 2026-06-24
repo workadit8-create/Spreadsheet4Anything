@@ -132,6 +132,7 @@ export async function POST(request: Request) {
   });
 
   if (lineErr) {
+    await supabase.from("sales_orders").delete().eq("id", order.id);
     return NextResponse.json({ error: lineErr.message }, { status: 500 });
   }
 
