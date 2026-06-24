@@ -75,6 +75,28 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      <section style={{ background: "#fff", padding: 20, borderRadius: 12, border: "1px solid #e2e8f0", marginBottom: 20 }}>
+        <h2 style={{ margin: "0 0 12px", fontSize: 16 }}>Step 3 — Bridge ke GAS</h2>
+        <p style={{ margin: "0 0 12px", color: "#64748b", fontSize: 14 }}>
+          Buat invoice dari Premium Web → <code>posting_jobs</code> → BACKENDengine HYBRID LAB.
+        </p>
+        <Link
+          href="/dashboard/invoices"
+          style={{
+            display: "inline-block",
+            padding: "8px 14px",
+            background: "#2563eb",
+            color: "#fff",
+            borderRadius: 8,
+            fontSize: 14,
+            fontWeight: 600,
+            textDecoration: "none"
+          }}
+        >
+          Buka Invoice Lab →
+        </Link>
+      </section>
+
       <section style={{ background: "#fff", padding: 20, borderRadius: 12, border: "1px solid #e2e8f0" }}>
         <h2 style={{ margin: "0 0 12px", fontSize: 16 }}>Tenant lab</h2>
         {orgsFromServer.length ? (
@@ -91,7 +113,7 @@ export default async function DashboardPage() {
       </section>
 
       <p style={{ marginTop: 24, fontSize: 13, color: "#94a3b8" }}>
-        Bridge GAS: Step 3 — invoice → posting_jobs → BACKENDengine HYBRID LAB.
+        Step 3 aktif — <Link href="/dashboard/invoices" style={{ color: "#2563eb" }}>Invoice lab</Link>
       </p>
     </main>
   );

@@ -46,6 +46,22 @@ npm run dev
 
 Buka http://localhost:3000
 
-## Deploy
+## Step 3 — Invoice bridge (Premium → BACKENDengine)
+
+1. Tambahkan env bridge di `.env.local` (lihat `clients/hybrid/supabase.env.example`):
+   - `HYBRID_BACKEND_URL` — dari `clients/hybrid/client.env` → `BACKEND_WEBAPP_URL`
+   - `HYBRID_BACKEND_API_KEY` — `BACKEND_API_KEY`
+   - `HYBRID_DATABASE_SHEET_ID` — `DATABASE_ID`
+
+2. Buka http://localhost:3000/dashboard/invoices
+
+3. **Buat invoice + post ke jurnal** — alur:
+   - `sales_orders` + `sales_lines` di Supabase
+   - `posting_jobs` status `PENDING`
+   - Worker POST ke BACKENDengine (`modul: PEMASUKAN`)
+   - Status → `POSTED` atau `FAILED` (+ `posting_job_logs`)
+
+4. Verifikasi jurnal di spreadsheet **Backend Engine** HYBRID LAB.
+
 
 Vercel (nanti) — project terpisah, root directory `apps/premium-web`.
