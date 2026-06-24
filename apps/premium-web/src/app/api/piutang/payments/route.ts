@@ -12,7 +12,7 @@ export async function GET() {
 
   const { data: payments, error } = await supabase
     .from("payments")
-    .select("id, amount, paid_at, status, metadata, void_reason, created_at")
+    .select("id, amount, paid_at, status, metadata, void_reason")
     .eq("organization_id", org.id)
     .eq("doc_type", "PIUTANG_PAYMENT")
     .order("paid_at", { ascending: false })

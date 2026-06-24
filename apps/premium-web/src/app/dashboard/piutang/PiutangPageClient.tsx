@@ -107,10 +107,11 @@ export default function PiutangPageClient() {
     try {
       const res = await fetch("/api/piutang/payments");
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) throw new Error(data.error || "Gagal memuat riwayat");
       setHistory(data.items || []);
-    } catch {
+    } catch (e) {
       setHistory([]);
+      setHistoryMessage(e instanceof Error ? e.message : "Gagal memuat riwayat");
     } finally {
       setHistoryLoading(false);
     }
