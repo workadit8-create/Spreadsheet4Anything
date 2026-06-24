@@ -3,14 +3,20 @@ import { buildPemasukanPayload } from "./pemasukan";
 import { buildPelunasanPiutangPayload } from "./pelunasan-piutang";
 import {
   buildPemasukanJournalLines,
-  buildPelunasanPiutangJournalLines
+  buildPelunasanPiutangJournalLines,
+  buildPembelianJournalLines,
+  buildPelunasanUtangJournalLines
 } from "./journal-rules";
 import { postJournalEntry } from "./journal-supabase";
 import type {
   SalesLineMetadata,
   SalesOrderMetadata,
   SalesOrderRow,
-  SalesLineRow
+  SalesLineRow,
+  PurchaseLineMetadata,
+  PurchaseOrderMetadata,
+  PurchaseOrderRow,
+  PurchaseLineRow
 } from "./types";
 
 export type ProcessJobResult = {
@@ -76,6 +82,62 @@ function asPiutangPaymentMeta(raw: unknown): PiutangPaymentMetadata {
     invoiceNo: String(m.invoiceNo || ""),
     customerName: String(m.customerName || ""),
     salesOrderId: String(m.salesOrderId || ""),
+    rekening: String(m.rekening || ""),
+    coaAccountName: m.coaAccountName ? String(m.coaAccountName) : undefined,
+    keterangan: m.keterangan ? String(m.keterangan) : undefined,
+    tanggalBayar: String(m.tanggalBayar || new Date().toISOString().slice(0, 10))
+  };
+}
+
+function asPurchaseMetadata(raw: unknown): PurchaseOrderMetadata {
+  const m = (raw || {}) as Record<string, unknown>;
+  return {
+    transactionId: String(m.transactionId || ""),
+    bayar: Number(m.bayar) || 0,
+    rekening: String(m.rekening || ""),
+    akunPembelian: String(m.akunPembelian || "Beban"),
+    paymentStatus: (m.paymentStatus as PurchaseOrderMetadata["paymentStatus"]) || "Tunai",
+    tanggalBayar: m.tanggalBayar ? String(m.tanggalBayar) : undefined,
+    keterangan: m.keterangan ? String(m.keterangan) : undefined,
+    supplierId: m.supplierId ? String(m.supplierId) : undefined,
+    supplierName: m.supplierName ? String(m.supplierName) : undefined,
+    pembelianMode: "proper"
+  };
+}
+
+function asPurchaseLineMeta(raw: unknown): PurchaseLineMetadata {
+  const m = (raw || {}) as Record<string, unknown>;
+  return {
+    transactionId: String(m.transactionId || ""),
+    akunPembelian: m.akunPembelian ? String(m.akunPembelian) : undefined,
+    diskon: Number(m.diskon) || 0,
+    unitCode: m.unitCode ? String(m.unitCode) : undefined,
+    bayar: m.bayar != null ? Number(m.bayar) : undefined,
+    kurangBayar: m.kurangBayar != null ? Number(m.kurangBayar) : undefined,
+    metode: m.metode as PurchaseLineMetadata["metode"],
+    tanggalBayar: m.tanggalBayar ? String(m.tanggalBayar) : undefined,
+    purchaseCategoryId: m.purchaseCategoryId ? String(m.purchaseCategoryId) : undefined
+  };
+}
+
+type UtangPaymentMetadata = {
+  transactionId: string;
+  poNo: string;
+  supplierName: string;
+  purchaseOrderId: string;
+  rekening: string;
+  coaAccountName?: string;
+  keterangan?: string;
+  tanggalBayar: string;
+};
+
+function asUtangPaymentMeta(raw: unknown): UtangPaymentMetadata {
+  const m = (raw || {}) as Record<string, unknown>;
+  return {
+    transactionId: String(m.transactionId || ""),
+    poNo: String(m.poNo || ""),
+    supplierName: String(m.supplierName || ""),
+    purchaseOrderId: String(m.purchaseOrderId || ""),
     rekening: String(m.rekening || ""),
     coaAccountName: m.coaAccountName ? String(m.coaAccountName) : undefined,
     keterangan: m.keterangan ? String(m.keterangan) : undefined,
@@ -186,6 +248,118 @@ async function postOrderToSupabaseJournal(
   }
 
   return { skippedCount, postedCount };
+}
+
+async function postPurchaseOrderToSupabaseJournal(
+  supabase: SupabaseClient,
+  organizationId: string,
+  order: PurchaseOrderRow,
+  meta: PurchaseOrderMetadata,
+  lines: PurchaseLineRow[]
+): Promise<{ skippedCount: number; postedCount: number }> {
+  let skippedCount = 0;
+  let postedCount = 0;
+
+  for (const line of lines) {
+    const lm = asPurchaseLineMeta(line.metadata);
+    const txId = lm.transactionId || meta.transactionId;
+    if (!txId) throw new Error("transactionId kosong pada baris pembelian");
+
+    const bayar = lm.bayar != null ? lm.bayar : Number(line.line_total);
+    const metode = lm.metode || meta.paymentStatus;
+
+    const journalLines = buildPembelianJournalLines({
+      tanggal: order.order_date,
+      noDok: order.po_no,
+      supplier: meta.supplierName || "",
+      keterangan: line.description,
+      total: Number(line.line_total),
+      bayar,
+      metode,
+      tanggalBayar: meta.tanggalBayar || order.order_date,
+      akunPembelian: lm.akunPembelian || meta.akunPembelian,
+      rekening: meta.rekening
+    });
+
+    const result = await postJournalEntry(
+      supabase,
+      {
+        organizationId,
+        modul: "PEMBELIAN",
+        transactionId: txId,
+        docNo: order.po_no,
+        entryDate: order.order_date,
+        sourceDocType: "PURCHASE_ORDER",
+        sourceDocId: order.id,
+        metadata: { purchaseLineId: line.id }
+      },
+      journalLines
+    );
+
+    if (result.skipped) skippedCount += 1;
+    else postedCount += 1;
+  }
+
+  return { skippedCount, postedCount };
+}
+
+async function processUtangPaymentJob(
+  supabase: SupabaseClient,
+  job: { id: string; organization_id: string; doc_id: string }
+): Promise<{ journalSkipped: boolean }> {
+  const { data: payment, error: payErr } = await supabase
+    .from("payments")
+    .select("*")
+    .eq("id", job.doc_id)
+    .single();
+
+  if (payErr || !payment) {
+    throw new Error(payErr?.message || "Payment tidak ditemukan");
+  }
+
+  if (payment.status !== "CONFIRMED") {
+    throw new Error("Pelunasan tidak dalam status CONFIRMED");
+  }
+
+  const meta = asUtangPaymentMeta(payment.metadata);
+  if (!meta.transactionId || !meta.poNo) {
+    throw new Error("Metadata pelunasan utang tidak lengkap");
+  }
+
+  const rekening = meta.coaAccountName || meta.rekening;
+  const journalLines = buildPelunasanUtangJournalLines({
+    tanggal: meta.tanggalBayar,
+    noDok: meta.poNo,
+    supplier: meta.supplierName,
+    nominal: Number(payment.amount),
+    rekening,
+    keterangan: meta.keterangan || `Pelunasan ${meta.poNo}`
+  });
+
+  const result = await postJournalEntry(
+    supabase,
+    {
+      organizationId: job.organization_id,
+      modul: "PELUNASAN_UTANG",
+      transactionId: meta.transactionId,
+      docNo: meta.poNo,
+      entryDate: meta.tanggalBayar,
+      sourceDocType: "UTANG_PAYMENT",
+      sourceDocId: payment.id
+    },
+    journalLines
+  );
+
+  await logJob(
+    supabase,
+    job.id,
+    "INFO",
+    result.skipped
+      ? "Jurnal pelunasan utang sudah ada (idempotent skip)"
+      : `Jurnal pelunasan utang OK (${result.lineCount} baris)`
+  );
+
+  return { journalSkipped: result.skipped };
 }
 
 async function processPiutangPaymentJob(
@@ -376,6 +550,108 @@ export async function processPendingPostingJobs(
           .eq("id", job.doc_id)
           .single();
         const payMeta = asPiutangPaymentMeta(payment?.metadata);
+
+        await supabase
+          .from("posting_jobs")
+          .update({
+            status: "POSTED",
+            engine_ref: payMeta.transactionId,
+            last_error: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", job.id);
+
+        await supabase
+          .from("payments")
+          .update({ status: "POSTED" })
+          .eq("id", job.doc_id);
+
+        results.push({ jobId: job.id, ok: true, journalSkipped });
+        continue;
+      }
+
+      if (job.doc_type === "PURCHASE_ORDER") {
+        const { data: order, error: orderErr } = await supabase
+          .from("purchase_orders")
+          .select("*")
+          .eq("id", job.doc_id)
+          .single();
+
+        if (orderErr || !order) {
+          throw new Error(orderErr?.message || "PO tidak ditemukan");
+        }
+
+        const { data: lines, error: linesErr } = await supabase
+          .from("purchase_lines")
+          .select("*")
+          .eq("purchase_order_id", order.id)
+          .order("sort_order");
+
+        if (linesErr) {
+          throw new Error(linesErr.message);
+        }
+
+        if (order.status !== "CONFIRMED") {
+          throw new Error("PO tidak dalam status CONFIRMED");
+        }
+
+        const meta = asPurchaseMetadata(order.metadata);
+        if (!meta.transactionId) {
+          throw new Error("transactionId kosong di metadata purchase_order");
+        }
+
+        const { skippedCount, postedCount } = await postPurchaseOrderToSupabaseJournal(
+          supabase,
+          job.organization_id,
+          order as PurchaseOrderRow,
+          meta,
+          (lines || []) as PurchaseLineRow[]
+        );
+
+        await supabase
+          .from("posting_jobs")
+          .update({
+            status: "POSTED",
+            engine_ref: meta.transactionId,
+            last_error: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", job.id);
+
+        await supabase
+          .from("purchase_orders")
+          .update({ status: "POSTED", updated_at: new Date().toISOString() })
+          .eq("id", order.id);
+
+        await logJob(
+          supabase,
+          job.id,
+          "INFO",
+          skippedCount > 0 && postedCount === 0
+            ? "Jurnal sudah ada di Supabase (idempotent skip)"
+            : `Jurnal Supabase OK (${postedCount} entri, ${skippedCount} skip)`
+        );
+
+        results.push({
+          jobId: job.id,
+          ok: true,
+          journalSkipped: skippedCount > 0 && postedCount === 0
+        });
+        continue;
+      }
+
+      if (job.doc_type === "UTANG_PAYMENT") {
+        const { journalSkipped } = await processUtangPaymentJob(
+          supabase,
+          job as { id: string; organization_id: string; doc_id: string }
+        );
+
+        const { data: payment } = await supabase
+          .from("payments")
+          .select("metadata")
+          .eq("id", job.doc_id)
+          .single();
+        const payMeta = asUtangPaymentMeta(payment?.metadata);
 
         await supabase
           .from("posting_jobs")

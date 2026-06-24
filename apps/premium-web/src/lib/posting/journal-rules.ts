@@ -29,6 +29,28 @@ export type PelunasanPiutangJournalInput = {
   keterangan: string;
 };
 
+export type PembelianJournalInput = {
+  tanggal: string;
+  noDok: string;
+  supplier: string;
+  keterangan: string;
+  total: number;
+  bayar: number;
+  metode: string;
+  tanggalBayar: string;
+  akunPembelian: string;
+  rekening: string;
+};
+
+export type PelunasanUtangJournalInput = {
+  tanggal: string;
+  noDok: string;
+  supplier: string;
+  nominal: number;
+  rekening: string;
+  keterangan: string;
+};
+
 export function resolveKasBankAccount(rekening: string): string {
   const trimmed = String(rekening || "").trim();
   if (!trimmed) return "Kas";
@@ -107,6 +129,79 @@ export function buildPelunasanPiutangJournalLines(
       debit: 0,
       credit: nominal,
       keterangan: "Pelunasan Piutang"
+    }
+  ];
+}
+
+export function buildPembelianJournalLines(data: PembelianJournalInput): JournalLineDraft[] {
+  const bayar = Number(data.bayar) || 0;
+  const total = Number(data.total) || 0;
+  const tanggalBayar = data.tanggalBayar || data.tanggal;
+  const akunKasBank = resolveKasBankAccount(data.rekening);
+  const isKredit = data.metode === "Kredit";
+  const akunKredit = isKredit ? "Utang Usaha" : akunKasBank;
+  const ketBase =
+    "Pembelian - " + (data.supplier || "") + " " + (data.keterangan || "");
+
+  const lines: JournalLineDraft[] = [
+    {
+      lineDate: data.tanggal,
+      accountName: data.akunPembelian || "Beban",
+      debit: total,
+      credit: 0,
+      keterangan: ketBase
+    },
+    {
+      lineDate: data.tanggal,
+      accountName: akunKredit,
+      debit: 0,
+      credit: total,
+      keterangan: "Pembelian"
+    }
+  ];
+
+  if (isKredit && bayar > 0) {
+    lines.push({
+      lineDate: tanggalBayar,
+      accountName: "Utang Usaha",
+      debit: bayar,
+      credit: 0,
+      keterangan: "Bayar DP Pembelian"
+    });
+    lines.push({
+      lineDate: tanggalBayar,
+      accountName: akunKasBank,
+      debit: 0,
+      credit: bayar,
+      keterangan: "Bayar DP Pembelian"
+    });
+  }
+
+  return lines;
+}
+
+export function buildPelunasanUtangJournalLines(
+  data: PelunasanUtangJournalInput
+): JournalLineDraft[] {
+  const nominal = Number(data.nominal) || 0;
+  const akunKasBank = resolveKasBankAccount(data.rekening);
+  const ket =
+    "Pelunasan Utang - " + (data.supplier || "") + " " + (data.keterangan || "");
+
+  return [
+    {
+      lineDate: data.tanggal,
+      accountName: "Utang Usaha",
+      debit: nominal,
+      credit: 0,
+      keterangan: ket
+    },
+    {
+      lineDate: data.tanggal,
+      accountName: akunKasBank,
+      debit: 0,
+      credit: nominal,
+      keterangan: "Pelunasan Utang"
     }
   ];
 }

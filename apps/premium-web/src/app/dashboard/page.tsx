@@ -106,6 +106,18 @@ export default async function DashboardPage() {
               Piutang →
             </Link>
             <Link
+              href="/dashboard/pembelian"
+              className="inline-flex rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
+            >
+              Pembelian →
+            </Link>
+            <Link
+              href="/dashboard/hutang"
+              className="inline-flex rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Hutang →
+            </Link>
+            <Link
               href="/dashboard/jurnal"
               className="inline-flex rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >

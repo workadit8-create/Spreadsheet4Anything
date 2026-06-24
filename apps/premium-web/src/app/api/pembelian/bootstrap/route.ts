@@ -1,0 +1,44 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { getUserPrimaryOrg } from "@/lib/org/get-user-org";
+
+export async function GET() {
+  const supabase = await createClient();
+  const org = await getUserPrimaryOrg(supabase);
+  if (!org) return NextResponse.json({ error: "Tidak ada organisasi" }, { status: 400 });
+
+  const [suppliersRes, categoriesRes, kasRes] = await Promise.all([
+    supabase
+      .from("suppliers")
+      .select("id, code, name")
+      .eq("organization_id", org.id)
+      .eq("active", true)
+      .order("name"),
+    supabase
+      .from("purchase_categories")
+      .select("id, category, sub_category, coa_account")
+      .eq("organization_id", org.id)
+      .eq("active", true)
+      .order("category"),
+    supabase
+      .from("cash_bank_accounts")
+      .select("id, code, name, coa_account_name")
+      .eq("organization_id", org.id)
+      .eq("active", true)
+      .order("name")
+  ]);
+
+  if (suppliersRes.error) return NextResponse.json({ error: suppliersRes.error.message }, { status: 500 });
+  if (categoriesRes.error) return NextResponse.json({ error: categoriesRes.error.message }, { status: 500 });
+  if (kasRes.error) return NextResponse.json({ error: kasRes.error.message }, { status: 500 });
+
+  return NextResponse.json({
+    suppliers: suppliersRes.data || [],
+    purchaseCategories: (categoriesRes.data || []).map((c) => ({
+      id: c.id,
+      label: `${c.category} — ${c.sub_category}`,
+      coa_account: c.coa_account
+    })),
+    kasBank: kasRes.data || []
+  });
+}

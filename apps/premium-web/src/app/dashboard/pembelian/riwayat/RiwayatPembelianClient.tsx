@@ -1,0 +1,304 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Input, Label, Select } from "@/components/ui/Input";
+import { PageHeader } from "@/components/ui/PageHeader";
+
+type HistoryRow = {
+  id: string;
+  poNo: string;
+  orderDate: string;
+  supplierName: string;
+  status: string;
+  grandTotal: number;
+  bayar: number;
+  sisaTagihan: number;
+};
+
+type Supplier = { id: string; name: string };
+
+type DetailLine = {
+  id: string;
+  description: string;
+  qty: number;
+  unitCost: number;
+  diskon: number;
+  lineTotal: number;
+  metode: string;
+  akunPembelian: string;
+};
+
+function formatRp(n: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0
+  }).format(n);
+}
+
+function defaultDateRange() {
+  const end = new Date();
+  const start = new Date(end.getFullYear(), end.getMonth(), 1);
+  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+}
+
+function statusClass(status: string) {
+  if (status === "POSTED") return "text-emerald-600";
+  if (status === "VOIDED") return "text-red-600";
+  if (status === "CONFIRMED") return "text-amber-600";
+  return "text-slate-500";
+}
+
+export default function RiwayatPembelianClient() {
+  const defaults = useMemo(() => defaultDateRange(), []);
+  const [start, setStart] = useState(defaults.start);
+  const [end, setEnd] = useState(defaults.end);
+  const [supplierId, setSupplierId] = useState("");
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [rows, setRows] = useState<HistoryRow[]>([]);
+  const [grandTotalSum, setGrandTotalSum] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [actingId, setActingId] = useState<string | null>(null);
+
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailOrder, setDetailOrder] = useState<HistoryRow | null>(null);
+  const [detailLines, setDetailLines] = useState<DetailLine[]>([]);
+
+  useEffect(() => {
+    fetch("/api/master/suppliers")
+      .then((r) => r.json())
+      .then((data) => setSuppliers((data.items || []).map((s: Supplier) => ({ id: s.id, name: s.name }))))
+      .catch(() => setSuppliers([]));
+  }, []);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({ start, end });
+      if (supplierId) params.set("supplier_id", supplierId);
+      const res = await fetch(`/api/purchase-orders?${params}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setRows(data.rows || []);
+      setGrandTotalSum(Number(data.grandTotalSum) || 0);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memuat riwayat");
+      setRows([]);
+      setGrandTotalSum(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [start, end, supplierId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function openDetail(row: HistoryRow) {
+    setDetailOpen(true);
+    setDetailOrder(row);
+    setDetailLoading(true);
+    setDetailLines([]);
+    try {
+      const res = await fetch(`/api/purchase-orders/${row.id}/detail`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setDetailLines(data.lines || []);
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Gagal memuat detail");
+      setDetailOpen(false);
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  async function postOrder(id: string, poNo: string) {
+    setActingId(id);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/purchase-orders/${id}/post`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setMessage(data.message || `PO ${poNo} diposting`);
+      await load();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Gagal posting");
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function voidOrder(id: string, poNo: string) {
+    const reason = window.prompt(`Alasan batal PO ${poNo}?`, "Input salah");
+    if (reason === null) return;
+    setActingId(id);
+    try {
+      const res = await fetch(`/api/purchase-orders/${id}/void`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setMessage(data.message || "PO dibatalkan");
+      await load();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Gagal void");
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function deleteOrder(id: string, poNo: string) {
+    if (!window.confirm(`Hapus PO ${poNo}? (belum posting)`)) return;
+    setActingId(id);
+    try {
+      const res = await fetch(`/api/purchase-orders/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setMessage(data.message || "PO dihapus");
+      await load();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Gagal hapus");
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  return (
+    <main className="mx-auto max-w-6xl px-6 py-8">
+      <PageHeader badge="Pembelian" title="Riwayat PO" description="Filter, detail, post jurnal, void">
+        <Link href="/dashboard/pembelian" className="text-sm text-slate-500 hover:text-slate-700">← Pembelian</Link>
+      </PageHeader>
+
+      <Card className="mb-6">
+        <div className="flex flex-wrap items-end gap-4">
+          <div>
+            <Label>Dari tanggal</Label>
+            <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+          </div>
+          <div>
+            <Label>Sampai tanggal</Label>
+            <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+          </div>
+          <div className="min-w-[200px]">
+            <Label>Supplier</Label>
+            <Select value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
+              <option value="">Semua supplier</option>
+              {suppliers.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </Select>
+          </div>
+          <Button type="button" onClick={load} disabled={loading}>Cari data</Button>
+        </div>
+      </Card>
+
+      <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3">
+        <p className="text-sm font-medium text-sky-800">Total (sesuai filter)</p>
+        <p className="text-2xl font-bold text-sky-950">{formatRp(grandTotalSum)}</p>
+      </div>
+
+      {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+      {message && <p className="mb-3 text-sm text-slate-600">{message}</p>}
+
+      <Card>
+        {loading ? (
+          <p className="text-sm text-slate-500">Memuat...</p>
+        ) : !rows.length ? (
+          <p className="py-10 text-center text-sm text-slate-500">Tidak ada data.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="text-left text-xs font-medium text-slate-500">
+                  <th className="border-b px-2 py-2">Tanggal</th>
+                  <th className="border-b px-2 py-2">No PO</th>
+                  <th className="border-b px-2 py-2">Supplier</th>
+                  <th className="border-b px-2 py-2">Total</th>
+                  <th className="border-b px-2 py-2">Sisa hutang</th>
+                  <th className="border-b px-2 py-2">Status</th>
+                  <th className="border-b px-2 py-2">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => {
+                  const busy = actingId === row.id;
+                  return (
+                    <tr key={row.id} className="hover:bg-slate-50/80">
+                      <td className="border-b border-slate-100 px-2 py-2">{row.orderDate}</td>
+                      <td className="border-b border-slate-100 px-2 py-2"><code className="text-xs">{row.poNo}</code></td>
+                      <td className="border-b border-slate-100 px-2 py-2">{row.supplierName || "—"}</td>
+                      <td className="border-b border-slate-100 px-2 py-2">{formatRp(row.grandTotal)}</td>
+                      <td className="border-b border-slate-100 px-2 py-2">{formatRp(row.sisaTagihan)}</td>
+                      <td className="border-b border-slate-100 px-2 py-2">
+                        <span className={`font-semibold ${statusClass(row.status)}`}>{row.status}</span>
+                      </td>
+                      <td className="border-b border-slate-100 px-2 py-2">
+                        <div className="flex flex-wrap gap-1">
+                          <Button type="button" variant="ghost" onClick={() => openDetail(row)}>Detail</Button>
+                          {row.status === "CONFIRMED" && (
+                            <>
+                              <Button type="button" variant="secondary" disabled={busy} onClick={() => postOrder(row.id, row.poNo)}>Post</Button>
+                              <Button type="button" variant="ghost" disabled={busy} onClick={() => deleteOrder(row.id, row.poNo)}>Hapus</Button>
+                            </>
+                          )}
+                          {row.status === "POSTED" && (
+                            <Button type="button" variant="secondary" disabled={busy} onClick={() => voidOrder(row.id, row.poNo)}>Batal</Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {detailOpen && detailOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setDetailOpen(false)}>
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold">Detail PO: {detailOrder.poNo}</h3>
+            <p className="text-sm text-slate-500">{detailOrder.supplierName} · {detailOrder.orderDate}</p>
+            {detailLoading ? (
+              <p className="py-8 text-center text-sm text-slate-500">Memuat...</p>
+            ) : (
+              <table className="mt-4 w-full text-sm">
+                <thead>
+                  <tr className="bg-emerald-800 text-left text-white">
+                    <th className="px-2 py-2">Barang</th>
+                    <th className="px-2 py-2 text-center">Qty</th>
+                    <th className="px-2 py-2 text-right">Harga</th>
+                    <th className="px-2 py-2 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detailLines.map((l) => (
+                    <tr key={l.id} className="border-b">
+                      <td className="px-2 py-2">{l.description}</td>
+                      <td className="px-2 py-2 text-center">{l.qty}</td>
+                      <td className="px-2 py-2 text-right">{formatRp(l.unitCost)}</td>
+                      <td className="px-2 py-2 text-right font-semibold">{formatRp(l.lineTotal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <div className="mt-4 text-right">
+              <Button type="button" variant="ghost" onClick={() => setDetailOpen(false)}>Tutup</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}

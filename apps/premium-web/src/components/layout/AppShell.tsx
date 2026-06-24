@@ -9,14 +9,15 @@ const NAV = [
   { href: "/dashboard/penjualan", label: "Penjualan", icon: "◇" },
   { href: "/dashboard/penjualan/riwayat", label: "Riwayat Invoice", icon: "◇" },
   { href: "/dashboard/piutang", label: "Piutang", icon: "◇" },
+  { href: "/dashboard/pembelian", label: "Pembelian", icon: "◇" },
+  { href: "/dashboard/pembelian/riwayat", label: "Riwayat PO", icon: "◇" },
+  { href: "/dashboard/hutang", label: "Hutang", icon: "◇" },
   { href: "/dashboard/jurnal", label: "Jurnal", icon: "◇" },
   { href: "/dashboard/laporan", label: "Laporan", icon: "◇" }
 ];
 
 const COMING_SOON = [
   "Quotation",
-  "Pembelian",
-  "Hutang",
   "Posting manual",
   "POS / Stok"
 ];
@@ -44,6 +45,7 @@ export function AppShell({
               pathname === item.href ||
               (item.href !== "/dashboard" &&
                 item.href !== "/dashboard/penjualan" &&
+                item.href !== "/dashboard/pembelian" &&
                 pathname.startsWith(item.href));
             return (
               <Link
