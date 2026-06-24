@@ -158,10 +158,16 @@ function validateProyekPayload_(p) {
 
 function getProyekMeta() {
   authGuard_();
-  return {
+  const meta = {
     enabled: isAddonProjectEnabled_(),
     statuses: PROYEK_STATUS_.slice()
   };
+  if (isAddonProjectEnabled_() && typeof getProyekTaskTemplates === "function") {
+    try {
+      meta.taskTemplates = getProyekTaskTemplates();
+    } catch (ignore) {}
+  }
+  return meta;
 }
 
 function listProyek(filters) {
@@ -219,6 +225,9 @@ function saveProyek(payload) {
     let rowNum = kode ? findProyekRowByKode_(sh, kode) : 0;
     if (rowNum > 0) {
       sh.getRange(rowNum, 1, 1, row.length).setValues([row]);
+      if (typeof recalcProyekTaskDeadlines_ === "function") {
+        recalcProyekTaskDeadlines_(ss, kode);
+      }
     } else {
       kode = nextProyekKode_(ss);
       row[0] = kode;
@@ -508,6 +517,9 @@ function getDashboardProyekSummary_(ss, bulan, tahun) {
     upcomingCount: upcoming.length,
     activeWithTag: lr.rows.length,
     lrTotals: lr.totals,
+    taskAlerts: typeof getProyekTaskDashboardAlerts_ === "function"
+      ? getProyekTaskDashboardAlerts_(ss)
+      : [],
     upcoming: upcoming.slice(0, 5).map(function(p) {
       const fin = lrMap[p.kode] || { pendapatan: 0, beban: 0, margin: 0, marginPct: 0 };
       return {
