@@ -86,9 +86,12 @@ export async function GET(request: Request) {
       lines
     );
     const grandTotal = lines.reduce((s, l) => s + Number(l.line_total) || 0, 0) || Number(o.total) || 0;
-    const sisaTagihan = hutang?.sisaTagihan ?? 0;
+    const isVoided = o.status === "VOIDED";
+    const sisaTagihan = isVoided ? 0 : (hutang?.sisaTagihan ?? 0);
     const bayar = lines.reduce((s, l) => s + lineBayar(l), 0) || Number(meta.bayar) || 0;
-    grandTotalSum += grandTotal;
+    if (!isVoided) {
+      grandTotalSum += grandTotal;
+    }
 
     return {
       id: o.id,

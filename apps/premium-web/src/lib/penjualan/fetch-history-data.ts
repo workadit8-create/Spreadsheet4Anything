@@ -133,7 +133,9 @@ export async function fetchPenjualanHistory(
       (order.customer_id && customers.get(order.customer_id)) ||
       String((order.metadata || {}).customerName || "");
     const row = summarizeOrderForHistory(order, orderLines, customerName);
-    grandTotalSum += row.grandTotal;
+    if (row.status !== "VOIDED") {
+      grandTotalSum += row.grandTotal;
+    }
     return row;
   });
 

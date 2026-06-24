@@ -83,7 +83,8 @@ export function summarizeOrderForHistory(
   const lineGrandTotal = lines.reduce((sum, line) => sum + Number(line.line_total) || 0, 0);
   const piutang = summarizePiutangFromLines(order, lines);
   const grandTotal = lineGrandTotal || Number(order.total) || 0;
-  const sisaTagihan = piutang?.sisaTagihan ?? 0;
+  const isVoided = order.status === "VOIDED";
+  const sisaTagihan = isVoided ? 0 : (piutang?.sisaTagihan ?? 0);
   const bayar = Math.max(0, grandTotal - sisaTagihan);
 
   return {

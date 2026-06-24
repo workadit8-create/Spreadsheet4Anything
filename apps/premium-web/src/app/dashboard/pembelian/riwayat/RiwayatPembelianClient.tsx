@@ -204,7 +204,7 @@ export default function RiwayatPembelianClient() {
       </Card>
 
       <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3">
-        <p className="text-sm font-medium text-sky-800">Total (sesuai filter)</p>
+        <p className="text-sm font-medium text-sky-800">Total (sesuai filter, tidak termasuk dibatalkan)</p>
         <p className="text-2xl font-bold text-sky-950">{formatRp(grandTotalSum)}</p>
       </div>
 
