@@ -1,0 +1,112 @@
+/** Aturan jurnal — port logika dari clients/hybrid/backend/api.js */
+
+export type JournalLineDraft = {
+  lineDate: string;
+  accountName: string;
+  debit: number;
+  credit: number;
+  keterangan: string;
+};
+
+export type PemasukanJournalInput = {
+  tanggalPesan: string;
+  invoice: string;
+  keterangan: string;
+  total: number;
+  bayar: number;
+  status: string;
+  tanggalBayar: string;
+  akunPendapatan: string;
+  rekening: string;
+};
+
+export type PelunasanPiutangJournalInput = {
+  tanggalBayar: string;
+  invoice: string;
+  customer: string;
+  nominal: number;
+  rekening: string;
+  keterangan: string;
+};
+
+export function resolveKasBankAccount(rekening: string): string {
+  const trimmed = String(rekening || "").trim();
+  if (!trimmed) return "Kas";
+
+  const upper = trimmed.toUpperCase();
+  if (upper === "BANK") return "Bank";
+  if (upper === "KAS" || upper === "TUNAI" || upper === "CASH") return "Kas";
+  return trimmed;
+}
+
+export function buildPemasukanJournalLines(data: PemasukanJournalInput): JournalLineDraft[] {
+  const bayar = Number(data.bayar) || 0;
+  const total = Number(data.total) || 0;
+  const tanggalBayar = data.tanggalBayar || data.tanggalPesan;
+  const akunKasBank = resolveKasBankAccount(data.rekening);
+  const akunDebitPenjualan =
+    data.status === "PENJUALAN TUNAI" ? akunKasBank : "Piutang Usaha";
+  const ketBase = "Penjualan - " + data.keterangan;
+
+  const lines: JournalLineDraft[] = [
+    {
+      lineDate: data.tanggalPesan,
+      accountName: akunDebitPenjualan,
+      debit: total,
+      credit: 0,
+      keterangan: ketBase
+    },
+    {
+      lineDate: data.tanggalPesan,
+      accountName: data.akunPendapatan || "Pendapatan",
+      debit: 0,
+      credit: total,
+      keterangan: ketBase
+    }
+  ];
+
+  if (data.status === "PENJUALAN KREDIT" && bayar > 0) {
+    lines.push({
+      lineDate: tanggalBayar,
+      accountName: akunKasBank,
+      debit: bayar,
+      credit: 0,
+      keterangan: "Terima Kas"
+    });
+    lines.push({
+      lineDate: tanggalBayar,
+      accountName: "Piutang Usaha",
+      debit: 0,
+      credit: bayar,
+      keterangan: "Pelunasan Piutang"
+    });
+  }
+
+  return lines;
+}
+
+export function buildPelunasanPiutangJournalLines(
+  data: PelunasanPiutangJournalInput
+): JournalLineDraft[] {
+  const nominal = Number(data.nominal) || 0;
+  const akunKasBank = resolveKasBankAccount(data.rekening);
+  const ketPelunasan =
+    "Pelunasan Piutang - " + (data.customer || "") + " " + (data.keterangan || "");
+
+  return [
+    {
+      lineDate: data.tanggalBayar,
+      accountName: akunKasBank,
+      debit: nominal,
+      credit: 0,
+      keterangan: ketPelunasan
+    },
+    {
+      lineDate: data.tanggalBayar,
+      accountName: "Piutang Usaha",
+      debit: 0,
+      credit: nominal,
+      keterangan: "Pelunasan Piutang"
+    }
+  ];
+}

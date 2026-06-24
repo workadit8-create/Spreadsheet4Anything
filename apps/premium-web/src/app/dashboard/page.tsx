@@ -84,7 +84,7 @@ export default async function DashboardPage() {
         <Card>
           <h2 className="text-base font-semibold text-slate-900">Transaksi</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Invoice, piutang, pelunasan, dan bridge ke sheet client.
+            Invoice, piutang, pelunasan — jurnal langsung ke Supabase.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
@@ -100,6 +100,12 @@ export default async function DashboardPage() {
               Piutang →
             </Link>
             <Link
+              href="/dashboard/jurnal"
+              className="inline-flex rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Jurnal →
+            </Link>
+            <Link
               href="/dashboard/laporan"
               className="inline-flex rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
@@ -109,9 +115,10 @@ export default async function DashboardPage() {
         </Card>
 
         <Card>
-          <h2 className="text-base font-semibold text-slate-900">Bridge ke GAS</h2>
+          <h2 className="text-base font-semibold text-slate-900">Posting engine</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Invoice / pelunasan → <code className="text-xs">posting_jobs</code> → BACKENDengine
+            Invoice / pelunasan → <code className="text-xs">posting_jobs</code> →{" "}
+            <code className="text-xs">journal_entries</code> (Supabase-only)
           </p>
         </Card>
 

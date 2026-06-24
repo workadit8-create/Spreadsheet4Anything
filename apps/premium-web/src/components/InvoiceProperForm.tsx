@@ -176,14 +176,11 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
       } else {
         const jobResult = (processData.results || []).find(
           (r: { jobId?: string }) => r.jobId === data.postingJobId
-        ) as { ok?: boolean; sheetSynced?: boolean; error?: string } | undefined;
+        ) as { ok?: boolean; error?: string } | undefined;
         const ok = jobResult?.ok === true;
-        const synced = jobResult?.sheetSynced === true;
         setMessage(
           ok
-            ? synced
-              ? `Invoice ${data.order.order_no} → jurnal POSTED + sheet PEMASUKAN (${paymentLabel})`
-              : `Invoice ${data.order.order_no} → jurnal POSTED. Sync sheet: buka Laporan → Retry sync`
+            ? `Invoice ${data.order.order_no} → jurnal Supabase POSTED (${paymentLabel})`
             : `Invoice ${data.order.order_no} dibuat. Posting: ${jobResult?.error || "cek Laporan"}`
         );
       }

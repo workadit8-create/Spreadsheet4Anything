@@ -1,20 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatCard } from "@/components/ui/StatCard";
-import { Button } from "@/components/ui/Button";
 
-type SyncEvent = {
+type JournalLine = {
   id: string;
-  direction: string;
-  source: string;
-  status: string;
-  error: string | null;
+  line_date: string;
+  account_name: string;
+  debit: number;
+  credit: number;
+  keterangan: string | null;
+};
+
+type JournalEntry = {
+  id: string;
+  modul: string;
+  transaction_id: string;
+  doc_no: string;
+  entry_date: string;
   created_at: string;
-  payload: { orderNo?: string; invoiceNo?: string; transactionId?: string };
+  lines: JournalLine[];
 };
 
 type Props = {
@@ -22,187 +29,92 @@ type Props = {
     postedJobs: number;
     failedJobs: number;
     pendingJobs: number;
-    sheetSynced: number;
-    sheetPending: number;
-    pelunasanSheetSynced: number;
-    pelunasanSheetPending: number;
+    journalEntries: number;
+    journalLines: number;
     totalOrders: number;
   };
-  syncEvents: SyncEvent[];
-  gasWebappUrl?: string;
-  databaseSheetId?: string;
+  entries: JournalEntry[];
 };
 
-export default function LaporanPageClient({ stats, syncEvents, gasWebappUrl, databaseSheetId }: Props) {
-  const [syncing, setSyncing] = useState(false);
-  const [clearing, setClearing] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+function formatMoney(n: number) {
+  return new Intl.NumberFormat("id-ID", { minimumFractionDigits: 0 }).format(n);
+}
 
-  async function retrySheetSync() {
-    setSyncing(true);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/posting/sync-sheet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ forcePelunasan: true })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      const orderOk = (data.orders || []).filter((r: { ok: boolean }) => r.ok).length;
-      const pelunasanOk = (data.pelunasan || []).filter((r: { ok: boolean }) => r.ok).length;
-      setMessage(
-        `Sync sheet: ${orderOk} invoice + ${pelunasanOk} pelunasan berhasil (total ${data.synced || 0} dicoba)`
-      );
-    } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Gagal sync");
-    } finally {
-      setSyncing(false);
-    }
-  }
-
-  async function clearTransactionSheets() {
-    if (
-      !window.confirm(
-        "Kosongkan semua baris transaksi di sheet PEMASUKAN dan PELUNASAN_PIUTANG? Header tetap ada."
-      )
-    ) {
-      return;
-    }
-    setClearing(true);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/posting/sync-sheet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "clear_transaction_sheets" })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || data.message);
-      const cleared = data.cleared || {};
-      setMessage(
-        `Sheet dikosongkan: PEMASUKAN ${cleared.PEMASUKAN ?? 0} baris, PELUNASAN_PIUTANG ${cleared.PELUNASAN_PIUTANG ?? 0} baris`
-      );
-    } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Gagal kosongkan sheet");
-    } finally {
-      setClearing(false);
-    }
-  }
-
-  const sheetUrl = databaseSheetId
-    ? `https://docs.google.com/spreadsheets/d/${databaseSheetId}/edit`
-    : null;
-
+export default function LaporanPageClient({ stats, entries }: Props) {
   return (
-    <main className="mx-auto max-w-4xl px-6 py-8">
+    <main className="mx-auto max-w-5xl px-6 py-8">
       <PageHeader
-        badge="Step 4 · Sync balik"
-        title="Laporan bridge"
-        description="Posting jurnal + sync ke sheet PEMASUKAN & PELUNASAN_PIUTANG"
+        badge="Tahap D"
+        title="Laporan & jurnal"
+        description="Posting langsung ke Supabase — journal_entries + journal_lines"
       >
-        <Link href="/dashboard" className="text-sm text-slate-500 hover:text-slate-700">← Dashboard</Link>
+        <div className="flex gap-3">
+          <Link href="/dashboard/jurnal" className="text-sm text-brand-600 hover:text-brand-700">
+            Buka jurnal →
+          </Link>
+          <Link href="/dashboard" className="text-sm text-slate-500 hover:text-slate-700">
+            ← Dashboard
+          </Link>
+        </div>
       </PageHeader>
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard label="Invoice total" value={stats.totalOrders} />
-        <StatCard label="Jurnal POSTED" value={stats.postedJobs} tone="success" />
-        <StatCard label="Jurnal FAILED" value={stats.failedJobs} tone="danger" />
+        <StatCard label="Posting POSTED" value={stats.postedJobs} tone="success" />
+        <StatCard label="Posting FAILED" value={stats.failedJobs} tone="danger" />
         <StatCard label="Queue PENDING" value={stats.pendingJobs} />
-        <StatCard label="Sheet synced" value={stats.sheetSynced} tone="success" />
-        <StatCard label="Sheet pending" value={stats.sheetPending} tone="warning" />
-        <StatCard label="Pelunasan synced" value={stats.pelunasanSheetSynced} tone="success" />
-        <StatCard label="Pelunasan pending" value={stats.pelunasanSheetPending} tone="warning" />
+        <StatCard label="Entri jurnal" value={stats.journalEntries} tone="success" />
+        <StatCard label="Baris jurnal" value={stats.journalLines} />
       </div>
 
-      <Card className="mb-6">
-        <h2 className="mb-3 text-base font-semibold text-slate-900">Aksi</h2>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" onClick={retrySheetSync} disabled={syncing || clearing}>
-            {syncing ? "Syncing..." : "Retry sync sheet (PEMASUKAN + pelunasan)"}
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={clearTransactionSheets}
-            disabled={syncing || clearing}
-          >
-            {clearing ? "Menghapus..." : "Kosongkan sheet transaksi"}
-          </Button>
-          <Link
-            href="/dashboard/invoices"
-            className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 no-underline transition hover:bg-slate-50"
-          >
-            Invoice lab
-          </Link>
-          {sheetUrl && (
-            <a
-              href={sheetUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 no-underline transition hover:bg-slate-50"
-            >
-              Buka client DB sheet
-            </a>
-          )}
-          {gasWebappUrl && (
-            <a
-              href={gasWebappUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 no-underline transition hover:bg-slate-50"
-            >
-              Buka GAS web app
-            </a>
-          )}
-        </div>
-        {message && <p className="mt-3 text-sm text-slate-500">{message}</p>}
-      </Card>
-
       <Card>
-        <h2 className="mb-3 text-base font-semibold text-slate-900">Sync events (terbaru)</h2>
-        {!syncEvents.length ? (
-          <p className="text-sm text-slate-500">Belum ada sync event.</p>
+        <h2 className="mb-3 text-base font-semibold text-slate-900">Jurnal terbaru</h2>
+        {!entries.length ? (
+          <p className="text-sm text-slate-500">
+            Belum ada jurnal. Buat invoice atau pelunasan piutang untuk generate entri.
+          </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="text-left text-xs font-medium text-slate-500">
-                  <th className="border-b border-slate-200 px-2 py-2">Waktu</th>
-                  <th className="border-b border-slate-200 px-2 py-2">Invoice</th>
-                  <th className="border-b border-slate-200 px-2 py-2">Status</th>
-                  <th className="border-b border-slate-200 px-2 py-2">Error</th>
-                </tr>
-              </thead>
-              <tbody>
-                {syncEvents.map((e) => (
-                  <tr key={e.id} className="hover:bg-slate-50/80">
-                    <td className="border-b border-slate-100 px-2 py-2 text-xs">
-                      {new Date(e.created_at).toLocaleString("id-ID")}
-                    </td>
-                    <td className="border-b border-slate-100 px-2 py-2">
-                      <code className="text-xs">
-                        {e.payload?.invoiceNo || e.payload?.orderNo || "—"}
-                      </code>
-                    </td>
-                    <td
-                      className={`border-b border-slate-100 px-2 py-2 font-semibold ${
-                        e.status === "DONE"
-                          ? "text-emerald-600"
-                          : e.status === "FAILED"
-                            ? "text-red-600"
-                            : "text-slate-500"
-                      }`}
-                    >
-                      {e.status}
-                    </td>
-                    <td className="border-b border-slate-100 px-2 py-2 text-xs text-red-600">
-                      {e.error || "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-6">
+            {entries.map((entry) => (
+              <div key={entry.id} className="rounded-lg border border-slate-200">
+                <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2 text-sm">
+                  <code className="font-semibold text-slate-800">{entry.doc_no}</code>
+                  <span className="text-slate-400">·</span>
+                  <span className="text-slate-600">{entry.modul}</span>
+                  <span className="text-slate-400">·</span>
+                  <span className="text-slate-500">{entry.entry_date}</span>
+                  <span className="ml-auto text-xs text-slate-400">
+                    {new Date(entry.created_at).toLocaleString("id-ID")}
+                  </span>
+                </div>
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="text-left text-xs font-medium text-slate-500">
+                      <th className="px-3 py-2">Akun</th>
+                      <th className="px-3 py-2 text-right">Debit</th>
+                      <th className="px-3 py-2 text-right">Kredit</th>
+                      <th className="px-3 py-2">Keterangan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {entry.lines.map((line) => (
+                      <tr key={line.id} className="hover:bg-slate-50/80">
+                        <td className="border-t border-slate-100 px-3 py-1.5">{line.account_name}</td>
+                        <td className="border-t border-slate-100 px-3 py-1.5 text-right tabular-nums">
+                          {Number(line.debit) > 0 ? formatMoney(Number(line.debit)) : "—"}
+                        </td>
+                        <td className="border-t border-slate-100 px-3 py-1.5 text-right tabular-nums">
+                          {Number(line.credit) > 0 ? formatMoney(Number(line.credit)) : "—"}
+                        </td>
+                        <td className="border-t border-slate-100 px-3 py-1.5 text-xs text-slate-500">
+                          {line.keterangan || "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
           </div>
         )}
       </Card>

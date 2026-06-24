@@ -8,6 +8,7 @@ const NAV = [
   { href: "/dashboard/master", label: "Master Data", icon: "◇" },
   { href: "/dashboard/invoices", label: "Invoice", icon: "◇" },
   { href: "/dashboard/piutang", label: "Piutang", icon: "◇" },
+  { href: "/dashboard/jurnal", label: "Jurnal", icon: "◇" },
   { href: "/dashboard/laporan", label: "Laporan", icon: "◇" }
 ];
 
@@ -15,8 +16,7 @@ const COMING_SOON = [
   "Quotation",
   "Pembelian",
   "Hutang",
-  "Jurnal",
-  "Posting",
+  "Posting manual",
   "POS / Stok"
 ];
 

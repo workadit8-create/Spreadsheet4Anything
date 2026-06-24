@@ -156,16 +156,13 @@ export default function PiutangPageClient() {
       const processData = await processRes.json();
       const jobResult = (processData.results || []).find(
         (r: { jobId?: string }) => r.jobId === data.postingJobId
-      ) as { ok?: boolean; sheetSynced?: boolean; error?: string } | undefined;
+      ) as { ok?: boolean; error?: string } | undefined;
 
       const ok = jobResult?.ok === true;
-      const synced = jobResult?.sheetSynced === true;
 
       setPayMessage(
         ok
-          ? synced
-            ? `Pelunasan ${payTarget.invoiceNo} → jurnal + sheet PELUNASAN_PIUTANG`
-            : `Pelunasan ${payTarget.invoiceNo} → jurnal OK. Sync sheet: buka Laporan → Retry sync`
+          ? `Pelunasan ${payTarget.invoiceNo} → jurnal Supabase POSTED`
           : `Pelunasan disimpan. Posting: ${jobResult?.error || processData.error || "cek queue di Laporan"}`
       );
 
@@ -183,7 +180,7 @@ export default function PiutangPageClient() {
       <PageHeader
         badge="Piutang"
         title="Daftar piutang"
-        description="Invoice kredit / kurang bayar → pelunasan → jurnal + sheet PELUNASAN_PIUTANG + update PEMASUKAN"
+        description="Invoice kredit / kurang bayar → pelunasan → jurnal PELUNASAN_PIUTANG di Supabase"
       />
 
       <Card className="mb-6">

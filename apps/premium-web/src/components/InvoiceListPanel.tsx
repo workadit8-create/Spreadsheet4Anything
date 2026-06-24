@@ -101,7 +101,7 @@ export function InvoiceListPanel() {
                 <th className="border-b border-slate-200 px-2 py-2">Total</th>
                 <th className="border-b border-slate-200 px-2 py-2">Order</th>
                 <th className="border-b border-slate-200 px-2 py-2">Posting</th>
-                <th className="border-b border-slate-200 px-2 py-2">Sheet</th>
+                <th className="border-b border-slate-200 px-2 py-2">Jurnal</th>
               </tr>
             </thead>
             <tbody>
@@ -129,10 +129,10 @@ export function InvoiceListPanel() {
                     <td className="border-b border-slate-100 px-2 py-2">
                       <span
                         className={`font-semibold ${
-                          o.metadata?.sheetSynced ? "text-emerald-600" : "text-amber-600"
+                          postStatus === "POSTED" ? "text-emerald-600" : "text-slate-400"
                         }`}
                       >
-                        {o.metadata?.sheetSynced ? "SYNCED" : postStatus === "POSTED" ? "PENDING" : "—"}
+                        {postStatus === "POSTED" ? "POSTED" : "—"}
                       </span>
                     </td>
                   </tr>

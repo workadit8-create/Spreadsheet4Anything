@@ -7,7 +7,7 @@ export default function HomePage() {
         <p className="text-xs font-bold uppercase tracking-widest text-brand-600">Premium · Hybrid Lab</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">Akuntansi App</h1>
         <p className="mt-3 text-sm leading-relaxed text-slate-500">
-          UI Next.js + Supabase. Engine akuntansi tetap BACKENDengine (GAS HYBRID LAB).
+          UI Next.js + Supabase. Jurnal akuntansi langsung di database (Tahap D — tanpa sheet bridge).
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Link

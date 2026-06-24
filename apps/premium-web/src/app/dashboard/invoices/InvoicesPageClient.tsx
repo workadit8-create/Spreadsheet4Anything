@@ -19,7 +19,7 @@ export default function InvoicesPageClient() {
       <PageHeader
         badge="Pemasukan · Invoice"
         title="Invoice penjualan"
-        description="Customer + produk dari master → Supabase → posting jurnal → sheet PEMASUKAN"
+        description="Customer + produk dari master → Supabase → jurnal di journal_entries"
       >
         <Link href="/dashboard" className="text-sm text-slate-500 hover:text-slate-700">← Dashboard</Link>
       </PageHeader>

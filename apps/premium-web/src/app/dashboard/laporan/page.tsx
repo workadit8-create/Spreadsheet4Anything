@@ -12,57 +12,46 @@ export default async function LaporanPage() {
   const failedJobs = (jobs || []).filter((j) => j.status === "FAILED").length;
   const pendingJobs = (jobs || []).filter((j) => j.status === "PENDING").length;
 
-  const { data: orders } = await supabase
+  const { count: journalEntries } = await supabase
+    .from("journal_entries")
+    .select("*", { count: "exact", head: true });
+
+  const { count: journalLines } = await supabase
+    .from("journal_lines")
+    .select("*", { count: "exact", head: true });
+
+  const { count: totalOrders } = await supabase
     .from("sales_orders")
-    .select("id, metadata, status");
+    .select("*", { count: "exact", head: true });
 
-  const { data: payments } = await supabase
-    .from("payments")
-    .select("id, metadata, doc_type")
-    .eq("doc_type", "PIUTANG_PAYMENT");
-
-  const totalOrders = orders?.length ?? 0;
-  let sheetSynced = 0;
-  let sheetPending = 0;
-  (orders || []).forEach((o) => {
-    const meta = (o.metadata || {}) as Record<string, unknown>;
-    if (meta.sheetSynced === true) sheetSynced += 1;
-    else if (o.status === "POSTED") sheetPending += 1;
-  });
-
-  let pelunasanSheetSynced = 0;
-  let pelunasanSheetPending = 0;
-
-  const paymentIds = (payments || []).map((p) => p.id);
-  const { data: pelunasanJobs } = paymentIds.length
-    ? await supabase
-        .from("posting_jobs")
-        .select("doc_id, status")
-        .eq("doc_type", "PIUTANG_PAYMENT")
-        .in("doc_id", paymentIds)
-    : { data: [] };
-
-  const postedPaymentIds = new Set(
-    (pelunasanJobs || []).filter((j) => j.status === "POSTED").map((j) => j.doc_id)
-  );
-
-  (payments || []).forEach((p) => {
-    const meta = (p.metadata || {}) as Record<string, unknown>;
-    if (meta.sheetSynced === true) {
-      pelunasanSheetSynced += 1;
-    } else if (postedPaymentIds.has(p.id)) {
-      pelunasanSheetPending += 1;
-    }
-  });
-
-  const { data: syncEvents } = await supabase
-    .from("sync_events")
-    .select("id, direction, source, status, error, created_at, payload")
+  const { data: rawEntries } = await supabase
+    .from("journal_entries")
+    .select(
+      "id, modul, transaction_id, doc_no, entry_date, created_at, journal_lines(id, line_date, account_name, debit, credit, keterangan, sort_order)"
+    )
     .order("created_at", { ascending: false })
-    .limit(20);
+    .limit(10);
 
-  const gasWebappUrl = process.env.HYBRID_GAS_WEBAPP_URL;
-  const databaseSheetId = process.env.HYBRID_DATABASE_SHEET_ID;
+  const entries = (rawEntries || []).map((e) => {
+    const lines = ((e.journal_lines as Array<{
+      id: string;
+      line_date: string;
+      account_name: string;
+      debit: number;
+      credit: number;
+      keterangan: string | null;
+      sort_order: number;
+    }>) || []).sort((a, b) => a.sort_order - b.sort_order);
+    return {
+      id: e.id,
+      modul: e.modul,
+      transaction_id: e.transaction_id,
+      doc_no: e.doc_no,
+      entry_date: e.entry_date,
+      created_at: e.created_at,
+      lines
+    };
+  });
 
   return (
     <LaporanPageClient
@@ -70,15 +59,11 @@ export default async function LaporanPage() {
         postedJobs,
         failedJobs,
         pendingJobs,
-        sheetSynced,
-        sheetPending,
-        pelunasanSheetSynced,
-        pelunasanSheetPending,
-        totalOrders
+        journalEntries: journalEntries ?? 0,
+        journalLines: journalLines ?? 0,
+        totalOrders: totalOrders ?? 0
       }}
-      syncEvents={(syncEvents || []) as Parameters<typeof LaporanPageClient>[0]["syncEvents"]}
-      gasWebappUrl={gasWebappUrl}
-      databaseSheetId={databaseSheetId}
+      entries={entries}
     />
   );
 }
