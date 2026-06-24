@@ -93,15 +93,29 @@ function escapeHtml(s: string) {
 }
 
 export function openInvoicePrintWindow(html: string) {
-  const w = window.open("", "_blank", "noopener,noreferrer,width=900,height=700");
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, "_blank");
+
   if (!w) {
+    URL.revokeObjectURL(url);
     throw new Error("Popup diblokir. Izinkan popup untuk cetak invoice.");
   }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
-  w.focus();
-  w.onload = () => {
-    w.print();
+
+  const triggerPrint = () => {
+    try {
+      w.focus();
+      w.print();
+    } catch {
+      // print() can throw if window was closed
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
+
+  // Blob tab may already be complete when opened; otherwise wait for load.
+  if (w.document?.readyState === "complete") {
+    setTimeout(triggerPrint, 250);
+  } else {
+    w.addEventListener("load", () => setTimeout(triggerPrint, 250), { once: true });
+  }
 }
