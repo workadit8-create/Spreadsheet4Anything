@@ -1,16 +1,34 @@
 # Premium Web (Next.js + Supabase)
 
-UI tier **Premium** — terpisah dari GAS Standard (dev/demo/client1).
+UI tier **Premium** — terpisah dari GAS Standard (`clients/dev`, `clients/demo`, client1 di repo root).
+
+## Arsitektur (Tahap D)
+
+| Aspek | Premium | Standard (GAS) |
+|-------|---------|----------------|
+| UI | Next.js (`apps/premium-web`) | GAS web app (`clients/*`) |
+| Database transaksi | Supabase | Google Spreadsheet |
+| Jurnal | `journal_entries` + `journal_lines` | BACKENDengine spreadsheet |
+| Bridge ke sheet / GAS | **Tidak** | Native |
+
+Alur posting Premium:
+
+1. Invoice / pelunasan piutang → `sales_orders` / `payments` di Supabase
+2. `posting_jobs` (queue)
+3. Worker TypeScript → aturan jurnal (port dari `api.js`) → Supabase
+4. Lihat di **Dashboard → Jurnal** atau **Laporan**
+
+Env `HYBRID_BACKEND_URL` / `HYBRID_DATABASE_SHEET_ID` **tidak diperlukan** untuk posting (legacy bridge).
 
 ## Setup cepat
 
 ### 1. Jalankan migration SQL
 
-Supabase Dashboard → **SQL Editor** → paste isi:
+Supabase Dashboard → **SQL Editor** → jalankan semua file di urutan:
 
-`../../supabase/migrations/001_mvp_v1.sql`
+`../../supabase/migrations/001_mvp_v1.sql` … `011_journal_entries.sql`
 
-→ **Run**
+Minimal untuk Tahap D: migration **011** (`journal_entries`, `journal_lines`).
 
 ### 2. Buat user Auth
 
@@ -33,9 +51,17 @@ ON CONFLICT (organization_id, user_id) DO NOTHING;
 ### 4. Env lokal
 
 ```bash
-cp ../../clients/hybrid/supabase.env.example .env.local
-# isi NEXT_PUBLIC_SUPABASE_URL, keys, dll.
+cp .env.example .env.local
 ```
+
+Wajib:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+Opsional (tidak dipakai Tahap D):
+
+- `HYBRID_*` — bridge GAS/sheet (deprecated untuk Premium)
 
 ### 5. Dev server
 
@@ -46,37 +72,15 @@ npm run dev
 
 Buka http://localhost:3000
 
-## Step 3 — Invoice bridge (Premium → BACKENDengine)
+## Uji alur transaksi
 
-1. Tambahkan env bridge di `.env.local` (lihat `clients/hybrid/supabase.env.example`):
-   - `HYBRID_BACKEND_URL` — dari `clients/hybrid/client.env` → `BACKEND_WEBAPP_URL`
-   - `HYBRID_BACKEND_API_KEY` — `BACKEND_API_KEY`
-   - `HYBRID_DATABASE_SHEET_ID` — `DATABASE_ID`
+1. **Master Data** — customer, produk, kas/bank, COA
+2. **Invoice** — buat invoice → posting otomatis ke jurnal Supabase
+3. **Piutang** — pelunasan invoice kredit → jurnal `PELUNASAN_PIUTANG`
+4. **Jurnal** — `/dashboard/jurnal` (read-only)
+5. **Laporan** — `/dashboard/laporan` (stat posting + jurnal terbaru)
 
-2. Buka http://localhost:3000/dashboard/invoices
-
-3. **Buat invoice + post ke jurnal** — alur:
-   - `sales_orders` + `sales_lines` di Supabase
-   - `posting_jobs` status `PENDING`
-   - Worker POST ke BACKENDengine (`modul: PEMASUKAN`)
-   - Status → `POSTED` atau `FAILED` (+ `posting_job_logs`)
-
-4. Verifikasi jurnal di spreadsheet **Backend Engine** HYBRID LAB.
-
-## Step 4 — Sync balik ke sheet PEMASUKAN
-
-Setelah jurnal POSTED, worker menulis baris ke sheet **PEMASUKAN** (client DB).
-
-1. Deploy backend hybrid (wajib setelah update code):
-   ```bash
-   ./scripts/deploy-to.sh backend-hybrid "Step 4 PremiumSync"
-   ```
-
-2. Buka http://localhost:3000/dashboard/laporan
-
-3. Invoice POSTED tanpa sheet sync → **Retry sync sheet PEMASUKAN**
-
-4. Cek client DB spreadsheet → sheet **PEMASUKAN** (kolom Posted = TRUE)
+Verifikasi di Supabase Table Editor: `journal_entries`, `journal_lines`.
 
 ## Deploy Vercel
 
@@ -114,4 +118,10 @@ Supabase → Authentication → URL Configuration:
 | Site URL | `https://premium-web-ruby.vercel.app` |
 | Redirect URLs | `https://premium-web-ruby.vercel.app/auth/callback` |
 
-## Deploy (legacy note)
+## Legacy (tidak dipakai Tahap D)
+
+- Sync ke sheet `PEMASUKAN` / `PELUNASAN_PIUTANG` via `clients/hybrid/backend/PremiumSync.js`
+- Endpoint `/api/posting/sync-sheet` (deprecated, return 400)
+- Deploy `backend-hybrid` hanya relevan jika masih menguji bridge manual
+
+Untuk produk Standard (spreadsheet + GAS), gunakan `clients/README.md`.
