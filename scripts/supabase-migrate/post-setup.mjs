@@ -9,7 +9,7 @@ import { fileURLToPath } from "url";
 import pg from "pg";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(__dirname, "../../..");
+const ROOT = path.resolve(__dirname, "../../");
 const ENV_FILE = path.join(ROOT, "clients/hybrid/supabase.db.env");
 
 function loadEnv(file) {
