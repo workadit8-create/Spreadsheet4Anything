@@ -41,7 +41,11 @@ export default function LaporanPageClient({ stats, syncEvents, gasWebappUrl, dat
     setSyncing(true);
     setMessage(null);
     try {
-      const res = await fetch("/api/posting/sync-sheet", { method: "POST" });
+      const res = await fetch("/api/posting/sync-sheet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ forcePelunasan: true })
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       const orderOk = (data.orders || []).filter((r: { ok: boolean }) => r.ok).length;

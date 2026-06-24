@@ -447,8 +447,9 @@ export async function processSheetSyncRetries(
 /** Retry sync PELUNASAN_PIUTANG untuk payment yang sudah posted tapi belum sheetSynced. */
 export async function processPelunasanSheetSyncRetries(
   supabase: SupabaseClient,
-  limit = 20
-): Promise<{ paymentId: string; ok: boolean; error?: string }[]> {
+  limit = 20,
+  options?: { includeSynced?: boolean }
+): Promise<{ paymentId: string; ok: boolean; error?: string; skipped?: boolean }[]> {
   const config = getHybridBackendConfig();
 
   const { data: payments, error } = await supabase
@@ -460,11 +461,11 @@ export async function processPelunasanSheetSyncRetries(
 
   if (error) throw new Error(error.message);
 
-  const results: { paymentId: string; ok: boolean; error?: string }[] = [];
+  const results: { paymentId: string; ok: boolean; error?: string; skipped?: boolean }[] = [];
 
   for (const payment of payments || []) {
     const metaRaw = (payment.metadata || {}) as Record<string, unknown>;
-    if (metaRaw.sheetSynced === true) continue;
+    if (!options?.includeSynced && metaRaw.sheetSynced === true) continue;
 
     const meta = asPiutangPaymentMeta(payment.metadata);
     if (!meta.transactionId || !meta.invoiceNo) continue;
@@ -473,10 +474,17 @@ export async function processPelunasanSheetSyncRetries(
       await recordSyncEvent(
         supabase,
         payment.organization_id,
-        { paymentId: payment.id, invoiceNo: meta.invoiceNo, retry: true },
+        { paymentId: payment.id, invoiceNo: meta.invoiceNo, retry: true, force: !!options?.includeSynced },
         "RUNNING"
       );
-      await syncPelunasanToSheet(meta, Number(payment.amount), config);
+      const syncResult = await syncPelunasanToSheet(meta, Number(payment.amount), config) as {
+        skipped?: boolean;
+        message?: string;
+      };
+      if (syncResult?.skipped) {
+        results.push({ paymentId: payment.id, ok: true, skipped: true });
+        continue;
+      }
       const merged = {
         ...metaRaw,
         sheetSynced: true,
