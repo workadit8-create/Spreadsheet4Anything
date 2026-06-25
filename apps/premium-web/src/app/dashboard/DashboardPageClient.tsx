@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatCard } from "@/components/ui/StatCard";
 import { DashboardCharts } from "@/components/dashboard/DashboardCharts";
+import { OnboardingChecklist } from "@/components/dashboard/OnboardingChecklist";
 import type { BalanceSlice, MonthlyTrendPoint } from "@/lib/dashboard/chart-data";
 
 type Summary = {
@@ -102,6 +103,8 @@ export default function DashboardPageClient({ userEmail }: { userEmail?: string 
           {error}
         </div>
       )}
+
+      <OnboardingChecklist />
 
       {loading && !summary ? (
         <p className="text-sm text-slate-500">Memuat ringkasan…</p>

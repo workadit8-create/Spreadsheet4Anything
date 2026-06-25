@@ -34,9 +34,9 @@ Minimal untuk Tahap D: migration **011** (`journal_entries`, `journal_lines`).
 
 Supabase → **Authentication → Users → Add user** (email + password).
 
-### 3. Hubungkan user ke tenant HYBRID LAB
+### 3. Hubungkan user ke organisasi (multi-client)
 
-SQL Editor (ganti email):
+**Client pertama (hybrid-lab)** — SQL Editor:
 
 ```sql
 INSERT INTO memberships (organization_id, user_id, role)
@@ -47,6 +47,12 @@ WHERE o.slug = 'hybrid-lab'
   AND u.email = 'email-kamu@example.com'
 ON CONFLICT (organization_id, user_id) DO NOTHING;
 ```
+
+**Client baru** — gunakan script lengkap:
+
+[`scripts/onboard-premium-client.sql`](../../scripts/onboard-premium-client.sql)
+
+Panduan detail: [`docs/ONBOARDING.md`](docs/ONBOARDING.md)
 
 ### 4. Env lokal
 
