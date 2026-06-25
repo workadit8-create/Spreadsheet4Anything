@@ -131,3 +131,26 @@ export function validateProjectPayload(body: {
   const ev = new Date(`${body.eventDate.slice(0, 10)}T12:00:00`);
   if (Number.isNaN(ev.getTime())) throw new Error("Tanggal event tidak valid.");
 }
+
+/** Validasi & normalisasi kode proyek untuk tag transaksi (opsional). */
+export async function resolveProjectCodeForSave(
+  supabase: SupabaseClient,
+  orgId: string,
+  explicitCode?: string | null,
+  fallbackCode?: string | null
+): Promise<string | null> {
+  const code = normalizeProjectCode(explicitCode || fallbackCode || "");
+  if (!code) return null;
+
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("organization_id", orgId)
+    .eq("project_code", code)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error(`Proyek tidak ditemukan: ${code}`);
+  return code;
+}

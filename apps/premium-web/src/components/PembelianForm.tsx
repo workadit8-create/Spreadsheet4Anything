@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select } from "@/components/ui/Input";
+import { ProjectSelect } from "@/components/proyek/ProjectSelect";
+import type { ProjectOption } from "@/lib/proyek/bootstrap-options";
 import { computePurchaseLineTotal } from "@/lib/posting/purchase-lines";
 
 type Supplier = { id: string; code: string | null; name: string };
@@ -60,6 +62,8 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
   >([]);
   const [purchaseRequestId, setPurchaseRequestId] = useState("");
   const [loadingPr, setLoadingPr] = useState(false);
+  const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);
+  const [projectCode, setProjectCode] = useState("");
 
   const lineTotals = lines.map((line) => {
     const qty = Number(line.qty) || 0;
@@ -87,6 +91,7 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
       setSuppliers(data.suppliers || []);
       setCategories(data.purchaseCategories || []);
       setKasBank(data.kasBank || []);
+      setProjectOptions(data.projectAddon?.options || []);
       if (data.kasBank?.length) setRekening(data.kasBank[0].name);
       if (data.purchaseCategories?.length) {
         setLines((prev) =>
@@ -135,6 +140,7 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
 
       setOrderDate(data.purchaseRequest.requestDate);
       if (data.purchaseRequest.supplierId) setSupplierId(data.purchaseRequest.supplierId);
+      setProjectCode(data.purchaseRequest.projectCode || "");
 
       setLines(
         (data.lines || []).map(
@@ -193,6 +199,7 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
           bayar: bayarNum,
           rekening: bayarNum > 0 ? rekening : "",
           purchase_request_id: purchaseRequestId || undefined,
+          project_code: projectCode || undefined,
           lines: lines.map((l) => ({
             description: l.description.trim(),
             purchase_category_id: l.purchase_category_id,
@@ -210,6 +217,7 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
       setLines([{ ...emptyLine(), purchase_category_id: categories[0]?.id || "" }]);
       setBayar("");
       setPurchaseRequestId("");
+      setProjectCode("");
       onCreated?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal simpan");
@@ -260,6 +268,12 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
           </Select>
         </div>
       </div>
+
+      <ProjectSelect
+        options={projectOptions}
+        value={projectCode}
+        onChange={setProjectCode}
+      />
 
       <div>
         <div className="mb-3 flex items-center justify-between">

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select } from "@/components/ui/Input";
+import { ProjectSelect } from "@/components/proyek/ProjectSelect";
+import type { ProjectOption } from "@/lib/proyek/bootstrap-options";
 import { kasBankOptionLabel } from "@/lib/org/kas-bank-display";
 import { computeLineTotal } from "@/lib/posting/invoice-lines";
 
@@ -61,6 +63,8 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
   >([]);
   const [quotationId, setQuotationId] = useState("");
   const [loadingQuotation, setLoadingQuotation] = useState(false);
+  const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);
+  const [projectCode, setProjectCode] = useState("");
 
   const productMap = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
@@ -96,6 +100,7 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
       setCustomers(data.customers || []);
       setProducts(data.products || []);
       setKasBank(data.kasBank || []);
+      setProjectOptions(data.projectAddon?.options || []);
       if (data.kasBank?.length) {
         setRekeningPenerimaan(data.kasBank[0].name);
         setInvoiceRekeningId(data.kasBank[0].id);
@@ -151,6 +156,7 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
 
       setOrderDate(data.quotation.quotationDate);
       if (data.quotation.customerId) setCustomerId(data.quotation.customerId);
+      setProjectCode(data.quotation.projectCode || "");
 
       setLines(
         (data.lines || []).map(
@@ -212,6 +218,7 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
           rekening: needsPenerimaanRekening ? rekeningPenerimaan : undefined,
           invoice_rekening_id: needsInvoiceRekening ? invoiceRekeningId : undefined,
           quotation_id: quotationId || undefined,
+          project_code: projectCode || undefined,
           lines: validLines.map((l) => ({
             product_id: l.product_id,
             qty: Number(l.qty),
@@ -232,6 +239,7 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
       setBayar("");
       setPaymentMode("TUNAI");
       setQuotationId("");
+      setProjectCode("");
       if (kasBank.length) {
         setRekeningPenerimaan(kasBank[0].name);
         setInvoiceRekeningId(kasBank[0].id);
@@ -287,6 +295,13 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
           </Select>
         </div>
       </div>
+
+      <ProjectSelect
+        className="sm:col-span-2"
+        options={projectOptions}
+        value={projectCode}
+        onChange={setProjectCode}
+      />
 
       <div>
         <div className="mb-3 flex items-center justify-between">

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { formatKasBankForInvoice } from "@/lib/org/kas-bank-display";
+import { fetchProjectBootstrap } from "@/lib/proyek/bootstrap-options";
 
 export async function GET() {
   const supabase = await createClient();
@@ -13,7 +14,7 @@ export async function GET() {
   }
   const { org } = auth;
 
-  const [customersRes, productsRes, kasRes] = await Promise.all([
+  const [customersRes, productsRes, kasRes, projectAddon] = await Promise.all([
     supabase
       .from("customers")
       .select("id, code, name")
@@ -31,7 +32,8 @@ export async function GET() {
       .select("id, code, name, coa_account_name, metadata")
       .eq("organization_id", org.id)
       .eq("active", true)
-      .order("name")
+      .order("name"),
+    fetchProjectBootstrap(supabase, org.id)
   ]);
 
   if (customersRes.error) return NextResponse.json({ error: customersRes.error.message }, { status: 500 });
@@ -61,6 +63,7 @@ export async function GET() {
   return NextResponse.json({
     customers: customersRes.data || [],
     products,
-    kasBank
+    kasBank,
+    projectAddon
   });
 }

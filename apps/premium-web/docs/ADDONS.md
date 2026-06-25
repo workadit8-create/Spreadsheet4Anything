@@ -33,6 +33,8 @@ Client produksi (Tirta, dll.) tidak melihat menu sampai add-on diaktifkan via SQ
 
 Tabel: `projects`, `project_tasks` (migration `024_projects.sql`).
 
+Dropdown **Proyek event** muncul di Quotation, Invoice, PR, dan PO jika add-on `project` aktif (data dari bootstrap API).
+
 ## Aktifkan untuk client produksi
 
 ```sql

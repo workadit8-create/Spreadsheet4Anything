@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
+import { ProjectSelect } from "@/components/proyek/ProjectSelect";
+import type { ProjectOption } from "@/lib/proyek/bootstrap-options";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { computeLineTotal } from "@/lib/posting/invoice-lines";
 
@@ -62,6 +64,8 @@ export default function QuotationPageClient() {
   const [quotationDate, setQuotationDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [customerId, setCustomerId] = useState("");
   const [keterangan, setKeterangan] = useState("");
+  const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);
+  const [projectCode, setProjectCode] = useState("");
   const [lines, setLines] = useState<LineState[]>([emptyLine()]);
 
   const defaults = useMemo(() => defaultDateRange(), []);
@@ -88,6 +92,7 @@ export default function QuotationPageClient() {
       if (!res.ok) throw new Error(data.error || "Gagal memuat data");
       setCustomers(data.customers || []);
       setProducts(data.products || []);
+      setProjectOptions(data.projectAddon?.options || []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal memuat");
     } finally {
@@ -157,6 +162,7 @@ export default function QuotationPageClient() {
           customer_id: customerId,
           quotation_date: quotationDate,
           keterangan,
+          project_code: projectCode || undefined,
           lines: validLines.map((l) => ({
             product_id: l.product_id,
             qty: Number(l.qty),
@@ -172,6 +178,7 @@ export default function QuotationPageClient() {
       setLines([emptyLine()]);
       setCustomerId("");
       setKeterangan("");
+      setProjectCode("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
     } finally {
@@ -238,6 +245,11 @@ export default function QuotationPageClient() {
                   </Select>
                 </div>
               </div>
+              <ProjectSelect
+                options={projectOptions}
+                value={projectCode}
+                onChange={setProjectCode}
+              />
               <div>
                 <Label>Keterangan (opsional)</Label>
                 <Input value={keterangan} onChange={(e) => setKeterangan(e.target.value)} />

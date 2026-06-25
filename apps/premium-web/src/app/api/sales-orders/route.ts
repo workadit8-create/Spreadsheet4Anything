@@ -18,6 +18,7 @@ import {
   invoiceNeedsPrintRekening,
   resolveInvoiceBankInfo
 } from "@/lib/penjualan/invoice-rekening";
+import { resolveProjectCodeForSave } from "@/lib/proyek/helpers";
 import { assertQuotationConvertible, markQuotationConverted } from "@/lib/pre-docs/convert";
 
 type LineInput = {
@@ -38,6 +39,7 @@ type CreateBody = {
   customer_id?: string;
   order_date?: string;
   quotation_id?: string;
+  project_code?: string;
   lines?: LineInput[];
   invoice_rekening_id?: string;
 };
@@ -214,6 +216,7 @@ async function createProperInvoice(
   }
 
   const quotationId = String(body.quotation_id || "").trim() || null;
+  let quotationProjectCode: string | null = null;
   if (quotationId) {
     try {
       await assertQuotationConvertible(supabase, quotationId, organizationId);
@@ -223,6 +226,28 @@ async function createProperInvoice(
         { status: 400 }
       );
     }
+    const { data: quotation } = await supabase
+      .from("quotations")
+      .select("project_code")
+      .eq("id", quotationId)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+    quotationProjectCode = quotation?.project_code || null;
+  }
+
+  let projectCode: string | null;
+  try {
+    projectCode = await resolveProjectCodeForSave(
+      supabase,
+      organizationId,
+      body.project_code,
+      quotationProjectCode
+    );
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Proyek tidak valid" },
+      { status: 400 }
+    );
   }
 
   const { data: customer, error: custErr } = await supabase
@@ -376,6 +401,7 @@ async function createProperInvoice(
       order_date: orderDate,
       subtotal,
       total: subtotal,
+      project_code: projectCode,
       metadata
     })
     .select("id, order_no, total, status")

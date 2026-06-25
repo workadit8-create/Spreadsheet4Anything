@@ -18,6 +18,7 @@ import {
   resolveKasBankAccount
 } from "@/lib/posting/linked-mutasi";
 import { assertPurchaseRequestConvertible, markPurchaseRequestConverted } from "@/lib/pre-docs/convert";
+import { resolveProjectCodeForSave } from "@/lib/proyek/helpers";
 
 type LineInput = {
   description: string;
@@ -34,6 +35,7 @@ type CreateBody = {
   bayar?: number;
   rekening?: string;
   purchase_request_id?: string;
+  project_code?: string;
   lines: LineInput[];
 };
 
@@ -139,6 +141,7 @@ export async function POST(request: Request) {
     }
 
     const purchaseRequestId = String(body.purchase_request_id || "").trim() || null;
+    let prProjectCode: string | null = null;
     if (purchaseRequestId) {
       try {
         await assertPurchaseRequestConvertible(supabase, purchaseRequestId, org.id);
@@ -148,6 +151,28 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
+      const { data: pr } = await supabase
+        .from("purchase_requests")
+        .select("project_code")
+        .eq("id", purchaseRequestId)
+        .eq("organization_id", org.id)
+        .maybeSingle();
+      prProjectCode = pr?.project_code || null;
+    }
+
+    let projectCode: string | null;
+    try {
+      projectCode = await resolveProjectCodeForSave(
+        supabase,
+        org.id,
+        body.project_code,
+        prProjectCode
+      );
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Proyek tidak valid" },
+        { status: 400 }
+      );
     }
 
     const { data: supplier, error: supErr } = await supabase
@@ -267,6 +292,7 @@ export async function POST(request: Request) {
         status: "CONFIRMED",
         order_date: orderDate,
         total: subtotal,
+        project_code: projectCode,
         metadata
       })
       .select("id, po_no, total, status")

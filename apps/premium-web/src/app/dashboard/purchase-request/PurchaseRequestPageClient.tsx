@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
+import { ProjectSelect } from "@/components/proyek/ProjectSelect";
+import type { ProjectOption } from "@/lib/proyek/bootstrap-options";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { computePurchaseLineTotal } from "@/lib/posting/purchase-lines";
 
@@ -76,6 +78,8 @@ export default function PurchaseRequestPageClient() {
   const [requestDate, setRequestDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [supplierId, setSupplierId] = useState("");
   const [keterangan, setKeterangan] = useState("");
+  const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);
+  const [projectCode, setProjectCode] = useState("");
   const [lines, setLines] = useState<LineState[]>([emptyLine()]);
 
   const defaults = useMemo(() => defaultDateRange(), []);
@@ -101,6 +105,7 @@ export default function PurchaseRequestPageClient() {
       if (!res.ok) throw new Error(data.error || "Gagal memuat data");
       setSuppliers(data.suppliers || []);
       setCategories(data.purchaseCategories || []);
+      setProjectOptions(data.projectAddon?.options || []);
       const catId = data.purchaseCategories?.[0]?.id || "";
       setLines((prev) =>
         prev.map((l) => (l.purchase_category_id ? l : { ...l, purchase_category_id: catId }))
@@ -160,6 +165,7 @@ export default function PurchaseRequestPageClient() {
           supplier_id: supplierId || undefined,
           request_date: requestDate,
           keterangan,
+          project_code: projectCode || undefined,
           lines: validLines.map((l) => ({
             description: l.description.trim(),
             purchase_category_id: l.purchase_category_id,
@@ -178,6 +184,7 @@ export default function PurchaseRequestPageClient() {
       setLines([emptyLine(catId)]);
       setSupplierId("");
       setKeterangan("");
+      setProjectCode("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
     } finally {
@@ -244,6 +251,11 @@ export default function PurchaseRequestPageClient() {
                   </Select>
                 </div>
               </div>
+              <ProjectSelect
+                options={projectOptions}
+                value={projectCode}
+                onChange={setProjectCode}
+              />
               <div>
                 <Label>Keterangan (opsional)</Label>
                 <Input value={keterangan} onChange={(e) => setKeterangan(e.target.value)} />
