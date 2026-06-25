@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUserPrimaryOrg } from "@/lib/org/get-user-org";
+import { ensureDefaultCoa } from "@/lib/coa/seed-default-coa";
 
 const ACCOUNT_TYPES = ["Aset", "Kewajiban", "Ekuitas", "Pendapatan", "Beban"] as const;
 
@@ -15,6 +16,13 @@ export async function GET() {
   const supabase = await createClient();
   const org = await getUserPrimaryOrg(supabase);
   if (!org) return NextResponse.json({ error: "Tidak ada organisasi" }, { status: 400 });
+
+  try {
+    await ensureDefaultCoa(supabase, org.id);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Gagal mengisi COA default";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 
   const { data, error } = await supabase
     .from("coa_accounts")
