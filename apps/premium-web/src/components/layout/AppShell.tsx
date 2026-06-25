@@ -52,7 +52,8 @@ const NAV: NavItem[] = [
     icon: "◇",
     addon: "project"
   },
-  { key: "tim", href: "/dashboard/tim", label: "Tim & Akses", icon: "◇" }
+  { key: "tim", href: "/dashboard/tim", label: "Tim & Akses", icon: "◇" },
+  { key: "akun", href: "/dashboard/akun", label: "Akun", icon: "◇" }
 ];
 
 function comingSoonLabels(addons: OrgAddonsMap): string[] {

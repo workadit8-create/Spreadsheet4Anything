@@ -76,3 +76,9 @@ Mutasi anggota lewat RPC Postgres (`add_org_member`, `update_org_member_role`, `
 `026_org_members_rpc.sql` — RPC `get_org_members()` untuk owner melihat daftar tim.
 
 `027_org_members_mutations_rpc.sql` — RPC tambah / ubah / hapus anggota (tanpa service role).
+
+`028_fix_add_org_member_password.sql` — perbaikan generator password di `add_org_member`.
+
+## Ganti password (semua peran)
+
+Menu **Akun** (`/dashboard/akun`) — setiap user bisa ubah password sendiri lewat `POST /api/auth/change-password`.

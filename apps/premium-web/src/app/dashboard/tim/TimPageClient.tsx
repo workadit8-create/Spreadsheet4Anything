@@ -131,7 +131,7 @@ export default function TimPageClient() {
           <p className="font-semibold">Password sementara (salin sekarang — tidak ditampilkan lagi):</p>
           <code className="mt-2 block rounded bg-white px-3 py-2 font-mono text-base">{tempPassword}</code>
           <p className="mt-2 text-xs text-amber-800">
-            Bagikan ke anggota tim. Mereka bisa login lalu ganti password lewat Supabase jika diaktifkan.
+            Bagikan ke anggota tim. Mereka bisa login lalu ganti password di menu <strong>Akun</strong>.
           </p>
         </div>
       )}
