@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { processPendingPostingJobs } from "@/lib/posting/worker";
+import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let auth;
+  try {
+    auth = await requireUserOrg(supabase);
+  } catch (e) {
+    return toOrgAuthResponse(e);
   }
+  const { org } = auth;
 
   let limit = 5;
   let retryFailed = true;
@@ -27,6 +31,7 @@ export async function POST(request: Request) {
     await supabase
       .from("posting_jobs")
       .update({ status: "PENDING", updated_at: new Date().toISOString() })
+      .eq("organization_id", org.id)
       .eq("status", "FAILED");
   }
 
@@ -34,7 +39,8 @@ export async function POST(request: Request) {
     const results = await processPendingPostingJobs(
       supabase,
       limit,
-      jobIds.length ? jobIds : undefined
+      jobIds.length ? jobIds : undefined,
+      org.id
     );
     return NextResponse.json({ processed: results.length, results });
   } catch (err) {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getUserPrimaryOrg } from "@/lib/org/get-user-org";
+import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { fetchCompanyProfile } from "@/lib/org/company-profile";
 import { lineBayar, summarizeHutangFromLines } from "@/lib/posting/hutang";
 import type { PurchaseLineRow } from "@/lib/posting/types";
@@ -11,11 +11,13 @@ export async function GET(
 ) {
   const { id } = await context.params;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const org = await getUserPrimaryOrg(supabase);
-  if (!org) return NextResponse.json({ error: "Tidak ada organisasi" }, { status: 400 });
+  let auth;
+  try {
+    auth = await requireUserOrg(supabase);
+  } catch (e) {
+    return toOrgAuthResponse(e);
+  }
+  const { user, org } = auth;
 
   const { data: order, error } = await supabase
     .from("purchase_orders")

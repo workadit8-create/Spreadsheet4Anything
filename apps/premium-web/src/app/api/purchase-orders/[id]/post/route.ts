@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { assertOrgMatch, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { enqueuePurchaseOrderPostingJob } from "@/lib/posting/enqueue";
 import { processPendingPostingJobs } from "@/lib/posting/worker";
 
@@ -9,8 +10,13 @@ export async function POST(
 ) {
   const { id: orderId } = await context.params;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let auth;
+  try {
+    auth = await requireUserOrg(supabase);
+  } catch (e) {
+    return toOrgAuthResponse(e);
+  }
+  const { org } = auth;
 
   const { data: order, error: orderErr } = await supabase
     .from("purchase_orders")
@@ -23,12 +29,18 @@ export async function POST(
   }
 
   try {
+    assertOrgMatch(org.id, order.organization_id);
+  } catch (e) {
+    return toOrgAuthResponse(e);
+  }
+
+  try {
     const jobId = await enqueuePurchaseOrderPostingJob(
       supabase,
       order.organization_id,
       order.id
     );
-    const results = await processPendingPostingJobs(supabase, 1, [jobId]);
+    const results = await processPendingPostingJobs(supabase, 1, [jobId], org.id);
     const jobResult = results.find((r) => r.jobId === jobId);
 
     if (!jobResult?.ok) {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { deleteConfirmedPiutangPayment } from "@/lib/posting/void-piutang-payment";
 
 export async function DELETE(
@@ -8,8 +9,11 @@ export async function DELETE(
 ) {
   const { id: paymentId } = await context.params;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    await requireUserOrg(supabase);
+  } catch (e) {
+    return toOrgAuthResponse(e);
+  }
 
   try {
     await deleteConfirmedPiutangPayment(supabase, paymentId);

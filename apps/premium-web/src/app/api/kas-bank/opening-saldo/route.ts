@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getUserPrimaryOrg } from "@/lib/org/get-user-org";
+import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { computeSaldoByAccountName, type KasBankAccount } from "@/lib/posting/mutasi";
 import { insertOpeningBalanceMutasi } from "@/lib/posting/linked-mutasi";
 import { generateMutasiTransactionId } from "@/lib/posting/ids";
@@ -30,13 +30,13 @@ async function journalBalanceByCoa(
 
 export async function GET() {
   const supabase = await createClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const org = await getUserPrimaryOrg(supabase);
-  if (!org) return NextResponse.json({ error: "Tidak ada organisasi" }, { status: 400 });
+  let auth;
+  try {
+    auth = await requireUserOrg(supabase);
+  } catch (e) {
+    return toOrgAuthResponse(e);
+  }
+  const { user, org } = auth;
 
   const { data: accounts, error: accErr } = await supabase
     .from("cash_bank_accounts")
@@ -87,13 +87,13 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const org = await getUserPrimaryOrg(supabase);
-  if (!org) return NextResponse.json({ error: "Tidak ada organisasi" }, { status: 400 });
+  let auth;
+  try {
+    auth = await requireUserOrg(supabase);
+  } catch (e) {
+    return toOrgAuthResponse(e);
+  }
+  const { org } = auth;
 
   const body = await request.json();
   const transferDate = String(body.transferDate || new Date().toISOString().slice(0, 10)).slice(0, 10);

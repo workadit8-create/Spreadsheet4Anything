@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getUserPrimaryOrg } from "@/lib/org/get-user-org";
+import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { PRODUCT_KINDS, type ProductKind } from "@/lib/products/inventory-policy";
 
 export async function GET() {
   const supabase = await createClient();
-  const org = await getUserPrimaryOrg(supabase);
-  if (!org) return NextResponse.json({ error: "Tidak ada organisasi" }, { status: 400 });
+  let auth;
+  try {
+    auth = await requireUserOrg(supabase);
+  } catch (e) {
+    return toOrgAuthResponse(e);
+  }
+  const { org } = auth;
 
   const { data, error } = await supabase
     .from("product_categories")
@@ -21,8 +26,13 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const org = await getUserPrimaryOrg(supabase);
-  if (!org) return NextResponse.json({ error: "Tidak ada organisasi" }, { status: 400 });
+  let auth;
+  try {
+    auth = await requireUserOrg(supabase);
+  } catch (e) {
+    return toOrgAuthResponse(e);
+  }
+  const { org } = auth;
 
   const body = await request.json();
   const name = String(body.name || "").trim();

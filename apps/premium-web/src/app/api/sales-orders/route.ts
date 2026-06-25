@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireUserOrg, resolveUserOrgId, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { generateOrderNo, generateTransactionId } from "@/lib/posting/ids";
 import {
   allocatePaymentAcrossLines,
@@ -38,14 +39,18 @@ type CreateBody = {
 
 export async function GET() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let auth;
+  try {
+    auth = await requireUserOrg(supabase);
+  } catch (e) {
+    return toOrgAuthResponse(e);
   }
+  const { org } = auth;
 
   const { data: orders, error } = await supabase
     .from("sales_orders")
     .select("id, order_no, order_date, total, status, customer_id, metadata, created_at")
+    .eq("organization_id", org.id)
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -58,6 +63,7 @@ export async function GET() {
     ? await supabase
         .from("posting_jobs")
         .select("id, doc_id, status, last_error, engine_ref, attempts, updated_at")
+        .eq("organization_id", org.id)
         .eq("doc_type", "SALES_ORDER")
         .in("doc_id", ids)
     : { data: [] };
@@ -79,9 +85,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let auth;
+  try {
+    auth = await requireUserOrg(supabase);
+  } catch (e) {
+    return toOrgAuthResponse(e);
   }
 
   const body = (await request.json()) as CreateBody;
@@ -101,18 +109,6 @@ export async function POST(request: Request) {
   return createLabInvoice(supabase, body);
 }
 
-async function resolveOrgId(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  organizationId?: string
-) {
-  if (organizationId) return organizationId;
-  const { data: orgs, error: orgErr } = await supabase.rpc("get_my_organizations");
-  if (orgErr || !orgs?.length) {
-    throw new Error(orgErr?.message || "Tidak ada organisasi");
-  }
-  return orgs[0].id as string;
-}
-
 async function createLabInvoice(
   supabase: Awaited<ReturnType<typeof createClient>>,
   body: CreateBody
@@ -129,7 +125,7 @@ async function createLabInvoice(
   const rekening = String(body.rekening || (paymentStatus === "PENJUALAN TUNAI" ? "Kas" : "")).trim();
   const keterangan = String(body.keterangan || "Penjualan Premium Web").trim();
 
-  const organizationId = await resolveOrgId(supabase, body.organizationId);
+  const organizationId = await resolveUserOrgId(supabase, body.organizationId);
 
   const { data: warehouse } = await supabase
     .from("warehouses")
@@ -206,7 +202,7 @@ async function createProperInvoice(
   supabase: Awaited<ReturnType<typeof createClient>>,
   body: CreateBody
 ) {
-  const organizationId = await resolveOrgId(supabase, body.organizationId);
+  const organizationId = await resolveUserOrgId(supabase, body.organizationId);
   const customerId = String(body.customer_id || "").trim();
   if (!customerId) {
     return NextResponse.json({ error: "Customer wajib" }, { status: 400 });

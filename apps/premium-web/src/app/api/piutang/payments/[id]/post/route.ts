@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { assertOrgMatch, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { enqueuePiutangPaymentJob } from "@/lib/posting/enqueue";
 import { processPendingPostingJobs } from "@/lib/posting/worker";
 
@@ -9,8 +10,13 @@ export async function POST(
 ) {
   const { id: paymentId } = await context.params;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let auth;
+  try {
+    auth = await requireUserOrg(supabase);
+  } catch (e) {
+    return toOrgAuthResponse(e);
+  }
+  const { org } = auth;
 
   const { data: payment, error: payErr } = await supabase
     .from("payments")
@@ -23,6 +29,12 @@ export async function POST(
     return NextResponse.json({ error: "Pelunasan tidak ditemukan" }, { status: 404 });
   }
 
+  try {
+    assertOrgMatch(org.id, payment.organization_id);
+  } catch (e) {
+    return toOrgAuthResponse(e);
+  }
+
   const meta = (payment.metadata || {}) as Record<string, unknown>;
   const invoiceNo = String(meta.invoiceNo || "");
 
@@ -32,7 +44,7 @@ export async function POST(
       payment.organization_id,
       payment.id
     );
-    const results = await processPendingPostingJobs(supabase, 1, [jobId]);
+    const results = await processPendingPostingJobs(supabase, 1, [jobId], org.id);
     const jobResult = results.find((r) => r.jobId === jobId);
 
     if (!jobResult?.ok) {

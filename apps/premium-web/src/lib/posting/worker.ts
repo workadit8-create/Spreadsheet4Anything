@@ -431,7 +431,8 @@ async function processPiutangPaymentJob(
 export async function processPendingPostingJobs(
   supabase: SupabaseClient,
   limit = 5,
-  jobIds?: string[]
+  jobIds?: string[],
+  organizationId?: string
 ): Promise<ProcessJobResult[]> {
   let jobsQuery = supabase.from("posting_jobs").select("*");
 
@@ -439,6 +440,10 @@ export async function processPendingPostingJobs(
     jobsQuery = jobsQuery.in("id", jobIds);
   } else {
     jobsQuery = jobsQuery.eq("status", "PENDING");
+  }
+
+  if (organizationId) {
+    jobsQuery = jobsQuery.eq("organization_id", organizationId);
   }
 
   const { data: jobs, error: listErr } = await jobsQuery

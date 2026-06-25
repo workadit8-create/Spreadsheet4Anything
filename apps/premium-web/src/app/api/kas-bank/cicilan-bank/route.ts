@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getUserPrimaryOrg } from "@/lib/org/get-user-org";
+import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { ensureDefaultCoa } from "@/lib/coa/seed-default-coa";
 import { postCicilanBankPayment, validateCicilanBankInput } from "@/lib/posting/cicilan-bank";
 import { generateCicilanBankDocNo, generateCicilanBankTransactionId } from "@/lib/posting/ids";
@@ -25,13 +25,13 @@ function coaAsAccount(row: {
 
 export async function GET() {
   const supabase = await createClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const org = await getUserPrimaryOrg(supabase);
-  if (!org) return NextResponse.json({ error: "Tidak ada organisasi" }, { status: 400 });
+  let auth;
+  try {
+    auth = await requireUserOrg(supabase);
+  } catch (e) {
+    return toOrgAuthResponse(e);
+  }
+  const { user, org } = auth;
 
   await ensureDefaultCoa(supabase, org.id);
 
@@ -89,13 +89,13 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const org = await getUserPrimaryOrg(supabase);
-  if (!org) return NextResponse.json({ error: "Tidak ada organisasi" }, { status: 400 });
+  let auth;
+  try {
+    auth = await requireUserOrg(supabase);
+  } catch (e) {
+    return toOrgAuthResponse(e);
+  }
+  const { org } = auth;
 
   const body = await request.json();
   const entryDate = String(body.entryDate || "").slice(0, 10);

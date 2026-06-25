@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { voidPurchaseOrder } from "@/lib/posting/void-purchase-order";
 
 export async function POST(
@@ -8,8 +9,13 @@ export async function POST(
 ) {
   const { id: orderId } = await context.params;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let auth;
+  try {
+    auth = await requireUserOrg(supabase);
+  } catch (e) {
+    return toOrgAuthResponse(e);
+  }
+  const { user } = auth;
 
   const body = await request.json().catch(() => ({}));
   const reason = typeof body.reason === "string" ? body.reason : undefined;

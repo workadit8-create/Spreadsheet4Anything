@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getUserPrimaryOrg } from "@/lib/org/get-user-org";
+import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { ensureDefaultCoa } from "@/lib/coa/seed-default-coa";
 
 const ACCOUNT_TYPES = ["Aset", "Kewajiban", "Ekuitas", "Pendapatan", "Beban"] as const;
@@ -14,8 +14,13 @@ function formatCoaError(message: string, code: string): string {
 
 export async function GET() {
   const supabase = await createClient();
-  const org = await getUserPrimaryOrg(supabase);
-  if (!org) return NextResponse.json({ error: "Tidak ada organisasi" }, { status: 400 });
+  let auth;
+  try {
+    auth = await requireUserOrg(supabase);
+  } catch (e) {
+    return toOrgAuthResponse(e);
+  }
+  const { org } = auth;
 
   try {
     await ensureDefaultCoa(supabase, org.id);
@@ -36,8 +41,13 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const org = await getUserPrimaryOrg(supabase);
-  if (!org) return NextResponse.json({ error: "Tidak ada organisasi" }, { status: 400 });
+  let auth;
+  try {
+    auth = await requireUserOrg(supabase);
+  } catch (e) {
+    return toOrgAuthResponse(e);
+  }
+  const { org } = auth;
 
   const body = await request.json();
   const code = String(body.code || "").trim();
