@@ -7,7 +7,7 @@ import {
   type CreateMutasiInput,
   type KasBankAccount
 } from "@/lib/posting/mutasi";
-import { isLinkedCashTransfer } from "@/lib/posting/linked-mutasi";
+import { isLinkedCashTransfer, isOpeningBalanceTransfer } from "@/lib/posting/linked-mutasi";
 import { generateMutasiTransactionId, generateMutasiTransferNo } from "@/lib/posting/ids";
 
 export async function GET(request: Request) {
@@ -72,6 +72,7 @@ export async function GET(request: Request) {
       keterangan: t.keterangan || "",
       status: t.status,
       linked: isLinkedCashTransfer(meta),
+      openingBalance: isOpeningBalanceTransfer(meta),
       transactionId: t.transaction_id
     };
   });

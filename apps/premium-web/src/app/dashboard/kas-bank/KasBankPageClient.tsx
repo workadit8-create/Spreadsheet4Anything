@@ -21,6 +21,14 @@ type MutasiItem = {
   keterangan: string;
   status: string;
   linked?: boolean;
+  openingBalance?: boolean;
+};
+
+type OpeningAccount = {
+  id: string;
+  name: string;
+  coa_account_name: string;
+  saldoMutasi: number;
 };
 
 type MutasiKind = "Transfer" | "Masuk" | "Keluar";
@@ -42,9 +50,12 @@ function defaultDateRange() {
   };
 }
 
-function statusLabel(status: string, linked?: boolean): string {
+function statusLabel(status: string, linked?: boolean, openingBalance?: boolean): string {
   if (status === "CONFIRMED") return "Belum jurnal";
-  if (status === "POSTED") return linked ? "Tercatat" : "Jurnal OK";
+  if (status === "POSTED") {
+    if (openingBalance) return "Saldo awal";
+    return linked ? "Tercatat" : "Jurnal OK";
+  }
   if (status === "VOIDED") return "Dibatalkan";
   return status;
 }
@@ -88,6 +99,33 @@ export default function KasBankPageClient() {
   const [nominal, setNominal] = useState("");
   const [keterangan, setKeterangan] = useState("");
 
+  const [openingAccounts, setOpeningAccounts] = useState<OpeningAccount[]>([]);
+  const [journalByCoa, setJournalByCoa] = useState<Record<string, number>>({});
+  const [allocatedByCoa, setAllocatedByCoa] = useState<Record<string, number>>({});
+  const [openingAmounts, setOpeningAmounts] = useState<Record<string, string>>({});
+  const [openingDate, setOpeningDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [openingSaving, setOpeningSaving] = useState(false);
+
+  const loadOpening = useCallback(async () => {
+    try {
+      const res = await fetch("/api/kas-bank/opening-saldo");
+      const data = await res.json();
+      if (!res.ok) return;
+      setOpeningAccounts(data.accounts || []);
+      setJournalByCoa(data.journalByCoa || {});
+      setAllocatedByCoa(data.allocatedByCoa || {});
+    } catch {
+      /* optional panel */
+    }
+  }, []);
+
+  const needsOpeningAllocation = useMemo(() => {
+    return Object.entries(journalByCoa).some(([coa, journalBal]) => {
+      if (journalBal <= 0) return false;
+      return (allocatedByCoa[coa] || 0) < journalBal - 0.01;
+    });
+  }, [journalByCoa, allocatedByCoa]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -110,7 +148,8 @@ export default function KasBankPageClient() {
 
   useEffect(() => {
     load();
-  }, [load]);
+    void loadOpening();
+  }, [load, loadOpening]);
 
   function resetForm() {
     setTransferDate(new Date().toISOString().slice(0, 10));
@@ -211,6 +250,37 @@ export default function KasBankPageClient() {
     }
   }
 
+  async function submitOpeningSaldo(e: React.FormEvent) {
+    e.preventDefault();
+    setOpeningSaving(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const allocations = openingAccounts
+        .map((a) => ({
+          accountId: a.id,
+          amount: Number(String(openingAmounts[a.id] || "").replace(/\./g, "")) || 0
+        }))
+        .filter((r) => r.amount > 0);
+
+      const res = await fetch("/api/kas-bank/opening-saldo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transferDate: openingDate, allocations })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal alokasi");
+      setMessage(`Saldo awal rekening tercatat (${data.inserted} baris).`);
+      setOpeningAmounts({});
+      await load();
+      await loadOpening();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal alokasi");
+    } finally {
+      setOpeningSaving(false);
+    }
+  }
+
   const showSource = kind === "Transfer" || kind === "Keluar";
   const showDest = kind === "Transfer" || kind === "Masuk";
   const showContra = kind === "Masuk" || kind === "Keluar";
@@ -247,6 +317,69 @@ export default function KasBankPageClient() {
           </Card>
         )}
       </div>
+
+      {needsOpeningAllocation && openingAccounts.length > 0 && (
+        <Card className="mb-6 border-amber-200 bg-amber-50/80">
+          <h2 className="mb-1 text-base font-semibold text-amber-950">Alokasi saldo awal rekening</h2>
+          <p className="mb-4 text-sm text-amber-900/90">
+            Neraca sudah balance via <strong>Jurnal Manual</strong> (COA Kas/Bank). Langkah ini membagi saldo ke
+            rekening master (KAS KECIL, BANK BCA, …) <strong>tanpa jurnal tambahan</strong> — supaya kartu saldo
+            di atas benar sebelum transaksi.
+          </p>
+          <div className="mb-4 flex flex-wrap gap-4 text-sm">
+            {Object.entries(journalByCoa).map(([coa, bal]) =>
+              bal > 0 ? (
+                <div key={coa} className="rounded-lg bg-white/80 px-3 py-2 ring-1 ring-amber-200">
+                  <span className="font-medium text-slate-800">{coa}</span>
+                  <span className="text-slate-500"> jurnal: </span>
+                  <span className="font-semibold tabular-nums">{formatRp(bal)}</span>
+                  <span className="text-slate-500"> · dialokasi: </span>
+                  <span className="font-semibold tabular-nums">{formatRp(allocatedByCoa[coa] || 0)}</span>
+                </div>
+              ) : null
+            )}
+          </div>
+          <form onSubmit={submitOpeningSaldo}>
+            <div className="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {openingAccounts.map((a) => (
+                <div key={a.id}>
+                  <Label>{a.name}</Label>
+                  <p className="mb-1 text-[11px] text-slate-500">{a.coa_account_name}</p>
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="0"
+                    value={openingAmounts[a.id] || ""}
+                    onChange={(e) =>
+                      setOpeningAmounts((prev) => ({ ...prev, [a.id]: e.target.value }))
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <Label>Tanggal saldo awal</Label>
+                <Input
+                  type="date"
+                  value={openingDate}
+                  onChange={(e) => setOpeningDate(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" disabled={openingSaving}>
+                {openingSaving ? "Menyimpan…" : "Simpan alokasi saldo awal"}
+              </Button>
+              <Link href="/dashboard/jurnal/manual" className="text-sm text-brand-700 hover:underline">
+                Jurnal Manual →
+              </Link>
+            </div>
+          </form>
+          <p className="mt-3 text-xs text-amber-800">
+            Contoh: Kas jurnal 25 jt → KAS KECIL 25 jt. Bank jurnal 150 jt → BANK BCA 100 jt + BANK MANDIRI 50 jt.
+          </p>
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
         <Card>
@@ -381,7 +514,7 @@ export default function KasBankPageClient() {
                           <td className="px-3 py-2 font-semibold">{formatRp(row.amount)}</td>
                           <td className="px-3 py-2">
                             <span className={`font-semibold ${statusClass(row.status)}`}>
-                              {statusLabel(row.status, row.linked)}
+                              {statusLabel(row.status, row.linked, row.openingBalance)}
                             </span>
                           </td>
                           <td className="px-3 py-2">

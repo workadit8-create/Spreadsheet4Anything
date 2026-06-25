@@ -43,6 +43,12 @@ export function isLinkedCashTransfer(metadata: Record<string, unknown> | null | 
   return metadata?.linked === true;
 }
 
+export function isOpeningBalanceTransfer(
+  metadata: Record<string, unknown> | null | undefined
+): boolean {
+  return metadata?.opening_balance === true;
+}
+
 export function linkedMutasiTransactionId(prefix: string, key: string): string {
   const safe = String(key).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
   return `LINK-${prefix}-${safe}`;
@@ -116,6 +122,50 @@ export async function insertLinkedMasukMutasi(
   input: Omit<InsertLinkedInput, "kind">
 ): Promise<void> {
   await insertLinkedMutasi(supabase, { ...input, kind: "Masuk" });
+}
+
+/** Alokasi saldo awal ke rekening master — jurnal sudah lewat Jurnal Manual, tanpa MUTASI_DANA. */
+export async function insertOpeningBalanceMutasi(
+  supabase: SupabaseClient,
+  input: {
+    organizationId: string;
+    transferDate: string;
+    account: KasBankAccountRef;
+    amount: number;
+    keterangan?: string;
+    transactionId: string;
+  }
+): Promise<void> {
+  const amount = Number(input.amount) || 0;
+  if (amount <= 0) return;
+
+  const row = {
+    organization_id: input.organizationId,
+    transfer_no: generateMutasiTransferNo(),
+    transfer_date: input.transferDate,
+    kind: "Masuk" as const,
+    source_account_id: null,
+    source_account_name: null,
+    source_coa_name: null,
+    dest_account_id: input.account.id,
+    dest_account_name: input.account.name,
+    dest_coa_name: input.account.coa_account_name,
+    contra_coa_name: null,
+    amount,
+    keterangan: input.keterangan || `Saldo awal ${input.account.name}`,
+    transaction_id: input.transactionId,
+    status: "POSTED",
+    metadata: {
+      linked: true,
+      opening_balance: true,
+      journalHandledBy: "MANUAL_JOURNAL"
+    }
+  };
+
+  const { error } = await supabase.from("cash_transfers").insert(row);
+  if (error && !error.message.includes("duplicate key")) {
+    throw new Error(error.message);
+  }
 }
 
 export async function voidLinkedMutasiBySource(
