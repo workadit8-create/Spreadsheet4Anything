@@ -6,7 +6,7 @@ Setiap client punya baris di `tenant_addons`. Menu & API modul add-on hanya munc
 
 | Key | Modul | Status |
 |-----|--------|--------|
-| `project` | Manajemen Proyek | Pilot — hybrid-lab |
+| `project` | Manajemen Proyek | Pilot — hybrid-lab (fase 2: CRUD, checklist, L/R) |
 | `pos` | POS | Belum |
 | `pos_gramasi` | POS Gramasi | Belum |
 | `crm` | CRM | Belum |
@@ -26,6 +26,12 @@ Client produksi (Tirta, dll.) tidak melihat menu sampai add-on diaktifkan via SQ
 - `src/lib/org/addons.ts` — `fetchOrgAddons`, `isAddonEnabled`, `requireAddon`
 - `GET /api/org/addons` — daftar add-on org aktif
 - `PATCH /api/org/addons` — toggle (hanya slug `hybrid-lab`)
+- `GET/POST /api/projects` — daftar & simpan proyek
+- `GET /api/projects/[code]/tasks` — checklist
+- `POST /api/projects/[code]/tasks/init` — seed template (wedding/corporate/kecil)
+- `GET /api/projects/lr` — laporan L/R per proyek (dari invoice & PO bertag `project_code`)
+
+Tabel: `projects`, `project_tasks` (migration `024_projects.sql`).
 
 ## Aktifkan untuk client produksi
 
