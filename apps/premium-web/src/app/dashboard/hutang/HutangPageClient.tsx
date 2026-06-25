@@ -7,6 +7,8 @@ import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { confirmPostPoJournal, poDebtStatusLabel } from "@/lib/pembelian/po-status-label";
+import { PostingRoleBanner } from "@/components/layout/PostingRoleBanner";
+import { canPostJournal, type MembershipRole } from "@/lib/org/roles";
 
 type HutangItem = {
   purchaseOrderId: string;
@@ -47,7 +49,8 @@ function defaultDateRange() {
   };
 }
 
-export default function HutangPageClient() {
+export default function HutangPageClient({ role }: { role: MembershipRole }) {
+  const canPost = canPostJournal(role);
   const defaults = useMemo(() => defaultDateRange(), []);
   const [start, setStart] = useState(defaults.start);
   const [end, setEnd] = useState(defaults.end);
@@ -291,8 +294,14 @@ export default function HutangPageClient() {
       <PageHeader
         badge="Hutang"
         title="Daftar hutang"
-        description="PO kredit / kurang bayar. Post jurnal = catat ke buku besar. Pelunasan (Bayar) dilakukan setelah jurnal pembelian diposting."
+        description={
+          canPost
+            ? "PO kredit / kurang bayar. Post jurnal = catat ke buku besar. Pelunasan (Bayar) dilakukan setelah jurnal pembelian diposting."
+            : "PO kredit / kurang bayar. Catat pelunasan di sini; posting jurnal dilakukan akuntan atau owner."
+        }
       />
+
+      <PostingRoleBanner canPost={canPost} />
 
       <Card className="mb-6">
         <div className="grid gap-4 sm:grid-cols-4">
@@ -385,6 +394,7 @@ export default function HutangPageClient() {
                     </td>
                     <td className="px-4 py-3">
                       {row.status === "CONFIRMED" ? (
+                        canPost ? (
                         <Button
                           type="button"
                           variant="secondary"
@@ -393,6 +403,9 @@ export default function HutangPageClient() {
                         >
                           {busy ? "..." : "Post jurnal"}
                         </Button>
+                        ) : (
+                          <span className="text-xs text-amber-600">Menunggu posting</span>
+                        )
                       ) : (
                         <button
                           type="button"
@@ -415,7 +428,9 @@ export default function HutangPageClient() {
       <Card className="mt-6">
         <h2 className="mb-3 text-base font-semibold text-slate-900">Riwayat pelunasan</h2>
         <p className="mb-4 text-xs text-slate-500">
-          CONFIRMED → Post jurnal · POSTED → Batal (void + jurnal pembalik)
+          {canPost
+            ? "CONFIRMED → Post jurnal · POSTED → Batal (void + jurnal pembalik)"
+            : "Pelunasan CONFIRMED menunggu posting jurnal oleh akuntan atau owner."}
         </p>
         {historyMessage && <p className="mb-3 text-sm text-slate-600">{historyMessage}</p>}
         {historyLoading ? (
@@ -461,6 +476,7 @@ export default function HutangPageClient() {
                         <div className="flex flex-wrap gap-1">
                           {row.status === "CONFIRMED" && (
                             <>
+                              {canPost && (
                               <Button
                                 type="button"
                                 variant="secondary"
@@ -469,6 +485,7 @@ export default function HutangPageClient() {
                               >
                                 {busy ? "..." : "Post jurnal"}
                               </Button>
+                              )}
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -479,7 +496,7 @@ export default function HutangPageClient() {
                               </Button>
                             </>
                           )}
-                          {row.status === "POSTED" && (
+                          {row.status === "POSTED" && canPost && (
                             <Button
                               type="button"
                               variant="secondary"

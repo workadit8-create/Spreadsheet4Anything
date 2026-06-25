@@ -114,6 +114,10 @@ export function canAccessDashboardPath(role: MembershipRole, pathname: string): 
 /** Posting jurnal & void — owner + akuntan */
 export const POSTING_ROLES: MembershipRole[] = ["owner", "akuntan"];
 
+export function canPostJournal(role: MembershipRole): boolean {
+  return POSTING_ROLES.includes(role);
+}
+
 /** Master kas & bank, profil usaha, logo — owner saja */
 export const OWNER_ONLY_ROLES: MembershipRole[] = ["owner"];
 

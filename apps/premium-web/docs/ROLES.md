@@ -62,6 +62,16 @@ PLATFORM_ADMIN_EMAILS=workadit8@gmail.com
 
 Tab yang tidak boleh diedit disembunyikan di UI (bukan hanya error saat simpan).
 
+### Halaman operasional — posting jurnal
+
+Tombol **Post jurnal** dan **Batal** disembunyikan untuk **staff** (banner penjelasan ditampilkan). Staff tetap bisa: buat invoice/PO, hapus CONFIRMED, catat pelunasan, mutasi kas.
+
+| Halaman | Staff | Akuntan / Owner |
+|---------|-------|-----------------|
+| Riwayat invoice / PO | Lihat, hapus | + Post / Batal |
+| Piutang / Hutang (invoice/PO + pelunasan) | Bayar, simpan pelunasan | + Post / Batal |
+| Kas & Bank (mutasi manual) | Simpan mutasi | + Post / Batal manual |
+
 ## Kelola tim (fase B)
 
 Menu **Tim & Akses** (`/dashboard/tim`) — **owner saja**.

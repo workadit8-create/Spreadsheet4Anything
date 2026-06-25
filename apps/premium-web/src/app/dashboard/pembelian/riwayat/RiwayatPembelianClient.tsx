@@ -9,6 +9,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { confirmPostPoJournal, poDebtStatusLabel } from "@/lib/pembelian/po-status-label";
 import { buildPoPrintHtml, openPoPrintWindow, type PoPrintCompany } from "@/lib/pembelian/po-print";
 import { DetailModalTabs, TransactionJournalView } from "@/components/jurnal/TransactionJournalView";
+import { PostingRoleBanner } from "@/components/layout/PostingRoleBanner";
+import { canPostJournal, type MembershipRole } from "@/lib/org/roles";
 
 type HistoryRow = {
   id: string;
@@ -55,7 +57,8 @@ function statusClass(status: string) {
   return "text-slate-500";
 }
 
-export default function RiwayatPembelianClient() {
+export default function RiwayatPembelianClient({ role }: { role: MembershipRole }) {
+  const canPost = canPostJournal(role);
   const defaults = useMemo(() => defaultDateRange(), []);
   const [start, setStart] = useState(defaults.start);
   const [end, setEnd] = useState(defaults.end);
@@ -256,6 +259,8 @@ export default function RiwayatPembelianClient() {
         <Link href="/dashboard/pembelian" className="text-sm text-slate-500 hover:text-slate-700">← Pembelian</Link>
       </PageHeader>
 
+      <PostingRoleBanner canPost={canPost} />
+
       <Card className="mb-6">
         <div className="flex flex-wrap items-end gap-4">
           <div>
@@ -346,11 +351,13 @@ export default function RiwayatPembelianClient() {
                           <Button type="button" variant="ghost" onClick={() => openDetail(row)}>Detail</Button>
                           {row.status === "CONFIRMED" && (
                             <>
-                              <Button type="button" variant="secondary" disabled={busy} onClick={() => postOrder(row.id, row.poNo, row.sisaTagihan)}>Post jurnal</Button>
+                              {canPost && (
+                                <Button type="button" variant="secondary" disabled={busy} onClick={() => postOrder(row.id, row.poNo, row.sisaTagihan)}>Post jurnal</Button>
+                              )}
                               <Button type="button" variant="ghost" disabled={busy} onClick={() => deleteOrder(row.id, row.poNo)}>Hapus</Button>
                             </>
                           )}
-                          {row.status === "POSTED" && (
+                          {row.status === "POSTED" && canPost && (
                             <Button type="button" variant="secondary" disabled={busy} onClick={() => voidOrder(row.id, row.poNo)}>Batal</Button>
                           )}
                         </div>

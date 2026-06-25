@@ -8,6 +8,12 @@ import { StatCard } from "@/components/ui/StatCard";
 import { DashboardCharts } from "@/components/dashboard/DashboardCharts";
 import { OnboardingChecklist } from "@/components/dashboard/OnboardingChecklist";
 import type { BalanceSlice, MonthlyTrendPoint } from "@/lib/dashboard/chart-data";
+import {
+  canPostJournal,
+  isNavKeyAllowed,
+  type MembershipRole,
+  type NavKey
+} from "@/lib/org/roles";
 
 type Summary = {
   org: { id: string; name: string; slug: string };
@@ -54,7 +60,27 @@ function statusClass(status: string) {
   return "text-slate-500";
 }
 
-export default function DashboardPageClient({ userEmail }: { userEmail?: string | null }) {
+const QUICK_LINKS: Array<{ href: string; label: string; key: NavKey }> = [
+  { href: "/dashboard/penjualan", label: "Penjualan", key: "penjualan" },
+  { href: "/dashboard/pembelian", label: "Pembelian", key: "pembelian" },
+  { href: "/dashboard/quotation", label: "Quotation", key: "quotation" },
+  { href: "/dashboard/purchase-request", label: "Purchase Request", key: "purchase-request" },
+  { href: "/dashboard/piutang", label: "Piutang", key: "piutang" },
+  { href: "/dashboard/hutang", label: "Hutang", key: "hutang" },
+  { href: "/dashboard/jurnal", label: "Jurnal", key: "jurnal" },
+  { href: "/dashboard/laporan", label: "Laporan", key: "laporan" },
+  { href: "/dashboard/master", label: "Master Data", key: "master" }
+];
+
+export default function DashboardPageClient({
+  userEmail,
+  role
+}: {
+  userEmail?: string | null;
+  role: MembershipRole;
+}) {
+  const canPost = canPostJournal(role);
+  const quickLinks = QUICK_LINKS.filter((item) => isNavKeyAllowed(role, item.key));
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -141,12 +167,16 @@ export default function DashboardPageClient({ userEmail }: { userEmail?: string 
 
           {(summary.pendingPost.invoices > 0 || summary.pendingPost.purchaseOrders > 0) && (
             <Card className="mb-8 border-amber-200 bg-amber-50/80">
-              <h2 className="text-sm font-semibold text-amber-900">Perlu tindakan</h2>
+              <h2 className="text-sm font-semibold text-amber-900">
+                {canPost ? "Perlu tindakan" : "Menunggu posting akuntan"}
+              </h2>
               <p className="mt-1 text-sm text-amber-800">
-                Ada transaksi CONFIRMED yang belum diposting ke jurnal.
+                {canPost
+                  ? "Ada transaksi CONFIRMED yang belum diposting ke jurnal."
+                  : "Ada transaksi CONFIRMED yang belum diposting. Tim akuntan atau owner akan memposting ke jurnal."}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                {summary.pendingPost.invoices > 0 && (
+                {summary.pendingPost.invoices > 0 && isNavKeyAllowed(role, "penjualan-riwayat") && (
                   <Link
                     href="/dashboard/penjualan/riwayat"
                     className="rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-amber-900 ring-1 ring-amber-200 hover:bg-amber-50"
@@ -154,13 +184,23 @@ export default function DashboardPageClient({ userEmail }: { userEmail?: string 
                     {summary.pendingPost.invoices} invoice →
                   </Link>
                 )}
-                {summary.pendingPost.purchaseOrders > 0 && (
+                {summary.pendingPost.purchaseOrders > 0 && isNavKeyAllowed(role, "pembelian-riwayat") && (
                   <Link
                     href="/dashboard/pembelian/riwayat"
                     className="rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-amber-900 ring-1 ring-amber-200 hover:bg-amber-50"
                   >
                     {summary.pendingPost.purchaseOrders} PO →
                   </Link>
+                )}
+                {summary.pendingPost.invoices > 0 && !isNavKeyAllowed(role, "penjualan-riwayat") && (
+                  <span className="text-sm text-amber-800">
+                    {summary.pendingPost.invoices} invoice menunggu posting
+                  </span>
+                )}
+                {summary.pendingPost.purchaseOrders > 0 && !isNavKeyAllowed(role, "pembelian-riwayat") && (
+                  <span className="text-sm text-amber-800">
+                    {summary.pendingPost.purchaseOrders} PO menunggu posting
+                  </span>
                 )}
               </div>
             </Card>
@@ -192,17 +232,7 @@ export default function DashboardPageClient({ userEmail }: { userEmail?: string 
             <Card>
               <h2 className="mb-3 text-base font-semibold text-slate-900">Akses cepat</h2>
               <div className="grid grid-cols-2 gap-2 text-sm">
-                {[
-                  { href: "/dashboard/penjualan", label: "Penjualan" },
-                  { href: "/dashboard/pembelian", label: "Pembelian" },
-                  { href: "/dashboard/quotation", label: "Quotation" },
-                  { href: "/dashboard/purchase-request", label: "Purchase Request" },
-                  { href: "/dashboard/piutang", label: "Piutang" },
-                  { href: "/dashboard/hutang", label: "Hutang" },
-                  { href: "/dashboard/jurnal", label: "Jurnal" },
-                  { href: "/dashboard/laporan", label: "Laporan" },
-                  { href: "/dashboard/master", label: "Master Data" }
-                ].map((item) => (
+                {quickLinks.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}
@@ -219,9 +249,11 @@ export default function DashboardPageClient({ userEmail }: { userEmail?: string 
             <Card>
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-base font-semibold text-slate-900">Invoice terbaru</h2>
+                {isNavKeyAllowed(role, "penjualan-riwayat") && (
                 <Link href="/dashboard/penjualan/riwayat" className="text-xs font-medium text-brand-600">
                   Semua →
                 </Link>
+                )}
               </div>
               {!summary.recentSales.length ? (
                 <p className="text-sm text-slate-500">Belum ada invoice.</p>
@@ -248,9 +280,11 @@ export default function DashboardPageClient({ userEmail }: { userEmail?: string 
             <Card>
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-base font-semibold text-slate-900">PO terbaru</h2>
+                {isNavKeyAllowed(role, "pembelian-riwayat") && (
                 <Link href="/dashboard/pembelian/riwayat" className="text-xs font-medium text-brand-600">
                   Semua →
                 </Link>
+                )}
               </div>
               {!summary.recentPurchases.length ? (
                 <p className="text-sm text-slate-500">Belum ada pembelian.</p>

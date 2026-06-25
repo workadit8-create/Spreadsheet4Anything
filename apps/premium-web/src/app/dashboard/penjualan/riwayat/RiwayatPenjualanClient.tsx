@@ -15,6 +15,8 @@ import {
 import type { OrgPrintSettings } from "@/lib/org/print-settings";
 import { confirmPostInvoiceJournal, invoiceDebtStatusLabel } from "@/lib/penjualan/invoice-status-label";
 import { DetailModalTabs, TransactionJournalView } from "@/components/jurnal/TransactionJournalView";
+import { PostingRoleBanner } from "@/components/layout/PostingRoleBanner";
+import { canPostJournal, type MembershipRole } from "@/lib/org/roles";
 
 type HistoryRow = {
   id: string;
@@ -53,7 +55,8 @@ function orderStatusClass(status: string) {
   return "text-slate-500";
 }
 
-export default function RiwayatPenjualanClient() {
+export default function RiwayatPenjualanClient({ role }: { role: MembershipRole }) {
+  const canPost = canPostJournal(role);
   const defaults = useMemo(() => defaultDateRange(), []);
   const [start, setStart] = useState(defaults.start);
   const [end, setEnd] = useState(defaults.end);
@@ -246,6 +249,8 @@ export default function RiwayatPenjualanClient() {
         </Link>
       </PageHeader>
 
+      <PostingRoleBanner canPost={canPost} />
+
       <Card className="mb-6">
         <div className="flex flex-wrap items-end gap-4">
           <div>
@@ -356,14 +361,16 @@ export default function RiwayatPenjualanClient() {
                           </Button>
                           {row.status === "CONFIRMED" && (
                             <>
-                              <Button
-                                type="button"
-                                variant="secondary"
-                                disabled={busy}
-                                onClick={() => postOrder(row.id, row.orderNo, row.sisaTagihan)}
-                              >
-                                {busy ? "..." : "Post jurnal"}
-                              </Button>
+                              {canPost && (
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  disabled={busy}
+                                  onClick={() => postOrder(row.id, row.orderNo, row.sisaTagihan)}
+                                >
+                                  {busy ? "..." : "Post jurnal"}
+                                </Button>
+                              )}
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -374,7 +381,7 @@ export default function RiwayatPenjualanClient() {
                               </Button>
                             </>
                           )}
-                          {row.status === "POSTED" && (
+                          {row.status === "POSTED" && canPost && (
                             <Button
                               type="button"
                               variant="secondary"
@@ -475,14 +482,16 @@ export default function RiwayatPenjualanClient() {
                     </span>
                   ) : (
                     <>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        disabled={actingId === detail.order.id}
-                        onClick={() => postOrder(detail.order.id, detail.order.orderNo, detail.order.sisaTagihan)}
-                      >
-                        Post jurnal
-                      </Button>
+                      {canPost && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          disabled={actingId === detail.order.id}
+                          onClick={() => postOrder(detail.order.id, detail.order.orderNo, detail.order.sisaTagihan)}
+                        >
+                          Post jurnal
+                        </Button>
+                      )}
                       <Button
                         type="button"
                         variant="ghost"
@@ -493,7 +502,7 @@ export default function RiwayatPenjualanClient() {
                       </Button>
                     </>
                   )}
-                  {detail.order.status === "POSTED" && (
+                  {detail.order.status === "POSTED" && canPost && (
                     <Button
                       type="button"
                       variant="secondary"

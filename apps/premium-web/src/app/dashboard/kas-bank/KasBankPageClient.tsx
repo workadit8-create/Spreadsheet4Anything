@@ -7,6 +7,8 @@ import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { DetailModalTabs, TransactionJournalView } from "@/components/jurnal/TransactionJournalView";
+import { PostingRoleBanner } from "@/components/layout/PostingRoleBanner";
+import { canPostJournal, type MembershipRole } from "@/lib/org/roles";
 
 type KasAccount = { id: string; name: string; coa_account_name: string };
 type CoaOption = { id: string; code: string; name: string; account_type: string };
@@ -85,7 +87,8 @@ function detailText(row: MutasiItem): string {
   return `Penarikan dari ${row.sourceAccountName || "—"}`;
 }
 
-export default function KasBankPageClient() {
+export default function KasBankPageClient({ role }: { role: MembershipRole }) {
+  const canPost = canPostJournal(role);
   const defaults = useMemo(() => defaultDateRange(), []);
   const [start, setStart] = useState(defaults.start);
   const [end, setEnd] = useState(defaults.end);
@@ -384,6 +387,8 @@ export default function KasBankPageClient() {
           Master Kas & Bank →
         </Link>
       </PageHeader>
+
+      <PostingRoleBanner canPost={canPost} />
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {accounts.length ? (
@@ -723,6 +728,7 @@ export default function KasBankPageClient() {
                               </Button>
                               {row.status === "CONFIRMED" && !row.linked && (
                                 <>
+                                  {canPost && (
                                   <Button
                                     type="button"
                                     variant="secondary"
@@ -731,6 +737,7 @@ export default function KasBankPageClient() {
                                   >
                                     {busy ? "..." : "Post jurnal"}
                                   </Button>
+                                  )}
                                   <Button
                                     type="button"
                                     variant="ghost"
@@ -741,7 +748,7 @@ export default function KasBankPageClient() {
                                   </Button>
                                 </>
                               )}
-                              {row.status === "POSTED" && !row.linked && (
+                              {row.status === "POSTED" && !row.linked && canPost && (
                                 <Button
                                   type="button"
                                   variant="secondary"
