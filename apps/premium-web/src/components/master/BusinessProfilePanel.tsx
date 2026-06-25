@@ -16,9 +16,11 @@ export function BusinessProfilePanel() {
   const [companyName, setCompanyName] = useState("");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [sectors, setSectors] = useState<BusinessSector[]>(["retail"]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -30,6 +32,7 @@ export function BusinessProfilePanel() {
       setCompanyName(data.companyName || data.orgName || "");
       setAddress(data.address || "");
       setPhone(data.phone || "");
+      setLogoUrl(data.logoUrl || null);
       setSectors(data.sectors || ["retail"]);
     } catch {
       setSectors(["retail"]);
@@ -46,6 +49,42 @@ export function BusinessProfilePanel() {
     setSectors((prev) =>
       prev.includes(sector) ? prev.filter((s) => s !== sector) : [...prev, sector]
     );
+  }
+
+  async function uploadLogo(file: File) {
+    setUploadingLogo(true);
+    setMessage(null);
+    try {
+      const formData = new FormData();
+      formData.set("file", file);
+      const res = await fetch("/api/org/logo", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setLogoUrl(data.logoUrl || null);
+      setMessage("Logo diunggah");
+      router.refresh();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Gagal unggah logo");
+    } finally {
+      setUploadingLogo(false);
+    }
+  }
+
+  async function removeLogo() {
+    setUploadingLogo(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/org/logo", { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setLogoUrl(null);
+      setMessage("Logo dihapus");
+      router.refresh();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Gagal hapus logo");
+    } finally {
+      setUploadingLogo(false);
+    }
   }
 
   async function save() {
@@ -96,12 +135,49 @@ export function BusinessProfilePanel() {
         <div>
           <h2 className="text-sm font-semibold text-slate-900">Profil usaha</h2>
           <p className="mt-1 text-xs text-slate-500">
-            Nama dan alamat dipakai di sidebar serta cetak invoice / PO.
+            Nama, logo, dan alamat dipakai di sidebar serta cetak invoice / PO.
           </p>
         </div>
         <Button type="button" variant="secondary" onClick={save} disabled={saving}>
           {saving ? "Menyimpan..." : "Simpan profil"}
         </Button>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-start gap-4">
+        <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-white">
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt="Logo perusahaan" className="max-h-full max-w-full object-contain p-1" />
+          ) : (
+            <span className="px-2 text-center text-[10px] text-slate-400">Belum ada logo</span>
+          )}
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="company-logo">Logo perusahaan</Label>
+          <input
+            id="company-logo"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            disabled={uploadingLogo}
+            className="max-w-xs text-xs text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-brand-700"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void uploadLogo(file);
+              e.target.value = "";
+            }}
+          />
+          <p className="text-[11px] text-slate-400">PNG, JPG, atau WEBP · maks. 2 MB</p>
+          {logoUrl ? (
+            <button
+              type="button"
+              onClick={() => void removeLogo()}
+              disabled={uploadingLogo}
+              className="w-fit text-xs text-red-600 hover:underline disabled:opacity-60"
+            >
+              Hapus logo
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">

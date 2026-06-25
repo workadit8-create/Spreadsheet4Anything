@@ -66,7 +66,7 @@ export default function RiwayatPenjualanClient() {
   const [detailTab, setDetailTab] = useState<"detail" | "jurnal">("detail");
   const [detailLoading, setDetailLoading] = useState(false);
   const [detail, setDetail] = useState<HistoryDetail | null>(null);
-  const [company, setCompany] = useState({ name: "", address: "", phone: "" });
+  const [company, setCompany] = useState({ name: "", address: "", phone: "", logoUrl: null as string | null });
 
   const loadCustomers = useCallback(async () => {
     try {
@@ -117,7 +117,7 @@ export default function RiwayatPenjualanClient() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setDetail(data.detail);
-      setCompany(data.company || { name: "", address: "", phone: "" });
+      setCompany(data.company || { name: "", address: "", phone: "", logoUrl: null });
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Gagal memuat detail");
       setDetailOpen(false);

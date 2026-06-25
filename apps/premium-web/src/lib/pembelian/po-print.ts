@@ -1,7 +1,10 @@
+import { buildPrintCompanyHeader } from "@/lib/org/print-company-header";
+
 export type PoPrintCompany = {
   name: string;
   address?: string;
   phone?: string;
+  logoUrl?: string | null;
 };
 
 export type PoPrintDetail = {
@@ -77,9 +80,7 @@ export function buildPoPrintHtml(detail: PoPrintDetail, company: PoPrintCompany)
   </style>
 </head>
 <body>
-  <h1>${escapeHtml(company.name)}</h1>
-  ${company.address ? `<p class="muted">${escapeHtml(company.address)}</p>` : ""}
-  ${company.phone ? `<p class="muted">${escapeHtml(company.phone)}</p>` : ""}
+  ${buildPrintCompanyHeader(company)}
   <hr style="margin:16px 0;border:none;border-top:1px solid #e5e7eb;" />
   <p><strong>Purchase Order:</strong> ${escapeHtml(order.poNo)} &nbsp; <strong>Tanggal:</strong> ${escapeHtml(order.orderDate)}</p>
   <p><strong>Supplier:</strong> ${escapeHtml(order.supplierName || "—")} &nbsp; <strong>Status:</strong> ${escapeHtml(statusLabel(order.status))}</p>

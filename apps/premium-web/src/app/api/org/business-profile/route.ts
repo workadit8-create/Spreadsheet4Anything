@@ -41,6 +41,7 @@ export async function GET() {
     companyName: company.name,
     address: company.address,
     phone: company.phone,
+    logoUrl: company.logoUrl,
     sectors,
     sectorLabels: sectors.map((s) => BUSINESS_SECTOR_LABELS[s] || s),
     inventoryMode: business?.inventory_mode || "mixed",

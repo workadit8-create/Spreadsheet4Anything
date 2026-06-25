@@ -27,7 +27,8 @@ export async function GET(
       company: {
         name: company.name,
         address: company.address,
-        phone: company.phone
+        phone: company.phone,
+        logoUrl: company.logoUrl
       }
     });
   } catch (err) {
