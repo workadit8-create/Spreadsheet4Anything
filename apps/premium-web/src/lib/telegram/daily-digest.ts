@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { addDaysIso, formatWibDateLabel, wibTodayIso } from "@/lib/date/wib";
 import { escapeTelegramHtml, formatIdr } from "@/lib/telegram/bot";
-import { formatWibDateLabel, wibTodayIso } from "@/lib/telegram/wib";
 
 export type DailyDigestStats = {
   date: string;
@@ -21,12 +21,6 @@ export type DailyDigestStats = {
 };
 
 const OPERATIONAL_STATUSES = ["CONFIRMED", "POSTED"] as const;
-
-function addDaysIso(isoDate: string, days: number): string {
-  const base = new Date(`${isoDate}T12:00:00+07:00`);
-  base.setDate(base.getDate() + days);
-  return base.toISOString().slice(0, 10);
-}
 
 export async function fetchDailyDigestStats(
   supabase: SupabaseClient,

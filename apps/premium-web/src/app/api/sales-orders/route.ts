@@ -20,6 +20,7 @@ import {
 } from "@/lib/penjualan/invoice-rekening";
 import { resolveProjectCodeForSave } from "@/lib/proyek/helpers";
 import { assertQuotationConvertible, markQuotationConverted } from "@/lib/pre-docs/convert";
+import { wibDateIsoFromInput, wibTodayIso } from "@/lib/date/wib";
 
 type LineInput = {
   product_id: string;
@@ -144,7 +145,7 @@ async function createLabInvoice(
 
   const orderNo = generateOrderNo();
   const transactionId = generateTransactionId();
-  const orderDate = new Date().toISOString().slice(0, 10);
+  const orderDate = wibTodayIso();
 
   const metadata = {
     transactionId,
@@ -359,7 +360,7 @@ async function createProperInvoice(
     }
   }
 
-  const orderDate = body.order_date || new Date().toISOString().slice(0, 10);
+  const orderDate = wibDateIsoFromInput(body.order_date);
   const keterangan = buildKeteranganSummary(customer.name, resolvedLines.map((l) => l.description));
 
   const { data: warehouse } = await supabase

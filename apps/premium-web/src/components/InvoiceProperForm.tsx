@@ -7,6 +7,7 @@ import { ProjectSelect } from "@/components/proyek/ProjectSelect";
 import type { ProjectOption } from "@/lib/proyek/bootstrap-options";
 import { kasBankOptionLabel } from "@/lib/org/kas-bank-display";
 import { computeLineTotal } from "@/lib/posting/invoice-lines";
+import { wibTodayIso } from "@/lib/date/wib";
 
 type Customer = { id: string; code: string | null; name: string };
 type Product = {
@@ -51,7 +52,7 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const [orderDate, setOrderDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [orderDate, setOrderDate] = useState(() => wibTodayIso());
   const [customerId, setCustomerId] = useState("");
   const [rekeningPenerimaan, setRekeningPenerimaan] = useState("");
   const [invoiceRekeningId, setInvoiceRekeningId] = useState("");
