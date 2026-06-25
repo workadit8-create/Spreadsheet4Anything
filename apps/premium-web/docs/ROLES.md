@@ -109,6 +109,14 @@ Mutasi anggota lewat RPC Postgres (`add_org_member`, `update_org_member_role`, `
 
 Bypass PostgREST langsung oleh staff untuk posting jurnal atau ubah profil usaha diblokir di database, bukan hanya di UI/API Next.js.
 
+`030_rls_memberships_rpc_only.sql` — **Security Fase B (RLS tim)**:
+
+- `memberships` SELECT hanya baris `user_id = auth.uid()`
+- REVOKE INSERT/UPDATE/DELETE pada `memberships` untuk `authenticated`
+- Tambah/ubah/hapus anggota **hanya** lewat RPC `add_org_member`, `update_org_member_role`, `remove_org_member` (sudah cek `is_org_owner`)
+
+Staff tidak bisa lagi naikkan role sendiri atau menyisipkan diri ke org lain via PostgREST.
+
 ## Ganti password (semua peran)
 
 Menu **Akun** (`/dashboard/akun`) — setiap user bisa ubah password sendiri lewat `POST /api/auth/change-password`.
