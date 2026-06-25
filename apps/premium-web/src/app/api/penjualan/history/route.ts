@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { wibMonthStartIso, wibTodayIso } from "@/lib/date/wib";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { fetchPenjualanHistory } from "@/lib/penjualan/fetch-history-data";
 
 function parseDateRange(url: string) {
   const { searchParams } = new URL(url);
-  const today = new Date();
-  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-  const defaultStart = firstDay.toISOString().slice(0, 10);
-  const defaultEnd = today.toISOString().slice(0, 10);
+  const defaultStart = wibMonthStartIso();
+  const defaultEnd = wibTodayIso();
 
   const start = searchParams.get("start") || defaultStart;
   const end = searchParams.get("end") || defaultEnd;

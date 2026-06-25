@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { wibMonthsAgoIso, wibTodayIso } from "@/lib/date/wib";
 import { confirmPostInvoiceJournal, invoiceDebtStatusLabel } from "@/lib/penjualan/invoice-status-label";
 import { PostingRoleBanner } from "@/components/layout/PostingRoleBanner";
 import { canPostJournal, type MembershipRole } from "@/lib/org/roles";
@@ -40,12 +41,9 @@ function formatRp(n: number) {
 }
 
 function defaultDateRange() {
-  const end = new Date();
-  const start = new Date();
-  start.setMonth(start.getMonth() - 3);
   return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10)
+    start: wibMonthsAgoIso(3),
+    end: wibTodayIso()
   };
 }
 

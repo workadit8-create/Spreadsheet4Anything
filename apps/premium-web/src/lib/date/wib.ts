@@ -23,6 +23,20 @@ export function wibDateIsoFromInput(value: string | undefined | null, fallback =
   return trimmed || fallback;
 }
 
+/** Tanggal 1 di bulan berjalan (WIB), format YYYY-MM-DD */
+export function wibMonthStartIso(now = new Date()): string {
+  const today = wibTodayIso(now);
+  return `${today.slice(0, 7)}-01`;
+}
+
+/** N bulan sebelum hari ini (WIB), format YYYY-MM-DD */
+export function wibMonthsAgoIso(months: number, now = new Date()): string {
+  const today = wibTodayIso(now);
+  const base = new Date(`${today}T12:00:00+07:00`);
+  base.setMonth(base.getMonth() - months);
+  return wibTodayIso(base);
+}
+
 export function addDaysIso(isoDate: string, days: number): string {
   const base = new Date(`${isoDate}T12:00:00+07:00`);
   base.setDate(base.getDate() + days);

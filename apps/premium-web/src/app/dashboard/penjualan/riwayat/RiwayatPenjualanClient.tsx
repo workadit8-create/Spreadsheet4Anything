@@ -13,6 +13,7 @@ import {
   type InvoicePrintCustomer
 } from "@/lib/penjualan/invoice-print";
 import type { OrgPrintSettings } from "@/lib/org/print-settings";
+import { wibMonthStartIso, wibTodayIso } from "@/lib/date/wib";
 import { confirmPostInvoiceJournal, invoiceDebtStatusLabel } from "@/lib/penjualan/invoice-status-label";
 import { DetailModalTabs, TransactionJournalView } from "@/components/jurnal/TransactionJournalView";
 import { PostingRoleBanner } from "@/components/layout/PostingRoleBanner";
@@ -40,11 +41,9 @@ function formatRp(n: number) {
 }
 
 function defaultDateRange() {
-  const end = new Date();
-  const start = new Date(end.getFullYear(), end.getMonth(), 1);
   return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10)
+    start: wibMonthStartIso(),
+    end: wibTodayIso()
   };
 }
 
