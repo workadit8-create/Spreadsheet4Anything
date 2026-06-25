@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatCard } from "@/components/ui/StatCard";
+import { DashboardCharts } from "@/components/dashboard/DashboardCharts";
+import type { BalanceSlice, MonthlyTrendPoint } from "@/lib/dashboard/chart-data";
 
 type Summary = {
   org: { id: string; name: string; slug: string };
@@ -15,6 +17,8 @@ type Summary = {
   totalHutang: number;
   totalKasSaldo: number;
   saldoByAccount: Record<string, number>;
+  monthlyTrend: MonthlyTrendPoint[];
+  balanceMix: BalanceSlice[];
   pendingPost: { invoices: number; purchaseOrders: number };
   recentSales: Array<{
     id: string;
@@ -115,6 +119,8 @@ export default function DashboardPageClient({ userEmail }: { userEmail?: string 
             <StatCard label="Piutang outstanding" value={formatRp(summary.totalPiutang)} tone="warning" />
             <StatCard label="Hutang outstanding" value={formatRp(summary.totalHutang)} tone="warning" />
           </div>
+
+          <DashboardCharts monthlyTrend={summary.monthlyTrend} balanceMix={summary.balanceMix} />
 
           <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <StatCard label="Saldo kas & bank (mutasi)" value={formatRp(summary.totalKasSaldo)} tone="success" />

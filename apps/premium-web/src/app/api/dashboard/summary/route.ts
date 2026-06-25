@@ -5,10 +5,20 @@ import { computeSaldoByAccountName, type KasBankAccount } from "@/lib/posting/mu
 import { summarizePiutangFromLines } from "@/lib/posting/piutang";
 import { summarizeHutangFromLines } from "@/lib/posting/hutang";
 import type { PurchaseLineRow, SalesLineRow } from "@/lib/posting/types";
+import { buildBalanceMix, buildMonthlyTrend } from "@/lib/dashboard/chart-data";
 
 function monthRange() {
   const end = new Date();
   const start = new Date(end.getFullYear(), end.getMonth(), 1);
+  return {
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10)
+  };
+}
+
+function trendRange() {
+  const end = new Date();
+  const start = new Date(end.getFullYear(), end.getMonth() - 5, 1);
   return {
     start: start.toISOString().slice(0, 10),
     end: end.toISOString().slice(0, 10)
@@ -26,6 +36,7 @@ export async function GET() {
   if (!org) return NextResponse.json({ error: "Tidak ada organisasi" }, { status: 400 });
 
   const { start, end } = monthRange();
+  const trend = trendRange();
 
   const [
     salesMonthRes,
@@ -37,7 +48,9 @@ export async function GET() {
     kasAccountsRes,
     transfersRes,
     recentSalesRes,
-    recentPurchaseRes
+    recentPurchaseRes,
+    salesTrendRes,
+    purchaseTrendRes
   ] = await Promise.all([
     supabase
       .from("sales_orders")
@@ -99,7 +112,21 @@ export async function GET() {
       .eq("organization_id", org.id)
       .neq("status", "DRAFT")
       .order("order_date", { ascending: false })
-      .limit(5)
+      .limit(5),
+    supabase
+      .from("sales_orders")
+      .select("order_date, total")
+      .eq("organization_id", org.id)
+      .eq("status", "POSTED")
+      .gte("order_date", trend.start)
+      .lte("order_date", trend.end),
+    supabase
+      .from("purchase_orders")
+      .select("order_date, total")
+      .eq("organization_id", org.id)
+      .eq("status", "POSTED")
+      .gte("order_date", trend.start)
+      .lte("order_date", trend.end)
   ]);
 
   const salesOrderIds = (salesPiutangRes.data || []).map((o) => o.id);
@@ -177,6 +204,12 @@ export async function GET() {
     0
   );
 
+  const monthlyTrend = buildMonthlyTrend(salesTrendRes.data || [], purchaseTrendRes.data || []);
+  const balanceMix = buildBalanceMix({
+    saldoByAccount: saldoMap,
+    totalPiutang
+  });
+
   return NextResponse.json({
     org: { id: org.id, name: org.name, slug: org.slug },
     period: { start, end },
@@ -186,6 +219,8 @@ export async function GET() {
     totalHutang,
     totalKasSaldo,
     saldoByAccount: saldoMap,
+    monthlyTrend,
+    balanceMix,
     pendingPost: {
       invoices: salesOpenRes.count ?? 0,
       purchaseOrders: purchaseOpenRes.count ?? 0
