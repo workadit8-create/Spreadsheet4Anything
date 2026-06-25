@@ -20,6 +20,7 @@ type MutasiItem = {
   amount: number;
   keterangan: string;
   status: string;
+  linked?: boolean;
 };
 
 type MutasiKind = "Transfer" | "Masuk" | "Keluar";
@@ -41,9 +42,9 @@ function defaultDateRange() {
   };
 }
 
-function statusLabel(status: string): string {
+function statusLabel(status: string, linked?: boolean): string {
   if (status === "CONFIRMED") return "Belum jurnal";
-  if (status === "POSTED") return "Jurnal OK";
+  if (status === "POSTED") return linked ? "Tercatat" : "Jurnal OK";
   if (status === "VOIDED") return "Dibatalkan";
   return status;
 }
@@ -219,7 +220,7 @@ export default function KasBankPageClient() {
       <PageHeader
         badge="Kas & Bank"
         title="Mutasi dana"
-        description="Saldo = mutasi + pembayaran pembelian/penjualan & pelunasan. Post jurnal MUTASI_DANA untuk transfer/setoran/penarikan manual."
+        description="Saldo & riwayat dari mutasi (manual + otomatis dari pembelian/penjualan/pelunasan). Post jurnal MUTASI_DANA hanya untuk mutasi manual."
       >
         <Link href="/dashboard/master" className="text-sm text-slate-500 hover:text-slate-700">
           Master Kas & Bank →
@@ -380,12 +381,12 @@ export default function KasBankPageClient() {
                           <td className="px-3 py-2 font-semibold">{formatRp(row.amount)}</td>
                           <td className="px-3 py-2">
                             <span className={`font-semibold ${statusClass(row.status)}`}>
-                              {statusLabel(row.status)}
+                              {statusLabel(row.status, row.linked)}
                             </span>
                           </td>
                           <td className="px-3 py-2">
                             <div className="flex flex-wrap gap-1">
-                              {row.status === "CONFIRMED" && (
+                              {row.status === "CONFIRMED" && !row.linked && (
                                 <>
                                   <Button
                                     type="button"
@@ -405,7 +406,7 @@ export default function KasBankPageClient() {
                                   </Button>
                                 </>
                               )}
-                              {row.status === "POSTED" && (
+                              {row.status === "POSTED" && !row.linked && (
                                 <Button
                                   type="button"
                                   variant="secondary"

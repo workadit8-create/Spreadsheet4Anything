@@ -12,6 +12,11 @@ import type { PurchaseLineMetadata } from "@/lib/posting/types";
 
 import { summarizeHutangFromLines, lineBayar } from "@/lib/posting/hutang";
 import type { PurchaseLineRow } from "@/lib/posting/types";
+import {
+  insertLinkedKeluarMutasi,
+  linkedMutasiTransactionId,
+  resolveKasBankAccount
+} from "@/lib/posting/linked-mutasi";
 
 type LineInput = {
   description: string;
@@ -280,6 +285,34 @@ export async function POST(request: Request) {
     if (lineErr) {
       await supabase.from("purchase_orders").delete().eq("id", order.id);
       return NextResponse.json({ error: lineErr.message }, { status: 500 });
+    }
+
+    if (totalBayar > 0 && rekening) {
+      const { data: kasAccounts } = await supabase
+        .from("cash_bank_accounts")
+        .select("id, name, coa_account_name")
+        .eq("organization_id", org.id)
+        .eq("active", true);
+      const kasAccount = resolveKasBankAccount(rekening, kasAccounts || []);
+      if (kasAccount) {
+        for (let i = 0; i < lineRows.length; i++) {
+          const slice = paymentSlices[i];
+          const lineMeta = lineRows[i].metadata as PurchaseLineMetadata;
+          if (slice.bayar <= 0) continue;
+          await insertLinkedKeluarMutasi(supabase, {
+            organizationId: org.id,
+            transferDate: orderDate,
+            account: kasAccount,
+            counterpartyLabel: supplier.name,
+            amount: slice.bayar,
+            keterangan: `Pembelian ${lineRows[i].description}`,
+            transactionId: linkedMutasiTransactionId("PB", lineMeta.transactionId || `${order.id}-${i}`),
+            sourceType: "PURCHASE_ORDER",
+            sourceId: order.id,
+            journalHandledBy: "PEMBELIAN"
+          });
+        }
+      }
     }
 
     return NextResponse.json({

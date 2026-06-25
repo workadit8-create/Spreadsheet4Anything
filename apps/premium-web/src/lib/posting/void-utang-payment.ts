@@ -4,6 +4,7 @@ import { postJournalEntry } from "./journal-supabase";
 import type { JournalLineDraft } from "./journal-rules";
 import { recomputePurchaseOrderPaymentMeta } from "./hutang";
 import type { PurchaseLineRow } from "./types";
+import { voidLinkedMutasiBySource, deleteLinkedMutasiBySource } from "./linked-mutasi";
 
 type JournalLineRow = {
   line_date: string;
@@ -184,6 +185,15 @@ export async function voidUtangPayment(
     throw new Error(updErr.message);
   }
 
+  await voidLinkedMutasiBySource(
+    supabase,
+    payment.organization_id,
+    "UTANG_PAYMENT",
+    payment.id,
+    userId,
+    reason
+  );
+
   return { reversedEntries };
 }
 
@@ -193,7 +203,7 @@ export async function deleteConfirmedUtangPayment(
 ): Promise<void> {
   const { data: payment, error: payErr } = await supabase
     .from("payments")
-    .select("id, status, metadata, doc_id")
+    .select("id, status, metadata, doc_id, organization_id")
     .eq("id", paymentId)
     .eq("doc_type", "UTANG_PAYMENT")
     .single();
@@ -243,6 +253,13 @@ export async function deleteConfirmedUtangPayment(
     .delete()
     .eq("doc_type", "UTANG_PAYMENT")
     .eq("doc_id", payment.id);
+
+  await deleteLinkedMutasiBySource(
+    supabase,
+    payment.organization_id,
+    "UTANG_PAYMENT",
+    payment.id
+  );
 
   const { error: delErr } = await supabase.from("payments").delete().eq("id", payment.id);
   if (delErr) {

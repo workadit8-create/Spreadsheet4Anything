@@ -3,6 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserPrimaryOrg } from "@/lib/org/get-user-org";
 import { generatePiutangTransactionId } from "@/lib/posting/ids";
 import {
+  insertLinkedMasukMutasi,
+  linkedMutasiTransactionId
+} from "@/lib/posting/linked-mutasi";
+import {
   allocatePelunasanToLines,
   lineKurangBayar,
   summarizePiutangFromLines
@@ -181,6 +185,19 @@ export async function POST(request: Request) {
   if (payErr || !payment) {
     return NextResponse.json({ error: payErr?.message || "Gagal simpan payment" }, { status: 500 });
   }
+
+  await insertLinkedMasukMutasi(supabase, {
+    organizationId: org.id,
+    transferDate: tanggalBayar,
+    account: kasMatch,
+    counterpartyLabel: `Customer: ${customerName}`,
+    amount: nominal,
+    keterangan: keterangan || `Pelunasan ${order.order_no}`,
+    transactionId: linkedMutasiTransactionId("PI", transactionId),
+    sourceType: "PIUTANG_PAYMENT",
+    sourceId: payment.id,
+    journalHandledBy: "PELUNASAN_PIUTANG"
+  });
 
   const remaining = lineRows.reduce((sum, line) => {
     const updated = updates.find((u) => u.lineId === line.id);

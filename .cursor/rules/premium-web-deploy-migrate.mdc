@@ -17,12 +17,17 @@ Untuk perubahan di `apps/premium-web/` atau `supabase/migrations/`:
    - Kredensial: `clients/hybrid/supabase.db.env` (`SUPABASE_DB_*`, port **6543**)
    - Jika koneksi gagal: coba port alternatif (script auto-fallback), atau SQL Editor Supabase
 
-2. **Typecheck** sebelum deploy:
+2. **Backfill** (sekali, jika ada data historis tanpa mutasi linked):
+   ```bash
+   node scripts/backfill-linked-mutasi.mjs
+   ```
+
+3. **Typecheck** sebelum deploy:
    ```bash
    cd apps/premium-web && npx tsc --noEmit
    ```
 
-3. **Deploy production** — selalu setelah fitur/fix siap:
+4. **Deploy production** — selalu setelah fitur/fix siap:
    ```bash
    cd apps/premium-web && npx vercel deploy --prod --yes
    ```

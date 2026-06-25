@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUserPrimaryOrg } from "@/lib/org/get-user-org";
 import {
+  computeSaldoByAccountName,
   validateMutasiInput,
   type CreateMutasiInput,
   type KasBankAccount
 } from "@/lib/posting/mutasi";
-import { computeFullKasSaldo } from "@/lib/posting/kas-saldo";
-import type { PurchaseLineRow, SalesLineRow } from "@/lib/posting/types";
+import { isLinkedCashTransfer } from "@/lib/posting/linked-mutasi";
 import { generateMutasiTransactionId, generateMutasiTransferNo } from "@/lib/posting/ids";
 
 export async function GET(request: Request) {
@@ -31,88 +31,23 @@ export async function GET(request: Request) {
 
   if (accErr) return NextResponse.json({ error: accErr.message }, { status: 500 });
 
-  let query = supabase
+  let historyQuery = supabase
     .from("cash_transfers")
     .select("*")
     .eq("organization_id", org.id)
     .order("transfer_date", { ascending: false })
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(200);
 
-  if (start) query = query.gte("transfer_date", start);
-  if (end) query = query.lte("transfer_date", end);
+  if (start) historyQuery = historyQuery.gte("transfer_date", start);
+  if (end) historyQuery = historyQuery.lte("transfer_date", end);
 
-  const [
-    { data: transfers, error: trErr },
-    { data: allTransfers },
-    { data: purchaseOrders },
-    { data: purchaseLines },
-    { data: salesOrders },
-    { data: salesLines },
-    { data: payments }
-  ] = await Promise.all([
-    query,
-    supabase
-      .from("cash_transfers")
-      .select("*")
-      .eq("organization_id", org.id),
-    supabase
-      .from("purchase_orders")
-      .select("id, status, metadata")
-      .eq("organization_id", org.id)
-      .neq("status", "DRAFT"),
-    supabase.from("purchase_lines").select("*"),
-    supabase
-      .from("sales_orders")
-      .select("id, status, metadata")
-      .eq("organization_id", org.id)
-      .neq("status", "DRAFT"),
-    supabase.from("sales_lines").select("*"),
-    supabase
-      .from("payments")
-      .select("doc_type, doc_id, amount, status, method, metadata")
-      .eq("organization_id", org.id)
-      .in("doc_type", ["UTANG_PAYMENT", "PIUTANG_PAYMENT"])
+  const [{ data: historyTransfers, error: trErr }, { data: allTransfers }] = await Promise.all([
+    historyQuery,
+    supabase.from("cash_transfers").select("*").eq("organization_id", org.id)
   ]);
 
   if (trErr) return NextResponse.json({ error: trErr.message }, { status: 500 });
-
-  const purchaseLinesByOrder = new Map<string, PurchaseLineRow[]>();
-  for (const line of purchaseLines || []) {
-    const bucket = purchaseLinesByOrder.get(line.purchase_order_id) || [];
-    bucket.push(line as PurchaseLineRow);
-    purchaseLinesByOrder.set(line.purchase_order_id, bucket);
-  }
-
-  const salesLinesByOrder = new Map<string, SalesLineRow[]>();
-  for (const line of salesLines || []) {
-    const bucket = salesLinesByOrder.get(line.sales_order_id) || [];
-    bucket.push(line as SalesLineRow);
-    salesLinesByOrder.set(line.sales_order_id, bucket);
-  }
-
-  const purchaseWithLines = (purchaseOrders || []).map((o) => ({
-    id: o.id,
-    status: o.status,
-    metadata: (o.metadata || {}) as Record<string, unknown>,
-    lines: purchaseLinesByOrder.get(o.id) || []
-  }));
-
-  const salesWithLines = (salesOrders || []).map((o) => ({
-    id: o.id,
-    status: o.status,
-    metadata: (o.metadata || {}) as Record<string, unknown>,
-    lines: salesLinesByOrder.get(o.id) || []
-  }));
-
-  const accountList = (accounts || []) as KasBankAccount[];
-  const saldo = computeFullKasSaldo(
-    accountList,
-    (allTransfers || []) as never[],
-    purchaseWithLines,
-    salesWithLines,
-    payments || []
-  );
 
   const { data: coaRows } = await supabase
     .from("coa_accounts")
@@ -121,18 +56,25 @@ export async function GET(request: Request) {
     .eq("active", true)
     .order("code");
 
-  const items = (transfers || []).map((t) => ({
-    id: t.id,
-    transferNo: t.transfer_no,
-    transferDate: t.transfer_date,
-    kind: t.kind,
-    sourceAccountName: t.source_account_name || "",
-    destAccountName: t.dest_account_name || "",
-    amount: Number(t.amount) || 0,
-    keterangan: t.keterangan || "",
-    status: t.status,
-    transactionId: t.transaction_id
-  }));
+  const accountList = (accounts || []) as KasBankAccount[];
+  const saldo = computeSaldoByAccountName(accountList, (allTransfers || []) as never[]);
+
+  const items = (historyTransfers || []).map((t) => {
+    const meta = (t.metadata || {}) as Record<string, unknown>;
+    return {
+      id: t.id,
+      transferNo: t.transfer_no,
+      transferDate: t.transfer_date,
+      kind: t.kind,
+      sourceAccountName: t.source_account_name || "",
+      destAccountName: t.dest_account_name || "",
+      amount: Number(t.amount) || 0,
+      keterangan: t.keterangan || "",
+      status: t.status,
+      linked: isLinkedCashTransfer(meta),
+      transactionId: t.transaction_id
+    };
+  });
 
   return NextResponse.json({
     items,

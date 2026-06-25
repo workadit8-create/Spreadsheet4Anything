@@ -8,6 +8,10 @@ import {
   summarizeHutangFromLines
 } from "@/lib/posting/hutang";
 import type { PurchaseLineRow } from "@/lib/posting/types";
+import {
+  insertLinkedKeluarMutasi,
+  linkedMutasiTransactionId
+} from "@/lib/posting/linked-mutasi";
 
 type Body = {
   purchase_order_id: string;
@@ -178,6 +182,19 @@ export async function POST(request: Request) {
   if (payErr || !payment) {
     return NextResponse.json({ error: payErr?.message || "Gagal simpan payment" }, { status: 500 });
   }
+
+  await insertLinkedKeluarMutasi(supabase, {
+    organizationId: org.id,
+    transferDate: tanggalBayar,
+    account: kasMatch,
+    counterpartyLabel: supplierName,
+    amount: nominal,
+    keterangan: keterangan || `Pelunasan ${order.po_no}`,
+    transactionId: linkedMutasiTransactionId("UT", transactionId),
+    sourceType: "UTANG_PAYMENT",
+    sourceId: payment.id,
+    journalHandledBy: "PELUNASAN_UTANG"
+  });
 
   const remaining = lineRows.reduce((sum, line) => {
     const updated = updates.find((u) => u.lineId === line.id);

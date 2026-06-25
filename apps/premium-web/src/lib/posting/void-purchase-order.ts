@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildReversalJournalLines, voidTransactionId } from "./journal-reversal";
 import { postJournalEntry } from "./journal-supabase";
 import type { JournalLineDraft } from "./journal-rules";
+import { voidLinkedMutasiBySource, deleteLinkedMutasiBySource } from "./linked-mutasi";
 
 type JournalLineRow = {
   line_date: string;
@@ -136,6 +137,15 @@ export async function voidPurchaseOrder(
     throw new Error(updErr.message);
   }
 
+  await voidLinkedMutasiBySource(
+    supabase,
+    order.organization_id,
+    "PURCHASE_ORDER",
+    order.id,
+    userId,
+    reason
+  );
+
   return { reversedEntries };
 }
 
@@ -145,7 +155,7 @@ export async function deleteConfirmedPurchaseOrder(
 ): Promise<void> {
   const { data: order, error: orderErr } = await supabase
     .from("purchase_orders")
-    .select("id, status")
+    .select("id, status, organization_id")
     .eq("id", orderId)
     .single();
 
@@ -169,6 +179,8 @@ export async function deleteConfirmedPurchaseOrder(
   }
 
   await supabase.from("posting_jobs").delete().eq("doc_type", "PURCHASE_ORDER").eq("doc_id", order.id);
+
+  await deleteLinkedMutasiBySource(supabase, order.organization_id, "PURCHASE_ORDER", order.id);
 
   const { error: delErr } = await supabase.from("purchase_orders").delete().eq("id", order.id);
   if (delErr) {

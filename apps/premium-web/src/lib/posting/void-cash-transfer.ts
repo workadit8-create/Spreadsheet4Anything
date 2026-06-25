@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildReversalJournalLines, voidTransactionId } from "./journal-reversal";
 import { postJournalEntry } from "./journal-supabase";
 import type { JournalLineDraft } from "./journal-rules";
+import { isLinkedCashTransfer } from "./linked-mutasi";
 
 type JournalLineRow = {
   line_date: string;
@@ -29,12 +30,16 @@ export async function voidCashTransfer(
 ): Promise<{ reversedEntries: number }> {
   const { data: transfer, error: transferErr } = await supabase
     .from("cash_transfers")
-    .select("id, organization_id, transfer_no, status, transfer_date, transaction_id")
+    .select("id, organization_id, transfer_no, status, transfer_date, transaction_id, metadata")
     .eq("id", transferId)
     .single();
 
   if (transferErr || !transfer) {
     throw new Error(transferErr?.message || "Mutasi tidak ditemukan");
+  }
+
+  if (isLinkedCashTransfer((transfer.metadata || {}) as Record<string, unknown>)) {
+    throw new Error("Mutasi otomatis — batalkan dari dokumen sumber (PO/invoice/pelunasan)");
   }
 
   if (transfer.status === "VOIDED") {

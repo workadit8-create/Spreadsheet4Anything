@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isLinkedCashTransfer } from "./linked-mutasi";
 
 export async function enqueueSalesOrderPostingJob(
   supabase: SupabaseClient,
@@ -209,12 +210,15 @@ export async function enqueueCashTransferPostingJob(
 ): Promise<string> {
   const { data: transfer, error: transferErr } = await supabase
     .from("cash_transfers")
-    .select("status")
+    .select("status, metadata")
     .eq("id", transferId)
     .single();
 
   if (transferErr || !transfer) {
     throw new Error(transferErr?.message || "Mutasi tidak ditemukan");
+  }
+  if (isLinkedCashTransfer((transfer.metadata || {}) as Record<string, unknown>)) {
+    throw new Error("Mutasi otomatis dari transaksi — jurnal sudah lewat modul sumber");
   }
   if (transfer.status !== "CONFIRMED") {
     throw new Error("Hanya mutasi CONFIRMED yang bisa diposting ke jurnal");

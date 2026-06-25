@@ -8,6 +8,11 @@ import {
   deriveOrderPaymentStatus
 } from "@/lib/posting/invoice-lines";
 import type { PaymentStatus, SalesLineMetadata } from "@/lib/posting/types";
+import {
+  insertLinkedMasukMutasi,
+  linkedMutasiTransactionId,
+  resolveKasBankAccount
+} from "@/lib/posting/linked-mutasi";
 
 type LineInput = {
   product_id: string;
@@ -358,6 +363,29 @@ async function createProperInvoice(
   if (lineErr) {
     await supabase.from("sales_orders").delete().eq("id", order.id);
     return NextResponse.json({ error: lineErr.message }, { status: 500 });
+  }
+
+  if (totalBayar > 0 && rekening) {
+    const { data: kasAccounts } = await supabase
+      .from("cash_bank_accounts")
+      .select("id, name, coa_account_name")
+      .eq("organization_id", organizationId)
+      .eq("active", true);
+    const kasAccount = resolveKasBankAccount(rekening, kasAccounts || []);
+    if (kasAccount) {
+      await insertLinkedMasukMutasi(supabase, {
+        organizationId,
+        transferDate: orderDate,
+        account: kasAccount,
+        counterpartyLabel: `Customer: ${customer.name}`,
+        amount: totalBayar,
+        keterangan: `Pembayaran ${orderNo}`,
+        transactionId: linkedMutasiTransactionId("SO", headerTransactionId),
+        sourceType: "SALES_ORDER",
+        sourceId: order.id,
+        journalHandledBy: "PEMASUKAN"
+      });
+    }
   }
 
   return NextResponse.json({
