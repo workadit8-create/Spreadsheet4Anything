@@ -57,6 +57,20 @@ try {
   console.log("==> SUCCESS");
 } catch (err) {
   console.error("==> FAILED:", err.message);
+  if (
+    err.code === "ENOTFOUND" &&
+    /db\.[a-z0-9]+\.supabase\.co/i.test(url)
+  ) {
+    console.error("");
+    console.error("Host db.*.supabase.co sering hanya punya IPv6 (tidak resolve di jaringan IPv4).");
+    console.error("Perbaikan:");
+    console.error("  1. Supabase Dashboard → Project Settings → Database");
+    console.error("  2. Connection string → URI → pilih Session pooler (port 5432)");
+    console.error("  3. Update DATABASE_URL di clients/hybrid/supabase.db.env");
+    console.error("     Format: postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres");
+    console.error("");
+    console.error("Alternatif: jalankan SQL di Supabase → SQL Editor (copy isi file migration).");
+  }
   process.exit(1);
 } finally {
   await client.end();
