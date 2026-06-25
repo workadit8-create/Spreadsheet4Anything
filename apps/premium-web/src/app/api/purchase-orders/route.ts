@@ -17,6 +17,7 @@ import {
   linkedMutasiTransactionId,
   resolveKasBankAccount
 } from "@/lib/posting/linked-mutasi";
+import { assertPurchaseRequestConvertible, markPurchaseRequestConverted } from "@/lib/pre-docs/convert";
 
 type LineInput = {
   description: string;
@@ -32,6 +33,7 @@ type CreateBody = {
   order_date?: string;
   bayar?: number;
   rekening?: string;
+  purchase_request_id?: string;
   lines: LineInput[];
 };
 
@@ -130,6 +132,18 @@ export async function POST(request: Request) {
     }
     if (!Array.isArray(body.lines) || !body.lines.length) {
       return NextResponse.json({ error: "Minimal satu baris pembelian" }, { status: 400 });
+    }
+
+    const purchaseRequestId = String(body.purchase_request_id || "").trim() || null;
+    if (purchaseRequestId) {
+      try {
+        await assertPurchaseRequestConvertible(supabase, purchaseRequestId, org.id);
+      } catch (err) {
+        return NextResponse.json(
+          { error: err instanceof Error ? err.message : "Purchase Request tidak valid" },
+          { status: 400 }
+        );
+      }
     }
 
     const { data: supplier, error: supErr } = await supabase
@@ -235,7 +249,8 @@ export async function POST(request: Request) {
       keterangan,
       supplierId: supplier.id,
       supplierName: supplier.name,
-      pembelianMode: "proper"
+      pembelianMode: "proper",
+      purchaseRequestId: purchaseRequestId || undefined
     };
 
     const { data: order, error: orderErr } = await supabase
@@ -312,6 +327,25 @@ export async function POST(request: Request) {
             journalHandledBy: "PEMBELIAN"
           });
         }
+      }
+    }
+
+    if (purchaseRequestId) {
+      try {
+        await markPurchaseRequestConverted(
+          supabase,
+          purchaseRequestId,
+          org.id,
+          order.id,
+          order.po_no
+        );
+      } catch (err) {
+        await supabase.from("purchase_lines").delete().eq("purchase_order_id", order.id);
+        await supabase.from("purchase_orders").delete().eq("id", order.id);
+        return NextResponse.json(
+          { error: err instanceof Error ? err.message : "Gagal konversi PR" },
+          { status: 400 }
+        );
       }
     }
 

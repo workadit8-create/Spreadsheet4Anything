@@ -55,6 +55,11 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
   const [paymentMode, setPaymentMode] = useState<PaymentMode>("TUNAI");
   const [bayar, setBayar] = useState("");
   const [lines, setLines] = useState<LineState[]>([emptyLine()]);
+  const [activePrs, setActivePrs] = useState<
+    { id: string; prNo: string; supplierName: string; total: number }[]
+  >([]);
+  const [purchaseRequestId, setPurchaseRequestId] = useState("");
+  const [loadingPr, setLoadingPr] = useState(false);
 
   const lineTotals = lines.map((line) => {
     const qty = Number(line.qty) || 0;
@@ -90,6 +95,9 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
           )
         );
       }
+      const prRes = await fetch("/api/purchase-requests?active=1");
+      const prData = await prRes.json();
+      if (prRes.ok) setActivePrs(prData.rows || []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal memuat");
     } finally {
@@ -112,6 +120,49 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
 
   function removeLine(key: string) {
     setLines((prev) => (prev.length <= 1 ? prev : prev.filter((l) => l.key !== key)));
+  }
+
+  async function loadFromPurchaseRequest(id: string) {
+    setPurchaseRequestId(id);
+    if (!id) return;
+
+    setLoadingPr(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/purchase-requests/${id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      setOrderDate(data.purchaseRequest.requestDate);
+      if (data.purchaseRequest.supplierId) setSupplierId(data.purchaseRequest.supplierId);
+
+      setLines(
+        (data.lines || []).map(
+          (l: {
+            purchaseCategoryId: string | null;
+            description: string;
+            qty: number;
+            unitCost: number;
+            diskon: number;
+            unitCode: string;
+          }) => ({
+            key: `${Date.now()}-${Math.random()}`,
+            description: l.description,
+            purchase_category_id: l.purchaseCategoryId || categories[0]?.id || "",
+            qty: String(l.qty),
+            unit_cost: String(l.unitCost),
+            diskon: String(l.diskon || 0),
+            unit_code: l.unitCode || "PCS"
+          })
+        )
+      );
+      setMessage(`PR ${data.purchaseRequest.prNo} dimuat. Sesuaikan pembayaran lalu simpan PO.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal muat PR");
+      setPurchaseRequestId("");
+    } finally {
+      setLoadingPr(false);
+    }
   }
 
   async function submit(e: React.FormEvent) {
@@ -141,6 +192,7 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
           order_date: orderDate,
           bayar: bayarNum,
           rekening: bayarNum > 0 ? rekening : "",
+          purchase_request_id: purchaseRequestId || undefined,
           lines: lines.map((l) => ({
             description: l.description.trim(),
             purchase_category_id: l.purchase_category_id,
@@ -157,6 +209,7 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
       setMessage(data.message || `PO ${data.order?.po_no} disimpan`);
       setLines([{ ...emptyLine(), purchase_category_id: categories[0]?.id || "" }]);
       setBayar("");
+      setPurchaseRequestId("");
       onCreated?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal simpan");
@@ -171,6 +224,26 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
     <form onSubmit={submit} className="space-y-6">
       {error && <p className="text-sm text-red-600">{error}</p>}
       {message && <p className="text-sm text-emerald-700">{message}</p>}
+
+      {activePrs.length > 0 && (
+        <div className="rounded-lg border border-brand-100 bg-brand-50/50 p-4">
+          <Label>Muat dari Purchase Request (opsional)</Label>
+          <Select
+            value={purchaseRequestId}
+            onChange={(e) => loadFromPurchaseRequest(e.target.value)}
+            disabled={loadingPr}
+            className="mt-1"
+          >
+            <option value="">— PO baru tanpa PR —</option>
+            {activePrs.map((pr) => (
+              <option key={pr.id} value={pr.id}>
+                {pr.prNo} — {pr.supplierName || "Tanpa supplier"} ({formatRp(pr.total)})
+              </option>
+            ))}
+          </Select>
+          {loadingPr && <p className="mt-1 text-xs text-slate-500">Memuat PR...</p>}
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>

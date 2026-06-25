@@ -7,9 +7,11 @@ const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "◆" },
   { href: "/dashboard/master", label: "Master Data", icon: "◇" },
   { href: "/dashboard/penjualan", label: "Penjualan", icon: "◇" },
+  { href: "/dashboard/quotation", label: "Quotation", icon: "◇" },
   { href: "/dashboard/penjualan/riwayat", label: "Riwayat Invoice", icon: "◇" },
   { href: "/dashboard/piutang", label: "Piutang", icon: "◇" },
   { href: "/dashboard/pembelian", label: "Pembelian", icon: "◇" },
+  { href: "/dashboard/purchase-request", label: "Purchase Request", icon: "◇" },
   { href: "/dashboard/pembelian/riwayat", label: "Riwayat PO", icon: "◇" },
   { href: "/dashboard/hutang", label: "Hutang", icon: "◇" },
   { href: "/dashboard/kas-bank", label: "Kas & Bank", icon: "◇" },
@@ -19,7 +21,6 @@ const NAV = [
 ];
 
 const COMING_SOON = [
-  "Quotation",
   "POS / Stok"
 ];
 

@@ -13,6 +13,7 @@ import {
   linkedMutasiTransactionId,
   resolveKasBankAccount
 } from "@/lib/posting/linked-mutasi";
+import { assertQuotationConvertible, markQuotationConverted } from "@/lib/pre-docs/convert";
 
 type LineInput = {
   product_id: string;
@@ -31,6 +32,7 @@ type CreateBody = {
   organizationId?: string;
   customer_id?: string;
   order_date?: string;
+  quotation_id?: string;
   lines?: LineInput[];
 };
 
@@ -210,6 +212,18 @@ async function createProperInvoice(
     return NextResponse.json({ error: "Customer wajib" }, { status: 400 });
   }
 
+  const quotationId = String(body.quotation_id || "").trim() || null;
+  if (quotationId) {
+    try {
+      await assertQuotationConvertible(supabase, quotationId, organizationId);
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Quotation tidak valid" },
+        { status: 400 }
+      );
+    }
+  }
+
   const { data: customer, error: custErr } = await supabase
     .from("customers")
     .select("id, name")
@@ -312,7 +326,8 @@ async function createProperInvoice(
     keterangan,
     customerId: customer.id,
     customerName: customer.name,
-    invoiceMode: "proper"
+    invoiceMode: "proper",
+    quotationId: quotationId || undefined
   };
 
   const { data: order, error: orderErr } = await supabase
@@ -385,6 +400,19 @@ async function createProperInvoice(
         sourceId: order.id,
         journalHandledBy: "PEMASUKAN"
       });
+    }
+  }
+
+  if (quotationId) {
+    try {
+      await markQuotationConverted(supabase, quotationId, organizationId, order.id, order.order_no);
+    } catch (err) {
+      await supabase.from("sales_lines").delete().eq("sales_order_id", order.id);
+      await supabase.from("sales_orders").delete().eq("id", order.id);
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Gagal konversi quotation" },
+        { status: 400 }
+      );
     }
   }
 

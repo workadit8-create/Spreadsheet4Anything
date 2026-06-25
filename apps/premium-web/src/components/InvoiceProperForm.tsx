@@ -54,6 +54,11 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
   const [paymentMode, setPaymentMode] = useState<PaymentMode>("TUNAI");
   const [bayar, setBayar] = useState("");
   const [lines, setLines] = useState<LineState[]>([emptyLine()]);
+  const [activeQuotations, setActiveQuotations] = useState<
+    { id: string; quotationNo: string; customerName: string; total: number }[]
+  >([]);
+  const [quotationId, setQuotationId] = useState("");
+  const [loadingQuotation, setLoadingQuotation] = useState(false);
 
   const productMap = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
@@ -90,6 +95,9 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
       if (data.kasBank?.length) {
         setRekening(data.kasBank[0].name);
       }
+      const qtRes = await fetch("/api/quotations?active=1");
+      const qtData = await qtRes.json();
+      if (qtRes.ok) setActiveQuotations(qtData.rows || []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal memuat");
     } finally {
@@ -125,6 +133,45 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
     setLines((prev) => (prev.length <= 1 ? prev : prev.filter((l) => l.key !== key)));
   }
 
+  async function loadFromQuotation(id: string) {
+    setQuotationId(id);
+    if (!id) return;
+
+    setLoadingQuotation(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/quotations/${id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      setOrderDate(data.quotation.quotationDate);
+      if (data.quotation.customerId) setCustomerId(data.quotation.customerId);
+
+      setLines(
+        (data.lines || []).map(
+          (l: {
+            productId: string | null;
+            qty: number;
+            unitPrice: number;
+            diskon: number;
+          }) => ({
+            key: `${Date.now()}-${Math.random()}`,
+            product_id: l.productId || "",
+            qty: String(l.qty),
+            unit_price: String(l.unitPrice),
+            diskon: String(l.diskon || 0)
+          })
+        )
+      );
+      setMessage(`Quotation ${data.quotation.quotationNo} dimuat. Sesuaikan pembayaran lalu simpan invoice.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal muat quotation");
+      setQuotationId("");
+    } finally {
+      setLoadingQuotation(false);
+    }
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!customerId) {
@@ -150,6 +197,7 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
           order_date: orderDate,
           bayar: bayarNum,
           rekening,
+          quotation_id: quotationId || undefined,
           lines: validLines.map((l) => ({
             product_id: l.product_id,
             qty: Number(l.qty),
@@ -169,6 +217,7 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
       setCustomerId("");
       setBayar("");
       setPaymentMode("TUNAI");
+      setQuotationId("");
       onCreated();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
@@ -183,6 +232,26 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
+      {activeQuotations.length > 0 && (
+        <div className="rounded-lg border border-brand-100 bg-brand-50/50 p-4">
+          <Label>Muat dari Quotation (opsional)</Label>
+          <Select
+            value={quotationId}
+            onChange={(e) => loadFromQuotation(e.target.value)}
+            disabled={loadingQuotation}
+            className="mt-1"
+          >
+            <option value="">— invoice baru tanpa quotation —</option>
+            {activeQuotations.map((q) => (
+              <option key={q.id} value={q.id}>
+                {q.quotationNo} — {q.customerName} ({formatRp(q.total)})
+              </option>
+            ))}
+          </Select>
+          {loadingQuotation && <p className="mt-1 text-xs text-slate-500">Memuat quotation...</p>}
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-3">
         <div>
           <Label>Tanggal</Label>
