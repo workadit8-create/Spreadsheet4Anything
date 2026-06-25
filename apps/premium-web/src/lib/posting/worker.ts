@@ -7,6 +7,7 @@ import {
   buildPembelianJournalLines,
   buildPelunasanUtangJournalLines
 } from "./journal-rules";
+import { postCashTransferJournal, type CashTransferRow } from "./mutasi";
 import { postJournalEntry } from "./journal-supabase";
 import type {
   SalesLineMetadata,
@@ -669,6 +670,52 @@ export async function processPendingPostingJobs(
           .eq("id", job.doc_id);
 
         results.push({ jobId: job.id, ok: true, journalSkipped });
+        continue;
+      }
+
+      if (job.doc_type === "CASH_TRANSFER") {
+        const { data: transfer, error: transferErr } = await supabase
+          .from("cash_transfers")
+          .select("*")
+          .eq("id", job.doc_id)
+          .single();
+
+        if (transferErr || !transfer) {
+          throw new Error(transferErr?.message || "Mutasi tidak ditemukan");
+        }
+
+        if (transfer.status !== "CONFIRMED") {
+          throw new Error("Mutasi tidak dalam status CONFIRMED");
+        }
+
+        const { skipped } = await postCashTransferJournal(
+          supabase,
+          transfer as CashTransferRow
+        );
+
+        await supabase
+          .from("posting_jobs")
+          .update({
+            status: "POSTED",
+            engine_ref: transfer.transaction_id,
+            last_error: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", job.id);
+
+        await supabase
+          .from("cash_transfers")
+          .update({ status: "POSTED", updated_at: new Date().toISOString() })
+          .eq("id", transfer.id);
+
+        await logJob(
+          supabase,
+          job.id,
+          "INFO",
+          skipped ? "Jurnal mutasi sudah ada (idempotent skip)" : "Jurnal mutasi OK"
+        );
+
+        results.push({ jobId: job.id, ok: true, journalSkipped: skipped });
         continue;
       }
 

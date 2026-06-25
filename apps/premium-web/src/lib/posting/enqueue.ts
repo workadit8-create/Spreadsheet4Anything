@@ -201,3 +201,53 @@ export async function enqueueUtangPaymentJob(
   }
   return job.id;
 }
+
+export async function enqueueCashTransferPostingJob(
+  supabase: SupabaseClient,
+  organizationId: string,
+  transferId: string
+): Promise<string> {
+  const { data: transfer, error: transferErr } = await supabase
+    .from("cash_transfers")
+    .select("status")
+    .eq("id", transferId)
+    .single();
+
+  if (transferErr || !transfer) {
+    throw new Error(transferErr?.message || "Mutasi tidak ditemukan");
+  }
+  if (transfer.status !== "CONFIRMED") {
+    throw new Error("Hanya mutasi CONFIRMED yang bisa diposting ke jurnal");
+  }
+
+  const { data: existingJob } = await supabase
+    .from("posting_jobs")
+    .select("id, status")
+    .eq("doc_type", "CASH_TRANSFER")
+    .eq("doc_id", transferId)
+    .in("status", ["PENDING", "RUNNING", "POSTED"])
+    .maybeSingle();
+
+  if (existingJob?.id) {
+    if (existingJob.status === "POSTED") {
+      throw new Error("Mutasi sudah diposting");
+    }
+    return existingJob.id;
+  }
+
+  const { data: job, error: jobErr } = await supabase
+    .from("posting_jobs")
+    .insert({
+      organization_id: organizationId,
+      doc_type: "CASH_TRANSFER",
+      doc_id: transferId,
+      status: "PENDING"
+    })
+    .select("id")
+    .single();
+
+  if (jobErr || !job) {
+    throw new Error(jobErr?.message || "Gagal enqueue posting job");
+  }
+  return job.id;
+}

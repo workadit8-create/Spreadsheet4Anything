@@ -43,7 +43,7 @@ export default function JurnalPageClient({ entries }: Props) {
       <PageHeader
         badge="Jurnal umum"
         title="Jurnal Supabase"
-        description="Read-only — sumber dari posting invoice & pelunasan piutang"
+        description="Read-only — sumber dari posting penjualan, pembelian, pelunasan, dan mutasi kas/bank"
       >
         <Link href="/dashboard/laporan" className="text-sm text-slate-500 hover:text-slate-700">
           ← Laporan
@@ -60,7 +60,7 @@ export default function JurnalPageClient({ entries }: Props) {
 
       {!entries.length ? (
         <Card>
-          <p className="text-sm text-slate-500">Belum ada jurnal. Posting invoice atau pelunasan piutang.</p>
+          <p className="text-sm text-slate-500">Belum ada jurnal. Posting transaksi (penjualan, pembelian, pelunasan, mutasi).</p>
         </Card>
       ) : (
         <div className="space-y-4">

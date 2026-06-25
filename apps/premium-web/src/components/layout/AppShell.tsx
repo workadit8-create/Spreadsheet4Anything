@@ -12,6 +12,7 @@ const NAV = [
   { href: "/dashboard/pembelian", label: "Pembelian", icon: "◇" },
   { href: "/dashboard/pembelian/riwayat", label: "Riwayat PO", icon: "◇" },
   { href: "/dashboard/hutang", label: "Hutang", icon: "◇" },
+  { href: "/dashboard/kas-bank", label: "Kas & Bank", icon: "◇" },
   { href: "/dashboard/jurnal", label: "Jurnal", icon: "◇" },
   { href: "/dashboard/laporan", label: "Laporan", icon: "◇" }
 ];

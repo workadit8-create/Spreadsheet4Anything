@@ -51,6 +51,16 @@ export type PelunasanUtangJournalInput = {
   keterangan: string;
 };
 
+export type MutasiDanaJournalInput = {
+  tanggal: string;
+  transactionId: string;
+  jenis: "Transfer" | "Masuk" | "Keluar";
+  sumberCoa: string;
+  tujuanCoa: string;
+  nominal: number;
+  keterangan: string;
+};
+
 export function resolveKasBankAccount(rekening: string): string {
   const trimmed = String(rekening || "").trim();
   if (!trimmed) return "Kas";
@@ -202,6 +212,74 @@ export function buildPelunasanUtangJournalLines(
       debit: 0,
       credit: nominal,
       keterangan: "Pelunasan Utang"
+    }
+  ];
+}
+
+export function buildMutasiDanaJournalLines(data: MutasiDanaJournalInput): JournalLineDraft[] {
+  const nominal = Number(data.nominal) || 0;
+  const ketBase = data.keterangan || `Mutasi ${data.jenis}`;
+
+  if (data.jenis === "Transfer") {
+    const ket =
+      ketBase !== `Mutasi ${data.jenis}`
+        ? ketBase
+        : `Transfer ${data.sumberCoa} → ${data.tujuanCoa}`;
+    return [
+      {
+        lineDate: data.tanggal,
+        accountName: data.tujuanCoa,
+        debit: nominal,
+        credit: 0,
+        keterangan: ket
+      },
+      {
+        lineDate: data.tanggal,
+        accountName: data.sumberCoa,
+        debit: 0,
+        credit: nominal,
+        keterangan: ket
+      }
+    ];
+  }
+
+  if (data.jenis === "Masuk") {
+    const contra = data.sumberCoa || "Mutasi Masuk";
+    const ket = ketBase !== `Mutasi ${data.jenis}` ? ketBase : `Setoran ke ${data.tujuanCoa}`;
+    return [
+      {
+        lineDate: data.tanggal,
+        accountName: data.tujuanCoa,
+        debit: nominal,
+        credit: 0,
+        keterangan: ket
+      },
+      {
+        lineDate: data.tanggal,
+        accountName: contra,
+        debit: 0,
+        credit: nominal,
+        keterangan: ket
+      }
+    ];
+  }
+
+  const contra = data.tujuanCoa || "Mutasi Keluar";
+  const ket = ketBase !== `Mutasi ${data.jenis}` ? ketBase : `Penarikan dari ${data.sumberCoa}`;
+  return [
+    {
+      lineDate: data.tanggal,
+      accountName: contra,
+      debit: nominal,
+      credit: 0,
+      keterangan: ket
+    },
+    {
+      lineDate: data.tanggal,
+      accountName: data.sumberCoa,
+      debit: 0,
+      credit: nominal,
+      keterangan: ket
     }
   ];
 }
