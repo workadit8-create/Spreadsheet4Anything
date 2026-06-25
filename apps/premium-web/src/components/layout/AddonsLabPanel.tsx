@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { AddonInfo } from "@/lib/org/addons-catalog";
 import { Button } from "@/components/ui/Button";
 
@@ -10,37 +9,42 @@ export function AddonsLabPanel({
 }: {
   onAddonsChange?: (addons: AddonInfo[]) => void;
 }) {
-  const router = useRouter();
+  const onChangeRef = useRef(onAddonsChange);
+  onChangeRef.current = onAddonsChange;
+
   const [addons, setAddons] = useState<AddonInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const applyAddons = useCallback(
-    (list: AddonInfo[]) => {
-      setAddons(list);
-      onAddonsChange?.(list);
-    },
-    [onAddonsChange]
-  );
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/org/addons");
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      applyAddons(data.addons || []);
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Gagal memuat add-on");
-    } finally {
-      setLoading(false);
-    }
-  }, [applyAddons]);
+  const syncAddons = useCallback((list: AddonInfo[]) => {
+    setAddons(list);
+    onChangeRef.current?.(list);
+  }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const res = await fetch("/api/org/addons");
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        if (!cancelled) syncAddons(data.addons || []);
+      } catch (e) {
+        if (!cancelled) {
+          setMessage(e instanceof Error ? e.message : "Gagal memuat add-on");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
     void load();
-  }, [load]);
+    return () => {
+      cancelled = true;
+    };
+  }, [syncAddons]);
 
   async function toggle(key: string, enabled: boolean) {
     setActing(key);
@@ -53,8 +57,7 @@ export function AddonsLabPanel({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      applyAddons(data.addons || []);
-      router.refresh();
+      syncAddons(data.addons || []);
       setMessage(enabled ? "Add-on aktif — menu diperbarui" : "Add-on dimatikan");
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Gagal simpan");
@@ -63,7 +66,7 @@ export function AddonsLabPanel({
     }
   }
 
-  if (loading) {
+  if (loading && addons.length === 0) {
     return <p className="text-[11px] text-slate-400">Memuat add-on…</p>;
   }
 

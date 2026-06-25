@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DemoFinishPanel } from "@/components/layout/DemoFinishPanel";
 import { AddonsLabPanel } from "@/components/layout/AddonsLabPanel";
 import {
@@ -81,9 +81,9 @@ export function AppShell({
     setAddonMap(addons);
   }, [addons]);
 
-  function handleAddonsChange(list: AddonInfo[]) {
+  const handleAddonsChange = useCallback((list: AddonInfo[]) => {
     setAddonMap(orgAddonsFromInfoList(list));
-  }
+  }, []);
 
   const visibleNav = NAV.filter((item) => !item.addon || addonMap[item.addon]);
   const comingSoon = comingSoonLabels(addonMap);
