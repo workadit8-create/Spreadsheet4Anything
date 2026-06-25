@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { wibMonthStartIso, wibTodayIso } from "@/lib/date/wib";
 import { confirmPostPoJournal, poDebtStatusLabel } from "@/lib/pembelian/po-status-label";
 import { buildPoPrintHtml, openPoPrintWindow, type PoPrintCompany } from "@/lib/pembelian/po-print";
 import { DetailModalTabs, TransactionJournalView } from "@/components/jurnal/TransactionJournalView";
@@ -45,9 +46,7 @@ function formatRp(n: number) {
 }
 
 function defaultDateRange() {
-  const end = new Date();
-  const start = new Date(end.getFullYear(), end.getMonth(), 1);
-  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+  return { start: wibMonthStartIso(), end: wibTodayIso() };
 }
 
 function statusClass(status: string) {

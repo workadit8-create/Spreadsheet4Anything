@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { generateUtangTransactionId } from "@/lib/posting/ids";
+import { wibDateIsoFromInput } from "@/lib/date/wib";
 import {
   allocatePelunasanToPurchaseLines,
   lineKurangBayar,
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
   const body = (await request.json()) as Body;
   const purchaseOrderId = String(body.purchase_order_id || "").trim();
   const nominal = Number(body.nominal);
-  const tanggalBayar = body.tanggal || new Date().toISOString().slice(0, 10);
+  const tanggalBayar = wibDateIsoFromInput(body.tanggal);
   const keterangan = String(body.keterangan || "").trim();
 
   if (!purchaseOrderId) {

@@ -6,6 +6,7 @@ import { Input, Label, Select } from "@/components/ui/Input";
 import { ProjectSelect } from "@/components/proyek/ProjectSelect";
 import type { ProjectOption } from "@/lib/proyek/bootstrap-options";
 import { computePurchaseLineTotal } from "@/lib/posting/purchase-lines";
+import { wibTodayIso } from "@/lib/date/wib";
 
 type Supplier = { id: string; code: string | null; name: string };
 type Category = { id: string; label: string; coa_account: string };
@@ -51,7 +52,7 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const [orderDate, setOrderDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [orderDate, setOrderDate] = useState(() => wibTodayIso());
   const [supplierId, setSupplierId] = useState("");
   const [rekening, setRekening] = useState("");
   const [paymentMode, setPaymentMode] = useState<PaymentMode>("TUNAI");

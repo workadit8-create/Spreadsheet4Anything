@@ -19,6 +19,7 @@ import {
 } from "@/lib/posting/linked-mutasi";
 import { assertPurchaseRequestConvertible, markPurchaseRequestConverted } from "@/lib/pre-docs/convert";
 import { resolveProjectCodeForSave } from "@/lib/proyek/helpers";
+import { wibDateIsoFromInput } from "@/lib/date/wib";
 
 type LineInput = {
   description: string;
@@ -251,7 +252,7 @@ export async function POST(request: Request) {
     );
     const paymentStatus = deriveOrderPembelianMetode(paymentSlices);
     const rekening = String(body.rekening || (totalBayar > 0 ? "Kas" : "")).trim();
-    const orderDate = body.order_date || new Date().toISOString().slice(0, 10);
+    const orderDate = wibDateIsoFromInput(body.order_date);
     const keterangan = buildPembelianKeterangan(
       supplier.name,
       resolvedLines.map((l) => l.description)

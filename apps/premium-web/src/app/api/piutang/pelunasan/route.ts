@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { wibDateIsoFromInput } from "@/lib/date/wib";
 import { createClient } from "@/lib/supabase/server";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { generatePiutangTransactionId } from "@/lib/posting/ids";
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
   const body = (await request.json()) as Body;
   const salesOrderId = String(body.sales_order_id || "").trim();
   const nominal = Number(body.nominal);
-  const tanggalBayar = body.tanggal || new Date().toISOString().slice(0, 10);
+  const tanggalBayar = wibDateIsoFromInput(body.tanggal);
   const keterangan = String(body.keterangan || "").trim();
 
   if (!salesOrderId) return NextResponse.json({ error: "Invoice wajib dipilih" }, { status: 400 });

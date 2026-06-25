@@ -62,7 +62,7 @@ export default function PiutangPageClient({ role }: { role: MembershipRole }) {
   const [error, setError] = useState<string | null>(null);
 
   const [payTarget, setPayTarget] = useState<PiutangItem | null>(null);
-  const [payDate, setPayDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [payDate, setPayDate] = useState(() => wibTodayIso());
   const [payNominal, setPayNominal] = useState("");
   const [payRekening, setPayRekening] = useState("Kas");
   const [payKeterangan, setPayKeterangan] = useState("");
@@ -150,7 +150,7 @@ export default function PiutangPageClient({ role }: { role: MembershipRole }) {
       return;
     }
     setPayTarget(row);
-    setPayDate(new Date().toISOString().slice(0, 10));
+    setPayDate(wibTodayIso());
     setPayNominal(String(row.sisaTagihan));
     setPayKeterangan("");
     setPayMessage(null);

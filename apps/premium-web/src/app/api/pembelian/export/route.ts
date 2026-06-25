@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { wibMonthStartIso, wibTodayIso } from "@/lib/date/wib";
 import { createClient } from "@/lib/supabase/server";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import {
@@ -13,10 +14,8 @@ const TYPES = new Set(["produk", "supplier"]);
 
 function parseDateRange(url: string) {
   const { searchParams } = new URL(url);
-  const today = new Date();
-  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-  const defaultStart = firstDay.toISOString().slice(0, 10);
-  const defaultEnd = today.toISOString().slice(0, 10);
+  const defaultStart = wibMonthStartIso();
+  const defaultEnd = wibTodayIso();
 
   return {
     start: searchParams.get("start") || defaultStart,

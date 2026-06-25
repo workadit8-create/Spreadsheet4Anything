@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { wibMonthsAgoIso, wibTodayIso } from "@/lib/date/wib";
 import { confirmPostPoJournal, poDebtStatusLabel } from "@/lib/pembelian/po-status-label";
 import { PostingRoleBanner } from "@/components/layout/PostingRoleBanner";
 import { canPostJournal, type MembershipRole } from "@/lib/org/roles";
@@ -40,12 +41,9 @@ function formatRp(n: number) {
 }
 
 function defaultDateRange() {
-  const end = new Date();
-  const start = new Date();
-  start.setMonth(start.getMonth() - 3);
   return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10)
+    start: wibMonthsAgoIso(3),
+    end: wibTodayIso()
   };
 }
 
@@ -64,7 +62,7 @@ export default function HutangPageClient({ role }: { role: MembershipRole }) {
   const [error, setError] = useState<string | null>(null);
 
   const [payTarget, setPayTarget] = useState<HutangItem | null>(null);
-  const [payDate, setPayDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [payDate, setPayDate] = useState(() => wibTodayIso());
   const [payNominal, setPayNominal] = useState("");
   const [payRekening, setPayRekening] = useState("Kas");
   const [payKeterangan, setPayKeterangan] = useState("");
@@ -152,7 +150,7 @@ export default function HutangPageClient({ role }: { role: MembershipRole }) {
       return;
     }
     setPayTarget(row);
-    setPayDate(new Date().toISOString().slice(0, 10));
+    setPayDate(wibTodayIso());
     setPayNominal(String(row.sisaTagihan));
     setPayKeterangan("");
     setPayMessage(null);
