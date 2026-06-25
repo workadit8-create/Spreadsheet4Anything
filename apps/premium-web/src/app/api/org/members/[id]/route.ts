@@ -27,11 +27,10 @@ export async function PATCH(request: Request, context: RouteContext) {
   const role = normalizeMembershipRole(body.role);
 
   try {
-    await updateOrgMemberRole({
+    await updateOrgMemberRole(supabase, {
       orgId: auth.org.id,
       membershipId: id,
-      role,
-      actorUserId: auth.user.id
+      role
     });
     return NextResponse.json({ ok: true });
   } catch (e) {
@@ -53,10 +52,9 @@ export async function DELETE(_request: Request, context: RouteContext) {
   const { id } = await context.params;
 
   try {
-    await removeOrgMember({
+    await removeOrgMember(supabase, {
       orgId: auth.org.id,
-      membershipId: id,
-      actorUserId: auth.user.id
+      membershipId: id
     });
     return NextResponse.json({ ok: true });
   } catch (e) {

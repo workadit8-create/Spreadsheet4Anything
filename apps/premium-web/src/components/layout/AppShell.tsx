@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { DemoFinishPanel } from "@/components/layout/DemoFinishPanel";
+import { LogoutButton } from "@/components/layout/LogoutButton";
 import { AddonsLabPanel } from "@/components/layout/AddonsLabPanel";
 import {
   ADDON_CATALOG,
@@ -169,6 +170,7 @@ export function AppShell({
               <p className="mt-0.5 text-slate-500">Peran: {ROLE_LABELS[role]}</p>
             </div>
           )}
+          <LogoutButton />
         </div>
       </aside>
 

@@ -62,8 +62,11 @@ Menu **Tim & Akses** (`/dashboard/tim`) — **owner saja**.
 
 Password sementara ditampilkan sekali saat akun baru dibuat; bagikan ke anggota tim.
 
+Mutasi anggota lewat RPC Postgres (`add_org_member`, `update_org_member_role`, `remove_org_member`) — **tidak butuh** `SUPABASE_SERVICE_ROLE_KEY` di Vercel.
+
 ```bash
 ./scripts/run-supabase-migration-file.sh 026_org_members_rpc.sql
+./scripts/run-supabase-migration-file.sh 027_org_members_mutations_rpc.sql
 ```
 
 ## Migrasi
@@ -71,3 +74,5 @@ Password sementara ditampilkan sekali saat akun baru dibuat; bagikan ke anggota 
 `025_membership_role_in_rpc.sql` — RPC `get_my_organizations()` mengembalikan kolom `role`.
 
 `026_org_members_rpc.sql` — RPC `get_org_members()` untuk owner melihat daftar tim.
+
+`027_org_members_mutations_rpc.sql` — RPC tambah / ubah / hapus anggota (tanpa service role).

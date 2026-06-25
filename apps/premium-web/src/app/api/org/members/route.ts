@@ -51,7 +51,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await addOrgMember({
+    const result = await addOrgMember(supabase, {
       orgId: auth.org.id,
       email,
       role,
