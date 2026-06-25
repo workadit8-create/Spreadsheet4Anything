@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { wibMonthStartIso, wibTodayIso } from "@/lib/date/wib";
 import { createClient } from "@/lib/supabase/server";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { ensureDefaultCoa } from "@/lib/coa/seed-default-coa";
@@ -14,11 +15,9 @@ const REPORT_TYPES = ["buku-besar", "laba-rugi", "neraca", "arus-kas"] as const;
 type ReportType = (typeof REPORT_TYPES)[number];
 
 function defaultPeriod() {
-  const end = new Date();
-  const start = new Date(end.getFullYear(), end.getMonth(), 1);
   return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10)
+    start: wibMonthStartIso(),
+    end: wibTodayIso()
   };
 }
 

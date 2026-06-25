@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { DetailModalTabs, TransactionJournalView } from "@/components/jurnal/TransactionJournalView";
 import { PostingRoleBanner } from "@/components/layout/PostingRoleBanner";
 import { canPostJournal, type MembershipRole } from "@/lib/org/roles";
+import { wibMonthStartIso, wibTodayIso } from "@/lib/date/wib";
 
 type KasAccount = { id: string; name: string; coa_account_name: string };
 type CoaOption = { id: string; code: string; name: string; account_type: string };
@@ -52,11 +53,9 @@ function formatRp(n: number) {
 }
 
 function defaultDateRange() {
-  const end = new Date();
-  const start = new Date(end.getFullYear(), end.getMonth(), 1);
   return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10)
+    start: wibMonthStartIso(),
+    end: wibTodayIso()
   };
 }
 
@@ -107,7 +106,7 @@ export default function KasBankPageClient({ role }: { role: MembershipRole }) {
   const [mutasiDetail, setMutasiDetail] = useState<MutasiItem | null>(null);
 
   const [kind, setKind] = useState<MutasiKind>("Transfer");
-  const [transferDate, setTransferDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [transferDate, setTransferDate] = useState(() => wibTodayIso());
   const [sourceId, setSourceId] = useState("");
   const [destId, setDestId] = useState("");
   const [contraCoa, setContraCoa] = useState("");
@@ -118,10 +117,10 @@ export default function KasBankPageClient({ role }: { role: MembershipRole }) {
   const [journalByCoa, setJournalByCoa] = useState<Record<string, number>>({});
   const [allocatedByCoa, setAllocatedByCoa] = useState<Record<string, number>>({});
   const [openingAmounts, setOpeningAmounts] = useState<Record<string, string>>({});
-  const [openingDate, setOpeningDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [openingDate, setOpeningDate] = useState(() => wibTodayIso());
   const [openingSaving, setOpeningSaving] = useState(false);
 
-  const [cicilanDate, setCicilanDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [cicilanDate, setCicilanDate] = useState(() => wibTodayIso());
   const [cicilanAccountId, setCicilanAccountId] = useState("");
   const [cicilanUtang, setCicilanUtang] = useState("");
   const [cicilanBeban, setCicilanBeban] = useState("");
@@ -199,7 +198,7 @@ export default function KasBankPageClient({ role }: { role: MembershipRole }) {
   }, [load, loadOpening, loadCicilan]);
 
   function resetForm() {
-    setTransferDate(new Date().toISOString().slice(0, 10));
+    setTransferDate(wibTodayIso());
     setSourceId("");
     setDestId("");
     setContraCoa("");

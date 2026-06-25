@@ -9,6 +9,7 @@ import { ProjectSelect } from "@/components/proyek/ProjectSelect";
 import type { ProjectOption } from "@/lib/proyek/bootstrap-options";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { computeLineTotal } from "@/lib/posting/invoice-lines";
+import { wibMonthStartIso, wibTodayIso } from "@/lib/date/wib";
 
 type Tab = "buat" | "riwayat";
 type Customer = { id: string; code: string | null; name: string };
@@ -41,9 +42,7 @@ function emptyLine(): LineState {
 }
 
 function defaultDateRange() {
-  const end = new Date();
-  const start = new Date(end.getFullYear(), end.getMonth(), 1);
-  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+  return { start: wibMonthStartIso(), end: wibTodayIso() };
 }
 
 function statusClass(status: string) {
@@ -61,7 +60,7 @@ export default function QuotationPageClient() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const [quotationDate, setQuotationDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [quotationDate, setQuotationDate] = useState(() => wibTodayIso());
   const [customerId, setCustomerId] = useState("");
   const [keterangan, setKeterangan] = useState("");
   const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);

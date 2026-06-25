@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
 import type { ProjectDto, ProjectLrRow, ProjectTaskDto } from "@/lib/proyek/types";
+import { wibMonthStartIso, wibTodayIso } from "@/lib/date/wib";
 
 type Tab = "daftar" | "buat" | "checklist" | "lr";
 type Customer = { id: string; name: string };
@@ -28,16 +29,14 @@ function statusBadge(status: string) {
 }
 
 function defaultDateRange() {
-  const end = new Date();
-  const start = new Date(end.getFullYear(), end.getMonth(), 1);
-  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+  return { start: wibMonthStartIso(), end: wibTodayIso() };
 }
 
 const emptyForm = () => ({
   projectCode: "",
   name: "",
   customerId: "",
-  eventDate: new Date().toISOString().slice(0, 10),
+  eventDate: wibTodayIso(),
   location: "",
   pax: "0",
   status: "DRAFT",

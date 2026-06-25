@@ -1,3 +1,5 @@
+import { lastNMonthKeysWib } from "@/lib/date/wib";
+
 export type MonthlyTrendPoint = {
   month: string;
   label: string;
@@ -13,15 +15,7 @@ export type BalanceSlice = {
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
 export function last6MonthKeys(): string[] {
-  const keys: string[] = [];
-  const now = new Date();
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    keys.push(`${y}-${m}`);
-  }
-  return keys;
+  return lastNMonthKeysWib(6);
 }
 
 export function monthLabel(key: string): string {

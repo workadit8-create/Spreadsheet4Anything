@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { wibDateIsoFromInput } from "@/lib/date/wib";
 import { createClient } from "@/lib/supabase/server";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { computeSaldoByAccountName, type KasBankAccount } from "@/lib/posting/mutasi";
@@ -96,7 +97,7 @@ export async function POST(request: Request) {
   const { org } = auth;
 
   const body = await request.json();
-  const transferDate = String(body.transferDate || new Date().toISOString().slice(0, 10)).slice(0, 10);
+  const transferDate = wibDateIsoFromInput(body.transferDate);
   const allocations = (body.allocations || []) as AllocationInput[];
 
   if (!allocations.length) {

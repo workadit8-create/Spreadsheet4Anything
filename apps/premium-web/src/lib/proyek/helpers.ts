@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { addDaysIso, wibTodayIso } from "@/lib/date/wib";
 import {
   PROJECT_STATUSES,
   type ProjectDto,
@@ -31,10 +32,7 @@ export function formatOffsetLabel(offsetDays: number): string {
 
 export function computeTaskDeadline(eventDate: string, offsetDays: number): string {
   if (!eventDate) return "";
-  const base = new Date(`${eventDate.slice(0, 10)}T12:00:00`);
-  if (Number.isNaN(base.getTime())) return "";
-  base.setDate(base.getDate() + offsetDays);
-  return base.toISOString().slice(0, 10);
+  return addDaysIso(eventDate.slice(0, 10), offsetDays);
 }
 
 export function customerNameFromRow(row: ProjectRow): string {
@@ -98,10 +96,7 @@ export async function generateProjectCode(
   supabase: SupabaseClient,
   orgId: string
 ): Promise<string> {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+  const [y, m, day] = wibTodayIso().split("-");
   const prefix = `PRJ-${y}${m}${day}-`;
 
   const { data } = await supabase

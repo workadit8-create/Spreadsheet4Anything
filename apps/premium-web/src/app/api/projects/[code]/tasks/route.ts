@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { wibTodayIso } from "@/lib/date/wib";
 import { createClient } from "@/lib/supabase/server";
 import { requireAddon } from "@/lib/org/addons";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
@@ -39,7 +40,7 @@ export async function GET(_request: Request, ctx: RouteCtx) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const taskDtos = (tasks || []).map(rowToTaskDto);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = wibTodayIso();
   let done = 0;
   let pending = 0;
   let overdue = 0;

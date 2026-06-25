@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { wibDateIsoFromInput } from "@/lib/date/wib";
 import { createClient } from "@/lib/supabase/server";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { generatePrNo } from "@/lib/posting/ids";
@@ -160,7 +161,7 @@ export async function POST(request: Request) {
     }
 
     const total = resolvedLines.reduce((sum, l) => sum + l.line_total, 0);
-    const requestDate = body.request_date || new Date().toISOString().slice(0, 10);
+    const requestDate = wibDateIsoFromInput(body.request_date);
     const prNo = generatePrNo();
 
     const { data: header, error: headerErr } = await supabase

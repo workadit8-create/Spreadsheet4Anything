@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { wibDateIsoFromInput } from "@/lib/date/wib";
 import { createClient } from "@/lib/supabase/server";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { generateQuotationNo } from "@/lib/posting/ids";
@@ -152,7 +153,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Total quotation harus > 0" }, { status: 400 });
     }
 
-    const quotationDate = body.quotation_date || new Date().toISOString().slice(0, 10);
+    const quotationDate = wibDateIsoFromInput(body.quotation_date);
     const quotationNo = generateQuotationNo();
 
     const { data: header, error: headerErr } = await supabase

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { wibDateIsoFromInput } from "@/lib/date/wib";
 import { buildPemasukanPayload } from "./pemasukan";
 import { buildPelunasanPiutangPayload } from "./pelunasan-piutang";
 import {
@@ -86,7 +87,7 @@ function asPiutangPaymentMeta(raw: unknown): PiutangPaymentMetadata {
     rekening: String(m.rekening || ""),
     coaAccountName: m.coaAccountName ? String(m.coaAccountName) : undefined,
     keterangan: m.keterangan ? String(m.keterangan) : undefined,
-    tanggalBayar: String(m.tanggalBayar || new Date().toISOString().slice(0, 10))
+    tanggalBayar: wibDateIsoFromInput(String(m.tanggalBayar || ""))
   };
 }
 
@@ -142,7 +143,7 @@ function asUtangPaymentMeta(raw: unknown): UtangPaymentMetadata {
     rekening: String(m.rekening || ""),
     coaAccountName: m.coaAccountName ? String(m.coaAccountName) : undefined,
     keterangan: m.keterangan ? String(m.keterangan) : undefined,
-    tanggalBayar: String(m.tanggalBayar || new Date().toISOString().slice(0, 10))
+    tanggalBayar: wibDateIsoFromInput(String(m.tanggalBayar || ""))
   };
 }
 

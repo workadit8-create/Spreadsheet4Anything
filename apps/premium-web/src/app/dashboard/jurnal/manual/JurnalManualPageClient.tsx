@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { wibTodayIso } from "@/lib/date/wib";
 
 type CoaItem = { id: string; code: string; name: string; account_type: string };
 
@@ -56,7 +57,7 @@ function parseAmount(s: string): number {
 }
 
 export default function JurnalManualPageClient() {
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const today = useMemo(() => wibTodayIso(), []);
   const [entryDate, setEntryDate] = useState(today);
   const [keterangan, setKeterangan] = useState("Saldo awal / jurnal pembuka");
   const [lines, setLines] = useState<LineDraft[]>([EMPTY_LINE(), EMPTY_LINE()]);

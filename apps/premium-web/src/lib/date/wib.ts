@@ -37,6 +37,29 @@ export function wibMonthsAgoIso(months: number, now = new Date()): string {
   return wibTodayIso(base);
 }
 
+/** Tanggal 1 di bulan N bulan lalu (WIB), format YYYY-MM-DD */
+export function wibMonthStartMonthsAgoIso(monthsAgo: number, now = new Date()): string {
+  const today = wibTodayIso(now);
+  const base = new Date(`${today}T12:00:00+07:00`);
+  base.setDate(1);
+  base.setMonth(base.getMonth() - monthsAgo);
+  return wibTodayIso(base);
+}
+
+/** Kunci YYYY-MM untuk N bulan terakhir (WIB), termasuk bulan berjalan */
+export function lastNMonthKeysWib(count: number, now = new Date()): string[] {
+  const keys: string[] = [];
+  const today = wibTodayIso(now);
+  const base = new Date(`${today}T12:00:00+07:00`);
+  base.setDate(1);
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(base);
+    d.setMonth(d.getMonth() - i);
+    keys.push(wibTodayIso(d).slice(0, 7));
+  }
+  return keys;
+}
+
 export function addDaysIso(isoDate: string, days: number): string {
   const base = new Date(`${isoDate}T12:00:00+07:00`);
   base.setDate(base.getDate() + days);

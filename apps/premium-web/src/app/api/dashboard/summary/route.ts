@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { wibMonthStartIso, wibMonthStartMonthsAgoIso, wibTodayIso } from "@/lib/date/wib";
 import { createClient } from "@/lib/supabase/server";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { computeSaldoByAccountName, type KasBankAccount } from "@/lib/posting/mutasi";
@@ -8,20 +9,16 @@ import type { PurchaseLineRow, SalesLineRow } from "@/lib/posting/types";
 import { buildBalanceMix, buildMonthlyTrend } from "@/lib/dashboard/chart-data";
 
 function monthRange() {
-  const end = new Date();
-  const start = new Date(end.getFullYear(), end.getMonth(), 1);
   return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10)
+    start: wibMonthStartIso(),
+    end: wibTodayIso()
   };
 }
 
 function trendRange() {
-  const end = new Date();
-  const start = new Date(end.getFullYear(), end.getMonth() - 5, 1);
   return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10)
+    start: wibMonthStartMonthsAgoIso(5),
+    end: wibTodayIso()
   };
 }
 

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { wibMonthStartIso, wibTodayIso } from "@/lib/date/wib";
 
 type ReportTab = "buku-besar" | "laba-rugi" | "neraca" | "arus-kas";
 
@@ -82,11 +83,9 @@ const TABS: { id: ReportTab; label: string }[] = [
 ];
 
 function defaultDateRange() {
-  const end = new Date();
-  const start = new Date(end.getFullYear(), end.getMonth(), 1);
   return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10)
+    start: wibMonthStartIso(),
+    end: wibTodayIso()
   };
 }
 

@@ -9,6 +9,7 @@ import { ProjectSelect } from "@/components/proyek/ProjectSelect";
 import type { ProjectOption } from "@/lib/proyek/bootstrap-options";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { computePurchaseLineTotal } from "@/lib/posting/purchase-lines";
+import { wibMonthStartIso, wibTodayIso } from "@/lib/date/wib";
 
 type Tab = "buat" | "riwayat";
 type Supplier = { id: string; code: string | null; name: string };
@@ -55,9 +56,7 @@ function emptyLine(catId = ""): LineState {
 }
 
 function defaultDateRange() {
-  const end = new Date();
-  const start = new Date(end.getFullYear(), end.getMonth(), 1);
-  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+  return { start: wibMonthStartIso(), end: wibTodayIso() };
 }
 
 function statusClass(status: string) {
@@ -75,7 +74,7 @@ export default function PurchaseRequestPageClient() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const [requestDate, setRequestDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [requestDate, setRequestDate] = useState(() => wibTodayIso());
   const [supplierId, setSupplierId] = useState("");
   const [keterangan, setKeterangan] = useState("");
   const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);

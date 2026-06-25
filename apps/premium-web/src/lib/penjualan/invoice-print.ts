@@ -1,3 +1,4 @@
+import { wibTodayIso } from "@/lib/date/wib";
 import type { OrgPrintSettings } from "@/lib/org/print-settings";
 import { DEFAULT_PRINT_SETTINGS } from "@/lib/org/print-settings";
 import type { HistoryDetail } from "./history";
@@ -180,7 +181,7 @@ export function buildInvoicePrintHtml(
 
       <div class="doc-thanks">
         <strong>${escapeHtml(printSettings.invoiceFooter)}</strong>
-        Dokumen ini dicetak dari Premium Akuntansi · ${escapeHtml(formatDateId(new Date().toISOString().slice(0, 10)))}
+        Dokumen ini dicetak dari Premium Akuntansi · ${escapeHtml(formatDateId(wibTodayIso()))}
       </div>
     </div>
   </div>

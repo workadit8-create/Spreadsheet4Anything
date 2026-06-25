@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { wibTodayIso } from "@/lib/date/wib";
 import { buildReversalJournalLines, voidTransactionId } from "./journal-reversal";
 import { postJournalEntry } from "./journal-supabase";
 import type { JournalLineDraft } from "./journal-rules";
@@ -63,7 +64,7 @@ export async function voidCashTransfer(
     throw new Error(entriesErr.message);
   }
 
-  const voidDate = new Date().toISOString().slice(0, 10);
+  const voidDate = wibTodayIso();
   let reversedEntries = 0;
 
   for (const raw of (entries || []) as JournalEntryRow[]) {
