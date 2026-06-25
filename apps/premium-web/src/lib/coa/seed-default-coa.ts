@@ -9,6 +9,16 @@ export async function ensureDefaultCoa(
   supabase: SupabaseClient,
   organizationId: string
 ): Promise<{ inserted: number }> {
+  const { count, error: countError } = await supabase
+    .from("coa_accounts")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId);
+
+  if (countError) throw new Error(countError.message);
+  if ((count ?? 0) >= 15) {
+    return { inserted: 0 };
+  }
+
   const { data: rpcCount, error: rpcError } = await supabase.rpc("seed_default_coa_for_org", {
     p_org_id: organizationId
   });

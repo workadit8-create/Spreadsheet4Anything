@@ -42,9 +42,15 @@ export async function GET(request: Request) {
   if (start) historyQuery = historyQuery.gte("transfer_date", start);
   if (end) historyQuery = historyQuery.lte("transfer_date", end);
 
+  const saldoColumns =
+    "kind, amount, source_account_name, dest_account_name, status, metadata";
+
   const [{ data: historyTransfers, error: trErr }, { data: allTransfers }] = await Promise.all([
     historyQuery,
-    supabase.from("cash_transfers").select("*").eq("organization_id", org.id)
+    supabase
+      .from("cash_transfers")
+      .select(saldoColumns)
+      .eq("organization_id", org.id)
   ]);
 
   if (trErr) return NextResponse.json({ error: trErr.message }, { status: 500 });
