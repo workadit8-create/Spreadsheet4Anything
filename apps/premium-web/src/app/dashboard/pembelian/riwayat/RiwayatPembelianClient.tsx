@@ -74,7 +74,7 @@ export default function RiwayatPembelianClient() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailOrder, setDetailOrder] = useState<HistoryRow | null>(null);
   const [detailLines, setDetailLines] = useState<DetailLine[]>([]);
-  const [detailCompany, setDetailCompany] = useState<PoPrintCompany>({ name: "HYBRID LAB" });
+  const [detailCompany, setDetailCompany] = useState<PoPrintCompany>({ name: "" });
 
   useEffect(() => {
     fetch("/api/master/suppliers")
@@ -118,7 +118,7 @@ export default function RiwayatPembelianClient() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setDetailLines(data.lines || []);
-      setDetailCompany(data.company || { name: "HYBRID LAB" });
+      setDetailCompany(data.company || { name: "" });
       if (data.order) {
         setDetailOrder({
           id: row.id,

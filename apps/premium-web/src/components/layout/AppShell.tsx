@@ -26,10 +26,12 @@ const COMING_SOON = [
 
 export function AppShell({
   children,
-  userEmail
+  userEmail,
+  orgName
 }: {
   children: React.ReactNode;
   userEmail?: string | null;
+  orgName?: string | null;
 }) {
   const pathname = usePathname();
 
@@ -38,7 +40,7 @@ export function AppShell({
       <aside className="flex w-60 shrink-0 flex-col border-r border-slate-200/80 bg-slate-900 text-white">
         <div className="border-b border-white/10 px-5 py-5">
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Premium</p>
-          <p className="mt-1 text-sm font-semibold text-white">HYBRID LAB</p>
+          <p className="mt-1 text-sm font-semibold text-white">{orgName || "Premium"}</p>
         </div>
 
         <nav className="flex-1 space-y-1 p-3">

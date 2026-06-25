@@ -25,6 +25,14 @@ export function Select({
   );
 }
 
-export function Label({ children }: { children: React.ReactNode }) {
-  return <label className="mb-1 block text-xs font-semibold text-slate-700">{children}</label>;
+export function Label({
+  children,
+  className = "",
+  ...props
+}: React.LabelHTMLAttributes<HTMLLabelElement>) {
+  return (
+    <label className={`mb-1 block text-xs font-semibold text-slate-700 ${className}`} {...props}>
+      {children}
+    </label>
+  );
 }

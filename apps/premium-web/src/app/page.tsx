@@ -4,7 +4,7 @@ export default function HomePage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-white to-blue-50 p-6">
       <div className="max-w-lg text-center">
-        <p className="text-xs font-bold uppercase tracking-widest text-brand-600">Premium · Hybrid Lab</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-brand-600">Premium</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">Akuntansi App</h1>
         <p className="mt-3 text-sm leading-relaxed text-slate-500">
           UI Next.js + Supabase. Jurnal akuntansi langsung di database (Tahap D — tanpa sheet bridge).

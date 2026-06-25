@@ -37,7 +37,7 @@ export default function LoginPage() {
       >
         <p className="text-xs font-bold uppercase tracking-widest text-brand-600">Premium</p>
         <h1 className="mt-2 text-2xl font-bold text-slate-900">Masuk ke akun</h1>
-        <p className="mt-1 text-sm text-slate-500">HYBRID LAB · Supabase Auth</p>
+        <p className="mt-1 text-sm text-slate-500">Akuntansi multi-usaha · Supabase Auth</p>
 
         <div className="mt-6 space-y-4">
           <div>

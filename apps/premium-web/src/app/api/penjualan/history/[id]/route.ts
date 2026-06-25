@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUserPrimaryOrg } from "@/lib/org/get-user-org";
+import { fetchCompanyProfile } from "@/lib/org/company-profile";
 import { fetchPenjualanDetail } from "@/lib/penjualan/fetch-history-data";
 
 export async function GET(
@@ -19,20 +20,14 @@ export async function GET(
     const detail = await fetchPenjualanDetail(supabase, org.id, id);
     if (!detail) return NextResponse.json({ error: "Invoice tidak ditemukan" }, { status: 404 });
 
-    const { data: settingsRow } = await supabase
-      .from("app_settings")
-      .select("settings")
-      .eq("organization_id", org.id)
-      .maybeSingle();
-
-    const business = (settingsRow?.settings as { business?: Record<string, unknown> } | null)?.business;
+    const company = await fetchCompanyProfile(supabase, org);
 
     return NextResponse.json({
       detail,
       company: {
-        name: String(business?.company_name || org.name || "HYBRID LAB"),
-        address: String(business?.address || ""),
-        phone: String(business?.phone || "")
+        name: company.name,
+        address: company.address,
+        phone: company.phone
       }
     });
   } catch (err) {

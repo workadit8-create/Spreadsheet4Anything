@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUserPrimaryOrg } from "@/lib/org/get-user-org";
+import { fetchCompanyProfile } from "@/lib/org/company-profile";
 import { lineBayar, summarizeHutangFromLines } from "@/lib/posting/hutang";
 import type { PurchaseLineRow } from "@/lib/posting/types";
 
@@ -66,13 +67,7 @@ export async function GET(
   const bayar = lineRows.reduce((s, l) => s + lineBayar(l), 0) || Number(meta.bayar) || 0;
   const sisaTagihan = isVoided ? 0 : (hutang?.sisaTagihan ?? 0);
 
-  const { data: settingsRow } = await supabase
-    .from("app_settings")
-    .select("settings")
-    .eq("organization_id", org.id)
-    .maybeSingle();
-
-  const business = (settingsRow?.settings as { business?: Record<string, unknown> } | null)?.business;
+  const company = await fetchCompanyProfile(supabase, org);
 
   return NextResponse.json({
     order: {
@@ -88,9 +83,9 @@ export async function GET(
     lines: mappedLines,
     isPosted: order.status === "POSTED" || order.status === "VOIDED",
     company: {
-      name: String(business?.company_name || org.name || "HYBRID LAB"),
-      address: String(business?.address || ""),
-      phone: String(business?.phone || "")
+      name: company.name,
+      address: company.address,
+      phone: company.phone
     }
   });
 }

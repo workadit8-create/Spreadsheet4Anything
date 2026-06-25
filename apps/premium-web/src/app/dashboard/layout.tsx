@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getUserPrimaryOrg } from "@/lib/org/get-user-org";
 import { AppShell } from "@/components/layout/AppShell";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -7,5 +8,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  return <AppShell userEmail={user.email}>{children}</AppShell>;
+  const org = await getUserPrimaryOrg(supabase);
+
+  return (
+    <AppShell userEmail={user.email} orgName={org?.name}>
+      {children}
+    </AppShell>
+  );
 }
