@@ -1,0 +1,38 @@
+---
+description: Premium Web — otomatis migrasi DB + deploy production setelah fitur/fix
+alwaysApply: true
+---
+
+# Premium Web — deploy & migrasi (otomatis)
+
+Untuk perubahan di `apps/premium-web/` atau `supabase/migrations/`:
+
+## Wajib dilakukan agent (tanpa menunggu user minta)
+
+1. **Migrasi DB** — jika ada file SQL baru atau belum dijalankan:
+   ```bash
+   cd /Users/arthamas/Spreadsheet4Anything
+   ./scripts/run-supabase-migration-file.sh <nama-file>.sql
+   ```
+   - Kredensial: `clients/hybrid/supabase.db.env` (`SUPABASE_DB_*`, port **6543**)
+   - Jika koneksi gagal: coba port alternatif (script auto-fallback), atau SQL Editor Supabase
+
+2. **Typecheck** sebelum deploy:
+   ```bash
+   cd apps/premium-web && npx tsc --noEmit
+   ```
+
+3. **Deploy production** — selalu setelah fitur/fix siap:
+   ```bash
+   cd apps/premium-web && npx vercel deploy --prod --yes
+   ```
+   - Production URL: https://premium-web-ruby.vercel.app
+
+## Laporkan ke user
+
+Setelah deploy, sebutkan: URL production, migration mana yang dijalankan (atau "tidak ada migration baru"), dan apa yang perlu diuji.
+
+## Jangan
+
+- Menunggu user bilang "deploy" jika sesi sudah selesai implementasi fitur/fix
+- Commit git kecuali user minta eksplisit
