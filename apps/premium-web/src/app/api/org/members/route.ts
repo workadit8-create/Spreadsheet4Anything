@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { addOrgMember, isInvitableRole, listOrgMembers } from "@/lib/org/members";
 import { requireOwnerRole, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
+import { AUDIT_ACTIONS, auditFromContext, writeAuditLog } from "@/lib/audit/log";
+import { addOrgMember, isInvitableRole, listOrgMembers } from "@/lib/org/members";
 
 export async function GET() {
   const supabase = await createClient();
@@ -57,6 +58,17 @@ export async function POST(request: Request) {
       role,
       fullName: fullName || undefined
     });
+
+    await writeAuditLog(
+      supabase,
+      auditFromContext(auth, AUDIT_ACTIONS.memberAdd, {
+        resourceType: "membership",
+        resourceId: result.userId,
+        metadata: { email, role, created: result.created },
+        request
+      })
+    );
+
     return NextResponse.json({
       ok: true,
       userId: result.userId,

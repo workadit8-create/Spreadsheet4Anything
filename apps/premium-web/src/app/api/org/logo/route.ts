@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwnerRole, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
+import { AUDIT_ACTIONS, auditFromContext, writeAuditLog } from "@/lib/audit/log";
 import {
   LOGO_ALLOWED_MIME,
   LOGO_MAX_BYTES,
@@ -110,13 +111,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: settingsError.message }, { status: 500 });
   }
 
+  await writeAuditLog(
+    supabase,
+    auditFromContext(auth, AUDIT_ACTIONS.orgLogoUpdate, {
+      resourceType: "organization",
+      resourceId: org.id,
+      metadata: { logoPath: storagePath },
+      request
+    })
+  );
+
   return NextResponse.json({
     logoPath: storagePath,
     logoUrl: `${orgLogoPublicUrl(storagePath)}?v=${Date.now()}`
   });
 }
 
-export async function DELETE() {
+export async function DELETE(request: Request) {
   const supabase = await createClient();
   let auth;
   try {
@@ -133,6 +144,15 @@ export async function DELETE() {
   if (settingsError) {
     return NextResponse.json({ error: settingsError.message }, { status: 500 });
   }
+
+  await writeAuditLog(
+    supabase,
+    auditFromContext(auth, AUDIT_ACTIONS.orgLogoDelete, {
+      resourceType: "organization",
+      resourceId: org.id,
+      request
+    })
+  );
 
   return NextResponse.json({ ok: true });
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requirePostingRole, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
+import { AUDIT_ACTIONS, auditFromContext, writeAuditLog } from "@/lib/audit/log";
 import { voidSalesOrder } from "@/lib/posting/void-sales-order";
 
 export async function POST(
@@ -16,7 +17,7 @@ export async function POST(
     return toOrgAuthResponse(e);
   }
   requirePostingRole(auth.role);
-  const { user } = auth;
+  const { user, org } = auth;
 
   let reason = "";
   try {
@@ -27,7 +28,29 @@ export async function POST(
   }
 
   try {
+    const { data: order } = await supabase
+      .from("sales_orders")
+      .select("order_no")
+      .eq("id", orderId)
+      .eq("organization_id", org.id)
+      .maybeSingle();
+
     const { reversedEntries } = await voidSalesOrder(supabase, orderId, user.id, reason);
+
+    await writeAuditLog(
+      supabase,
+      auditFromContext(auth, AUDIT_ACTIONS.salesOrderVoid, {
+        resourceType: "sales_order",
+        resourceId: orderId,
+        metadata: {
+          orderNo: order?.order_no,
+          reason: reason || undefined,
+          reversedEntries
+        },
+        request
+      })
+    );
+
     return NextResponse.json({
       ok: true,
       reversedEntries,

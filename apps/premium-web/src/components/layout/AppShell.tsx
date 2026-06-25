@@ -53,6 +53,7 @@ const NAV: NavItem[] = [
     addon: "project"
   },
   { key: "tim", href: "/dashboard/tim", label: "Tim & Akses", icon: "◇" },
+  { key: "audit-log", href: "/dashboard/audit-log", label: "Log Audit", icon: "◇" },
   { key: "akun", href: "/dashboard/akun", label: "Akun", icon: "◇" }
 ];
 

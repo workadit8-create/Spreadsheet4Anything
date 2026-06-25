@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertOrgMatch, requirePostingRole, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
+import { AUDIT_ACTIONS, auditFromContext, writeAuditLog } from "@/lib/audit/log";
 import { enqueuePiutangPaymentJob } from "@/lib/posting/enqueue";
 import { processPendingPostingJobs } from "@/lib/posting/worker";
 
@@ -54,6 +55,16 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    await writeAuditLog(
+      supabase,
+      auditFromContext(auth, AUDIT_ACTIONS.piutangPaymentPost, {
+        resourceType: "payment",
+        resourceId: payment.id,
+        metadata: { invoiceNo },
+        request: _request
+      })
+    );
 
     return NextResponse.json({
       ok: true,

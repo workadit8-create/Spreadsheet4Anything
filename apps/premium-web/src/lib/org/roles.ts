@@ -20,6 +20,7 @@ export const NAV_KEYS = [
   "laporan",
   "proyek",
   "tim",
+  "audit-log",
   "akun"
 ] as const;
 export type NavKey = (typeof NAV_KEYS)[number];
@@ -52,6 +53,7 @@ export const ROLE_MENU_KEYS: Record<MembershipRole, readonly NavKey[] | null> = 
     "jurnal-manual",
     "laporan",
     "proyek",
+    "audit-log",
     "akun"
   ],
   cashier: ["dashboard", "penjualan", "akun"]
@@ -92,6 +94,7 @@ const PATH_NAV_KEY: Array<{ prefix: string; key: NavKey }> = [
   { prefix: "/dashboard/master", key: "master" },
   { prefix: "/dashboard/proyek", key: "proyek" },
   { prefix: "/dashboard/tim", key: "tim" },
+  { prefix: "/dashboard/audit-log", key: "audit-log" },
   { prefix: "/dashboard/akun", key: "akun" },
   { prefix: "/dashboard", key: "dashboard" }
 ];

@@ -117,6 +117,12 @@ Bypass PostgREST langsung oleh staff untuk posting jurnal atau ubah profil usaha
 
 Staff tidak bisa lagi naikkan role sendiri atau menyisipkan diri ke org lain via PostgREST.
 
+`031_audit_log.sql` — **Audit log** (tabel `audit_log` + halaman `/dashboard/audit-log`):
+
+- Mencatat posting, void, jurnal manual, perubahan tim, profil usaha, logo
+- Baca: owner + akuntan (RLS `is_org_posting_role`)
+- Tulis: API setelah aksi berhasil (`writeAuditLog` — tidak menggagalkan operasi utama)
+
 ## Ganti password (semua peran)
 
 Menu **Akun** (`/dashboard/akun`) — setiap user bisa ubah password sendiri lewat `POST /api/auth/change-password`.

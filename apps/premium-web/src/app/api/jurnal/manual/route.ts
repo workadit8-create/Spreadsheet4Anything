@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requirePostingRole, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
+import { AUDIT_ACTIONS, auditFromContext, writeAuditLog } from "@/lib/audit/log";
 import { ensureDefaultCoa } from "@/lib/coa/seed-default-coa";
 import {
   buildManualJournalLines,
@@ -95,6 +96,16 @@ export async function POST(request: Request) {
         }
       },
       journalLines
+    );
+
+    await writeAuditLog(
+      supabase,
+      auditFromContext(auth, AUDIT_ACTIONS.journalManual, {
+        resourceType: "journal_entry",
+        resourceId: result.entryId,
+        metadata: { docNo, transactionId, entryDate, lineCount: result.lineCount },
+        request
+      })
     );
 
     return NextResponse.json({

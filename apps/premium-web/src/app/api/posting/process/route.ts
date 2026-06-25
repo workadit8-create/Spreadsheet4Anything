@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { processPendingPostingJobs } from "@/lib/posting/worker";
 import { requirePostingRole, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
+import { AUDIT_ACTIONS, auditFromContext, writeAuditLog } from "@/lib/audit/log";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -43,6 +44,20 @@ export async function POST(request: Request) {
       jobIds.length ? jobIds : undefined,
       org.id
     );
+
+    await writeAuditLog(
+      supabase,
+      auditFromContext(auth, AUDIT_ACTIONS.postingProcess, {
+        metadata: {
+          processed: results.length,
+          ok: results.filter((r) => r.ok).length,
+          retryFailed,
+          jobIds: jobIds.length ? jobIds : undefined
+        },
+        request
+      })
+    );
+
     return NextResponse.json({ processed: results.length, results });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

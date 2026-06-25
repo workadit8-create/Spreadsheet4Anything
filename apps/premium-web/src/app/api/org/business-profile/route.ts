@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwnerRole, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
+import { AUDIT_ACTIONS, auditFromContext, writeAuditLog } from "@/lib/audit/log";
 import { resolveCompanyProfile } from "@/lib/org/company-profile";
 import {
   buildPrintSettingsPatch,
@@ -145,6 +146,16 @@ export async function POST(request: Request) {
   });
 
   if (settingsError) return NextResponse.json({ error: settingsError.message }, { status: 500 });
+
+  await writeAuditLog(
+    supabase,
+    auditFromContext(auth, AUDIT_ACTIONS.orgProfileUpdate, {
+      resourceType: "organization",
+      resourceId: org.id,
+      metadata: { companyName, sectors, inventoryMode },
+      request
+    })
+  );
 
   return NextResponse.json({
     orgName: companyName,

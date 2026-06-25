@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requirePostingRole, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
+import { AUDIT_ACTIONS, auditFromContext, writeAuditLog } from "@/lib/audit/log";
 import { voidPiutangPayment } from "@/lib/posting/void-piutang-payment";
 
 export async function POST(
@@ -16,7 +17,7 @@ export async function POST(
     return toOrgAuthResponse(e);
   }
   requirePostingRole(auth.role);
-  const { user } = auth;
+  const { user, org } = auth;
 
   let reason = "";
   try {
@@ -27,12 +28,35 @@ export async function POST(
   }
 
   try {
+    const { data: payment } = await supabase
+      .from("payments")
+      .select("metadata")
+      .eq("id", paymentId)
+      .eq("organization_id", org.id)
+      .maybeSingle();
+    const meta = (payment?.metadata || {}) as Record<string, unknown>;
+
     const { reversedEntries } = await voidPiutangPayment(
       supabase,
       paymentId,
       user.id,
       reason
     );
+
+    await writeAuditLog(
+      supabase,
+      auditFromContext(auth, AUDIT_ACTIONS.piutangPaymentVoid, {
+        resourceType: "payment",
+        resourceId: paymentId,
+        metadata: {
+          invoiceNo: meta.invoiceNo ? String(meta.invoiceNo) : undefined,
+          reason: reason || undefined,
+          reversedEntries
+        },
+        request
+      })
+    );
+
     return NextResponse.json({
       ok: true,
       reversedEntries,
