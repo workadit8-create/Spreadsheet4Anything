@@ -3,7 +3,7 @@ import type { JournalLineDraft } from "./journal-rules";
 
 export type PostJournalEntryInput = {
   organizationId: string;
-  modul: "PEMASUKAN" | "PELUNASAN_PIUTANG" | "PEMBELIAN" | "PELUNASAN_UTANG" | "MANUAL" | "MUTASI_DANA";
+  modul: "PEMASUKAN" | "PELUNASAN_PIUTANG" | "PEMBELIAN" | "PELUNASAN_UTANG" | "MANUAL" | "MUTASI_DANA" | "CICILAN_UTANG_BANK";
   transactionId: string;
   docNo: string;
   entryDate: string;

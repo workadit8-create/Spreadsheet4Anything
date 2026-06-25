@@ -8,7 +8,14 @@ import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
 
 type KasAccount = { id: string; name: string; coa_account_name: string };
-type CoaAccount = { id: string; code: string; name: string; account_type: string };
+type CoaOption = { id: string; code: string; name: string; account_type: string };
+
+type CicilanHistory = {
+  id: string;
+  doc_no: string;
+  entry_date: string;
+  metadata: { pokok?: number; bunga?: number; total?: number; keterangan?: string };
+};
 
 type MutasiItem = {
   id: string;
@@ -82,7 +89,7 @@ export default function KasBankPageClient() {
   const [start, setStart] = useState(defaults.start);
   const [end, setEnd] = useState(defaults.end);
   const [accounts, setAccounts] = useState<KasAccount[]>([]);
-  const [coaAccounts, setCoaAccounts] = useState<CoaAccount[]>([]);
+  const [coaAccounts, setCoaAccounts] = useState<CoaOption[]>([]);
   const [saldo, setSaldo] = useState<Record<string, number>>({});
   const [items, setItems] = useState<MutasiItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,6 +112,37 @@ export default function KasBankPageClient() {
   const [openingAmounts, setOpeningAmounts] = useState<Record<string, string>>({});
   const [openingDate, setOpeningDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [openingSaving, setOpeningSaving] = useState(false);
+
+  const [cicilanDate, setCicilanDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [cicilanAccountId, setCicilanAccountId] = useState("");
+  const [cicilanUtang, setCicilanUtang] = useState("");
+  const [cicilanBeban, setCicilanBeban] = useState("");
+  const [cicilanPokok, setCicilanPokok] = useState("");
+  const [cicilanBunga, setCicilanBunga] = useState("");
+  const [cicilanKet, setCicilanKet] = useState("Cicilan pinjaman bank");
+  const [cicilanSaving, setCicilanSaving] = useState(false);
+  const [utangCoaOptions, setUtangCoaOptions] = useState<CoaOption[]>([]);
+  const [bebanCoaOptions, setBebanCoaOptions] = useState<CoaOption[]>([]);
+  const [cicilanHistory, setCicilanHistory] = useState<CicilanHistory[]>([]);
+
+  const cicilanTotal = useMemo(() => {
+    return (Number(cicilanPokok) || 0) + (Number(cicilanBunga) || 0);
+  }, [cicilanPokok, cicilanBunga]);
+
+  const loadCicilan = useCallback(async () => {
+    try {
+      const res = await fetch("/api/kas-bank/cicilan-bank");
+      const data = await res.json();
+      if (!res.ok) return;
+      setUtangCoaOptions(data.utangAccounts || []);
+      setBebanCoaOptions(data.bebanAccounts || []);
+      setCicilanHistory(data.history || []);
+      if (data.defaultUtang) setCicilanUtang((prev) => prev || data.defaultUtang);
+      if (data.defaultBeban) setCicilanBeban((prev) => prev || data.defaultBeban);
+    } catch {
+      /* optional */
+    }
+  }, []);
 
   const loadOpening = useCallback(async () => {
     try {
@@ -149,7 +187,8 @@ export default function KasBankPageClient() {
   useEffect(() => {
     load();
     void loadOpening();
-  }, [load, loadOpening]);
+    void loadCicilan();
+  }, [load, loadOpening, loadCicilan]);
 
   function resetForm() {
     setTransferDate(new Date().toISOString().slice(0, 10));
@@ -247,6 +286,39 @@ export default function KasBankPageClient() {
       setMessage(e instanceof Error ? e.message : "Gagal hapus");
     } finally {
       setActingId(null);
+    }
+  }
+
+  async function submitCicilanBank(e: React.FormEvent) {
+    e.preventDefault();
+    setCicilanSaving(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/kas-bank/cicilan-bank", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entryDate: cicilanDate,
+          accountId: cicilanAccountId,
+          utangAccountName: cicilanUtang,
+          bebanAccountName: cicilanBeban,
+          pokok: Number(cicilanPokok) || 0,
+          bunga: Number(cicilanBunga) || 0,
+          keterangan: cicilanKet
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal simpan");
+      setMessage(data.message || "Cicilan tercatat");
+      setCicilanPokok("");
+      setCicilanBunga("");
+      await load();
+      await loadCicilan();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal simpan cicilan");
+    } finally {
+      setCicilanSaving(false);
     }
   }
 
@@ -380,6 +452,117 @@ export default function KasBankPageClient() {
           </p>
         </Card>
       )}
+
+      <Card className="mb-6 border-violet-200 bg-violet-50/50">
+        <h2 className="mb-1 text-base font-semibold text-violet-950">Bayar cicilan bank</h2>
+        <p className="mb-4 text-sm text-violet-900/90">
+          Satu form: pokok mengurangi <strong>Utang Bank JKP</strong>, bunga ke <strong>Beban</strong>,
+          total keluar dari rekening — jurnal + mutasi rekening sekaligus (tanpa dobel catat).
+        </p>
+        <form onSubmit={submitCicilanBank}>
+          <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <Label>Tanggal bayar</Label>
+              <Input
+                type="date"
+                value={cicilanDate}
+                onChange={(e) => setCicilanDate(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label>Dari rekening</Label>
+              <Select
+                value={cicilanAccountId}
+                onChange={(e) => setCicilanAccountId(e.target.value)}
+                required
+              >
+                <option value="">— Pilih rekening —</option>
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name} ({a.coa_account_name})
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Akun utang (pokok)</Label>
+              <Select value={cicilanUtang} onChange={(e) => setCicilanUtang(e.target.value)} required>
+                <option value="">— Pilih —</option>
+                {utangCoaOptions.map((c) => (
+                  <option key={c.id} value={c.name}>
+                    {c.code} — {c.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Akun beban bunga</Label>
+              <Select value={cicilanBeban} onChange={(e) => setCicilanBeban(e.target.value)} required>
+                <option value="">— Pilih —</option>
+                {bebanCoaOptions.map((c) => (
+                  <option key={c.id} value={c.name}>
+                    {c.code} — {c.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Pokok (Rp)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={cicilanPokok}
+                onChange={(e) => setCicilanPokok(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+            <div>
+              <Label>Bunga (Rp)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={cicilanBunga}
+                onChange={(e) => setCicilanBunga(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+          </div>
+          <div className="mb-4">
+            <Label>Keterangan</Label>
+            <Input value={cicilanKet} onChange={(e) => setCicilanKet(e.target.value)} />
+          </div>
+          <div className="flex flex-wrap items-center gap-4">
+            <p className="text-sm font-semibold text-violet-950">
+              Total bayar: {formatRp(cicilanTotal)}
+            </p>
+            <Button type="submit" disabled={cicilanSaving || cicilanTotal <= 0 || !cicilanAccountId}>
+              {cicilanSaving ? "Menyimpan…" : "Simpan cicilan"}
+            </Button>
+          </div>
+        </form>
+        {cicilanHistory.length > 0 && (
+          <div className="mt-6 border-t border-violet-200 pt-4">
+            <h3 className="mb-2 text-sm font-semibold text-violet-900">Riwayat cicilan</h3>
+            <ul className="space-y-2 text-sm">
+              {cicilanHistory.map((h) => (
+                <li key={h.id} className="rounded-lg bg-white/80 px-3 py-2 ring-1 ring-violet-100">
+                  <code className="font-semibold">{h.doc_no}</code>
+                  <span className="text-slate-500"> · {h.entry_date} · </span>
+                  <span className="font-medium tabular-nums">
+                    {formatRp(Number(h.metadata?.total) || 0)}
+                  </span>
+                  <span className="text-slate-500">
+                    {" "}
+                    (pokok {formatRp(Number(h.metadata?.pokok) || 0)}, bunga{" "}
+                    {formatRp(Number(h.metadata?.bunga) || 0)})
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
         <Card>
