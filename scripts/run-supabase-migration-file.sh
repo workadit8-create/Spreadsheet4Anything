@@ -14,6 +14,9 @@ fi
 
 if [[ "$FILE" != /* ]]; then
   SQL_FILE="$ROOT/supabase/migrations/$FILE"
+  if [ ! -f "$SQL_FILE" ]; then
+    SQL_FILE="$ROOT/scripts/$FILE"
+  fi
 else
   SQL_FILE="$FILE"
 fi

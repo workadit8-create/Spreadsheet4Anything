@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("workadit8@gmail.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -68,9 +68,23 @@ export default function LoginPage() {
           {loading ? "Memuat..." : "Masuk"}
         </Button>
 
-        <p className="mt-5 text-xs leading-relaxed text-slate-500">
-          Lab: Supabase → Users → <strong>Create user</strong>, centang <strong>Auto Confirm</strong>.
-        </p>
+        <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="text-xs font-semibold text-slate-700">Coba demo aplikasi</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Tenant terpisah — data contoh, bukan data produksi.
+          </p>
+          <button
+            type="button"
+            className="mt-2 text-xs font-semibold text-brand-600 hover:text-brand-700"
+            onClick={() => {
+              setEmail("demo@premium-web.app");
+              setPassword("PremiumDemo2026!");
+              setMessage(null);
+            }}
+          >
+            Isi akun demo →
+          </button>
+        </div>
       </form>
     </main>
   );
