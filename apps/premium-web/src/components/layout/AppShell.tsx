@@ -14,12 +14,12 @@ const NAV = [
   { href: "/dashboard/hutang", label: "Hutang", icon: "◇" },
   { href: "/dashboard/kas-bank", label: "Kas & Bank", icon: "◇" },
   { href: "/dashboard/jurnal", label: "Jurnal", icon: "◇" },
+  { href: "/dashboard/jurnal/manual", label: "Jurnal Manual", icon: "◇" },
   { href: "/dashboard/laporan", label: "Laporan", icon: "◇" }
 ];
 
 const COMING_SOON = [
   "Quotation",
-  "Posting manual",
   "POS / Stok"
 ];
 

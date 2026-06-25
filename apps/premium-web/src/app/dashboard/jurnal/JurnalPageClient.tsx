@@ -43,11 +43,16 @@ export default function JurnalPageClient({ entries }: Props) {
       <PageHeader
         badge="Jurnal umum"
         title="Jurnal Supabase"
-        description="Read-only — sumber dari posting penjualan, pembelian, pelunasan, dan mutasi kas/bank"
+        description="Penjualan, pembelian, pelunasan, mutasi kas/bank, dan jurnal manual"
       >
-        <Link href="/dashboard/laporan" className="text-sm text-slate-500 hover:text-slate-700">
-          ← Laporan
-        </Link>
+        <div className="flex gap-3">
+          <Link href="/dashboard/jurnal/manual" className="text-sm text-brand-600 hover:text-brand-700">
+            + Jurnal manual →
+          </Link>
+          <Link href="/dashboard/laporan" className="text-sm text-slate-500 hover:text-slate-700">
+            Laporan
+          </Link>
+        </div>
       </PageHeader>
 
       <Card className="mb-6">

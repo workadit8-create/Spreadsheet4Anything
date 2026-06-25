@@ -60,3 +60,21 @@ export function generateMutasiTransactionId(): string {
   const seq = String(Math.floor(Math.random() * 90000) + 10000);
   return `TX-MB-PW-${y}${m}${day}-${seq}`;
 }
+
+export function generateManualDocNo(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const seq = String(Math.floor(Math.random() * 9000) + 1000);
+  return `JM-PW-${y}${m}${day}-${seq}`;
+}
+
+export function generateManualTransactionId(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const seq = String(Math.floor(Math.random() * 90000) + 10000);
+  return `TX-JM-PW-${y}${m}${day}-${seq}`;
+}

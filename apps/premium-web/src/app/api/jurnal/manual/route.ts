@@ -1,0 +1,111 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { getUserPrimaryOrg } from "@/lib/org/get-user-org";
+import { ensureDefaultCoa } from "@/lib/coa/seed-default-coa";
+import {
+  buildManualJournalLines,
+  validateManualJournalLines,
+  type ManualJournalLineInput
+} from "@/lib/posting/manual-journal";
+import { postJournalEntry } from "@/lib/posting/journal-supabase";
+import { generateManualDocNo, generateManualTransactionId } from "@/lib/posting/ids";
+
+export async function GET() {
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const org = await getUserPrimaryOrg(supabase);
+  if (!org) return NextResponse.json({ error: "Tidak ada organisasi" }, { status: 400 });
+
+  await ensureDefaultCoa(supabase, org.id);
+
+  const { data: coa, error: coaErr } = await supabase
+    .from("coa_accounts")
+    .select("id, code, name, account_type")
+    .eq("organization_id", org.id)
+    .eq("active", true)
+    .order("code");
+
+  if (coaErr) return NextResponse.json({ error: coaErr.message }, { status: 500 });
+
+  const { data: entries, error: entErr } = await supabase
+    .from("journal_entries")
+    .select(
+      "id, doc_no, entry_date, transaction_id, created_at, metadata, journal_lines(account_name, debit, credit, keterangan, sort_order)"
+    )
+    .eq("organization_id", org.id)
+    .eq("modul", "MANUAL")
+    .order("entry_date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(30);
+
+  if (entErr) return NextResponse.json({ error: entErr.message }, { status: 500 });
+
+  return NextResponse.json({ coa: coa || [], entries: entries || [] });
+}
+
+export async function POST(request: Request) {
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const org = await getUserPrimaryOrg(supabase);
+  if (!org) return NextResponse.json({ error: "Tidak ada organisasi" }, { status: 400 });
+
+  const body = await request.json();
+  const entryDate = String(body.entryDate || "").slice(0, 10);
+  const keterangan = String(body.keterangan || "Jurnal manual").trim();
+  const docNo = String(body.docNo || "").trim() || generateManualDocNo();
+  const lines = (body.lines || []) as ManualJournalLineInput[];
+
+  if (!entryDate) {
+    return NextResponse.json({ error: "Tanggal jurnal wajib" }, { status: 400 });
+  }
+
+  const validation = validateManualJournalLines(lines);
+  if (!validation.ok) {
+    return NextResponse.json({ error: validation.error }, { status: 400 });
+  }
+
+  try {
+    await ensureDefaultCoa(supabase, org.id);
+
+    const journalLines = buildManualJournalLines(entryDate, lines, keterangan);
+    const transactionId = generateManualTransactionId();
+
+    const result = await postJournalEntry(
+      supabase,
+      {
+        organizationId: org.id,
+        modul: "MANUAL",
+        transactionId,
+        docNo,
+        entryDate,
+        sourceDocType: "MANUAL",
+        metadata: {
+          keterangan,
+          kind: body.kind || "manual",
+          created_by: user.id
+        }
+      },
+      journalLines
+    );
+
+    return NextResponse.json({
+      ok: true,
+      entryId: result.entryId,
+      docNo,
+      transactionId,
+      skipped: result.skipped,
+      lineCount: result.lineCount
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Gagal posting jurnal manual";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
