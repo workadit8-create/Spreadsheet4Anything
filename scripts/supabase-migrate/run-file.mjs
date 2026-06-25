@@ -34,21 +34,88 @@ function loadEnv(file) {
   }
 }
 
+function buildPgConfig() {
+  const host = process.env.SUPABASE_DB_HOST;
+  const user = process.env.SUPABASE_DB_USER;
+  const password = process.env.SUPABASE_DB_PASSWORD;
+  const database = process.env.SUPABASE_DB_NAME || "postgres";
+  const port = Number(process.env.SUPABASE_DB_PORT || 5432);
+
+  if (host && user && password) {
+    return {
+      host,
+      port,
+      user,
+      password,
+      database,
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 20000
+    };
+  }
+
+  const url = process.env.DATABASE_URL;
+  if (!url) return null;
+
+  try {
+    const parsed = new URL(url);
+    if (
+      parsed.hostname === "localhost" ||
+      parsed.hostname === "127.0.0.1" ||
+      parsed.hostname === "::1"
+    ) {
+      throw new Error(
+        "DATABASE_URL ter-parse ke localhost. Password kemungkinan ada karakter / @ # % + — " +
+          "pakai SUPABASE_DB_HOST/USER/PASSWORD terpisah di supabase.db.env (lihat .example)."
+      );
+    }
+  } catch (e) {
+    if (e instanceof TypeError) {
+      throw new Error(
+        "DATABASE_URL tidak valid. Jika password ada karakter khusus, pakai SUPABASE_DB_* terpisah."
+      );
+    }
+    throw e;
+  }
+
+  return {
+    connectionString: url,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 20000
+  };
+}
+
+function formatError(err) {
+  if (err?.message) return err.message;
+  if (err?.code === "ECONNREFUSED") {
+    const nested = err.errors?.map((e) => e.message).filter(Boolean);
+    if (nested?.length) return `ECONNREFUSED (${nested.join("; ")})`;
+    return "ECONNREFUSED — cek host/port atau pakai SUPABASE_DB_* terpisah";
+  }
+  return String(err);
+}
+
 loadEnv(ENV_FILE);
 
-const url = process.env.DATABASE_URL;
-if (!url) {
-  console.error("DATABASE_URL kosong di", ENV_FILE);
+let pgConfig;
+try {
+  pgConfig = buildPgConfig();
+} catch (err) {
+  console.error("==> FAILED:", formatError(err));
+  process.exit(1);
+}
+
+if (!pgConfig) {
+  console.error("Isi SUPABASE_DB_HOST/USER/PASSWORD atau DATABASE_URL di", ENV_FILE);
   process.exit(1);
 }
 
 const sql = fs.readFileSync(SQL_FILE, "utf8");
-const client = new pg.Client({
-  connectionString: url,
-  ssl: { rejectUnauthorized: false }
-});
+const client = new pg.Client(pgConfig);
 
 console.log("==> Connect Supabase Postgres...");
+if (pgConfig.host) {
+  console.log("==> Host:", `${pgConfig.host}:${pgConfig.port}`);
+}
 console.log("==> Migration:", SQL_FILE);
 
 try {
@@ -56,20 +123,15 @@ try {
   await client.query(sql);
   console.log("==> SUCCESS");
 } catch (err) {
-  console.error("==> FAILED:", err.message);
-  if (
-    err.code === "ENOTFOUND" &&
-    /db\.[a-z0-9]+\.supabase\.co/i.test(url)
-  ) {
+  console.error("==> FAILED:", formatError(err));
+  if (err.code === "ENOTFOUND" && /db\.[a-z0-9]+\.supabase\.co/i.test(process.env.DATABASE_URL || "")) {
     console.error("");
     console.error("Host db.*.supabase.co sering hanya punya IPv6 (tidak resolve di jaringan IPv4).");
-    console.error("Perbaikan:");
-    console.error("  1. Supabase Dashboard → Project Settings → Database");
-    console.error("  2. Connection string → URI → pilih Session pooler (port 5432)");
-    console.error("  3. Update DATABASE_URL di clients/hybrid/supabase.db.env");
-    console.error("     Format: postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres");
+    console.error("Pakai Session pooler: Connect → Session pooler → copy host/user ke supabase.db.env");
+  }
+  if (err.code === "28P01") {
     console.error("");
-    console.error("Alternatif: jalankan SQL di Supabase → SQL Editor (copy isi file migration).");
+    console.error("Password salah. Reset di Database → Settings → Reset database password.");
   }
   process.exit(1);
 } finally {
