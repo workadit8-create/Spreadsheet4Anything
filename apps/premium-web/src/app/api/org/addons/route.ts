@@ -6,7 +6,7 @@ import {
   isAddonKey,
   toAddonInfoList
 } from "@/lib/org/addons";
-import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
+import { requirePlatformAdmin, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 
 export async function GET() {
   const supabase = await createClient();
@@ -18,24 +18,21 @@ export async function GET() {
   }
 
   const map = await fetchOrgAddons(supabase, auth.org.id);
-  return NextResponse.json({ addons: toAddonInfoList(map) });
+  return NextResponse.json({
+    addons: toAddonInfoList(map),
+    canManageAddons: auth.isPlatformAdmin
+  });
 }
 
-/** Toggle add-on — sementara hanya org hybrid-lab (pengujian). */
+/** Toggle add-on — hanya admin platform (bukan owner client). */
 export async function PATCH(request: Request) {
   const supabase = await createClient();
   let auth;
   try {
     auth = await requireUserOrg(supabase);
+    requirePlatformAdmin(auth);
   } catch (e) {
     return toOrgAuthResponse(e);
-  }
-
-  if (auth.org.slug !== "hybrid-lab") {
-    return NextResponse.json(
-      { error: "Pengaturan add-on lewat admin untuk client produksi" },
-      { status: 403 }
-    );
   }
 
   const body = await request.json();
@@ -45,10 +42,11 @@ export async function PATCH(request: Request) {
   }
 
   const enabled = body.enabled === true;
+  const orgId = String(body.organization_id || body.organizationId || auth.org.id);
 
   const { error } = await supabase.from("tenant_addons").upsert(
     {
-      organization_id: auth.org.id,
+      organization_id: orgId,
       addon_key: key,
       enabled,
       updated_at: new Date().toISOString()
@@ -58,7 +56,7 @@ export async function PATCH(request: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const map = await fetchOrgAddons(supabase, auth.org.id);
+  const map = await fetchOrgAddons(supabase, orgId);
   return NextResponse.json({
     ok: true,
     addons: toAddonInfoList(map),

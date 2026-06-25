@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type OrgRow = { id: string; slug: string; name: string };
+export type OrgRow = { id: string; slug: string; name: string; role?: string };
 
 export async function getUserPrimaryOrg(supabase: SupabaseClient): Promise<OrgRow | null> {
   const { data, error } = await supabase.rpc("get_my_organizations");

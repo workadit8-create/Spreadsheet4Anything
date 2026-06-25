@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
+import { requireOwnerRole, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { resolveCompanyProfile } from "@/lib/org/company-profile";
 import {
   buildPrintSettingsPatch,
@@ -81,6 +81,7 @@ export async function POST(request: Request) {
   } catch (e) {
     return toOrgAuthResponse(e);
   }
+  requireOwnerRole(auth.role);
   const { org } = auth;
 
   const body = await request.json();

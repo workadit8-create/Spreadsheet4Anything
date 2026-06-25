@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
+import { requirePostingRole, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { voidCashTransfer } from "@/lib/posting/void-cash-transfer";
 
 export async function POST(
@@ -15,6 +15,7 @@ export async function POST(
   } catch (e) {
     return toOrgAuthResponse(e);
   }
+  requirePostingRole(auth.role);
   const { user } = auth;
 
   const body = await request.json().catch(() => ({}));

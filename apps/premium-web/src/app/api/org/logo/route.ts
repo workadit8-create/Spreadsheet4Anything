@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
+import { requireOwnerRole, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import {
   LOGO_ALLOWED_MIME,
   LOGO_MAX_BYTES,
@@ -67,6 +67,7 @@ export async function POST(request: Request) {
   } catch (e) {
     return toOrgAuthResponse(e);
   }
+  requireOwnerRole(auth.role);
   const { user, org } = auth;
 
   const formData = await request.formData();
@@ -123,6 +124,7 @@ export async function DELETE() {
   } catch (e) {
     return toOrgAuthResponse(e);
   }
+  requireOwnerRole(auth.role);
   const { org } = auth;
 
   await removeExistingLogos(supabase, org.id);

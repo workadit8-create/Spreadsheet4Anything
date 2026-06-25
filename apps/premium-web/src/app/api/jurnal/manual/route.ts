@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
+import { requirePostingRole, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { ensureDefaultCoa } from "@/lib/coa/seed-default-coa";
 import {
   buildManualJournalLines,
@@ -55,6 +55,7 @@ export async function POST(request: Request) {
   } catch (e) {
     return toOrgAuthResponse(e);
   }
+  requirePostingRole(auth.role);
   const { user, org } = auth;
 
   const body = await request.json();

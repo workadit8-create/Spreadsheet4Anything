@@ -13,8 +13,16 @@ import {
   type OrgAddonsMap,
   orgAddonsFromInfoList
 } from "@/lib/org/addons-catalog";
+import {
+  addonNavKey,
+  isNavKeyAllowed,
+  ROLE_LABELS,
+  type MembershipRole,
+  type NavKey
+} from "@/lib/org/roles";
 
 type NavItem = {
+  key: NavKey;
   href: string;
   label: string;
   icon: string;
@@ -22,21 +30,22 @@ type NavItem = {
 };
 
 const NAV: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: "◆" },
-  { href: "/dashboard/master", label: "Master Data", icon: "◇" },
-  { href: "/dashboard/penjualan", label: "Penjualan", icon: "◇" },
-  { href: "/dashboard/quotation", label: "Quotation", icon: "◇" },
-  { href: "/dashboard/penjualan/riwayat", label: "Riwayat Invoice", icon: "◇" },
-  { href: "/dashboard/piutang", label: "Piutang", icon: "◇" },
-  { href: "/dashboard/pembelian", label: "Pembelian", icon: "◇" },
-  { href: "/dashboard/purchase-request", label: "Purchase Request", icon: "◇" },
-  { href: "/dashboard/pembelian/riwayat", label: "Riwayat PO", icon: "◇" },
-  { href: "/dashboard/hutang", label: "Hutang", icon: "◇" },
-  { href: "/dashboard/kas-bank", label: "Kas & Bank", icon: "◇" },
-  { href: "/dashboard/jurnal", label: "Jurnal", icon: "◇" },
-  { href: "/dashboard/jurnal/manual", label: "Jurnal Manual", icon: "◇" },
-  { href: "/dashboard/laporan", label: "Laporan", icon: "◇" },
+  { key: "dashboard", href: "/dashboard", label: "Dashboard", icon: "◆" },
+  { key: "master", href: "/dashboard/master", label: "Master Data", icon: "◇" },
+  { key: "penjualan", href: "/dashboard/penjualan", label: "Penjualan", icon: "◇" },
+  { key: "quotation", href: "/dashboard/quotation", label: "Quotation", icon: "◇" },
+  { key: "penjualan-riwayat", href: "/dashboard/penjualan/riwayat", label: "Riwayat Invoice", icon: "◇" },
+  { key: "piutang", href: "/dashboard/piutang", label: "Piutang", icon: "◇" },
+  { key: "pembelian", href: "/dashboard/pembelian", label: "Pembelian", icon: "◇" },
+  { key: "purchase-request", href: "/dashboard/purchase-request", label: "Purchase Request", icon: "◇" },
+  { key: "pembelian-riwayat", href: "/dashboard/pembelian/riwayat", label: "Riwayat PO", icon: "◇" },
+  { key: "hutang", href: "/dashboard/hutang", label: "Hutang", icon: "◇" },
+  { key: "kas-bank", href: "/dashboard/kas-bank", label: "Kas & Bank", icon: "◇" },
+  { key: "jurnal", href: "/dashboard/jurnal", label: "Jurnal", icon: "◇" },
+  { key: "jurnal-manual", href: "/dashboard/jurnal/manual", label: "Jurnal Manual", icon: "◇" },
+  { key: "laporan", href: "/dashboard/laporan", label: "Laporan", icon: "◇" },
   {
+    key: "proyek",
     href: "/dashboard/proyek",
     label: "Proyek",
     icon: "◇",
@@ -62,16 +71,18 @@ export function AppShell({
   userEmail,
   orgName,
   orgLogoUrl,
+  role,
+  isPlatformAdmin,
   isDemo,
-  isHybridLab,
   addons
 }: {
   children: React.ReactNode;
   userEmail?: string | null;
   orgName?: string | null;
   orgLogoUrl?: string | null;
+  role: MembershipRole;
+  isPlatformAdmin: boolean;
   isDemo?: boolean;
-  isHybridLab?: boolean;
   addons: OrgAddonsMap;
 }) {
   const pathname = usePathname();
@@ -85,8 +96,16 @@ export function AppShell({
     setAddonMap(orgAddonsFromInfoList(list));
   }, []);
 
-  const visibleNav = NAV.filter((item) => !item.addon || addonMap[item.addon]);
-  const comingSoon = comingSoonLabels(addonMap);
+  const visibleNav = NAV.filter((item) => {
+    if (!isNavKeyAllowed(role, item.key)) return false;
+    if (item.addon) {
+      if (!addonMap[item.addon]) return false;
+      const navKey = addonNavKey(item.addon);
+      if (navKey && !isNavKeyAllowed(role, navKey)) return false;
+    }
+    return true;
+  });
+  const comingSoon = isPlatformAdmin ? comingSoonLabels(addonMap) : [];
 
   return (
     <div className="flex min-h-screen bg-slate-50">
@@ -132,7 +151,7 @@ export function AppShell({
 
         <div className="space-y-3 p-3">
           {isDemo ? <DemoFinishPanel /> : null}
-          {isHybridLab ? <AddonsLabPanel onAddonsChange={handleAddonsChange} /> : null}
+          {isPlatformAdmin ? <AddonsLabPanel onAddonsChange={handleAddonsChange} /> : null}
           {comingSoon.length > 0 ? (
             <div className="rounded-lg bg-white/5 px-3 py-3 text-[11px] text-slate-400">
               <p className="mb-2 font-semibold text-slate-300">Add-on belum aktif</p>
@@ -145,7 +164,8 @@ export function AppShell({
           ) : null}
           {userEmail && (
             <div className="rounded-lg bg-white/5 px-3 py-2 text-[11px] text-slate-400">
-              {userEmail}
+              <p>{userEmail}</p>
+              <p className="mt-0.5 text-slate-500">Peran: {ROLE_LABELS[role]}</p>
             </div>
           )}
         </div>

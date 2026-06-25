@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
+import { requireMasterEntityRole, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { ensureDefaultCoa } from "@/lib/coa/seed-default-coa";
 
 const ACCOUNT_TYPES = ["Aset", "Kewajiban", "Ekuitas", "Pendapatan", "Beban"] as const;
@@ -47,6 +47,7 @@ export async function POST(request: Request) {
   } catch (e) {
     return toOrgAuthResponse(e);
   }
+  requireMasterEntityRole(auth.role, "coa");
   const { org } = auth;
 
   const body = await request.json();

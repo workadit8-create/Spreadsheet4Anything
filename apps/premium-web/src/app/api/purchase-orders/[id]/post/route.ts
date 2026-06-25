@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { assertOrgMatch, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
+import { assertOrgMatch, requirePostingRole, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { enqueuePurchaseOrderPostingJob } from "@/lib/posting/enqueue";
 import { processPendingPostingJobs } from "@/lib/posting/worker";
 
@@ -16,6 +16,7 @@ export async function POST(
   } catch (e) {
     return toOrgAuthResponse(e);
   }
+  requirePostingRole(auth.role);
   const { org } = auth;
 
   const { data: order, error: orderErr } = await supabase

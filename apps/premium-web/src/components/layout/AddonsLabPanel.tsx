@@ -72,8 +72,8 @@ export function AddonsLabPanel({
 
   return (
     <div className="rounded-lg border border-violet-400/30 bg-violet-500/10 px-3 py-3 text-[11px] text-violet-100">
-      <p className="font-semibold text-violet-200">Lab · Add-on</p>
-      <p className="mt-1 text-violet-100/80">Toggle modul untuk pengujian hybrid-lab.</p>
+      <p className="font-semibold text-violet-200">Admin · Add-on</p>
+      <p className="mt-1 text-violet-100/80">Hanya admin platform. Owner client tidak bisa mengubah.</p>
       <ul className="mt-2 space-y-1.5">
         {addons.map((a) => (
           <li key={a.key} className="flex items-center justify-between gap-2">

@@ -13,11 +13,7 @@ Setiap client punya baris di `tenant_addons`. Menu & API modul add-on hanya munc
 
 ## Pengujian (hybrid-lab)
 
-```bash
-./scripts/run-supabase-migration-file.sh enable-project-addon-hybrid-lab.sql
-```
-
-Login `workadit8@gmail.com` → sidebar **Proyek** muncul.
+Add-on diaktifkan oleh **admin platform** (`PLATFORM_ADMIN_EMAILS`), bukan owner client. Lihat [`docs/ROLES.md`](docs/ROLES.md).
 
 Client produksi (Tirta, dll.) tidak melihat menu sampai add-on diaktifkan via SQL admin.
 
