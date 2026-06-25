@@ -6,6 +6,8 @@ import { AppShell } from "@/components/layout/AppShell";
 import { isDemoOrg } from "@/lib/org/demo-reset";
 import { fetchOrgAddons } from "@/lib/org/addons";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
   let auth;

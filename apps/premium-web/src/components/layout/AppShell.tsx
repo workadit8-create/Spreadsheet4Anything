@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { DemoFinishPanel } from "@/components/layout/DemoFinishPanel";
 import { AddonsLabPanel } from "@/components/layout/AddonsLabPanel";
 import {
   ADDON_CATALOG,
   ADDON_KEYS,
+  type AddonInfo,
   type AddonKey,
-  type OrgAddonsMap
+  type OrgAddonsMap,
+  orgAddonsFromInfoList
 } from "@/lib/org/addons-catalog";
 
 type NavItem = {
@@ -72,8 +75,18 @@ export function AppShell({
   addons: OrgAddonsMap;
 }) {
   const pathname = usePathname();
-  const visibleNav = NAV.filter((item) => !item.addon || addons[item.addon]);
-  const comingSoon = comingSoonLabels(addons);
+  const [addonMap, setAddonMap] = useState(addons);
+
+  useEffect(() => {
+    setAddonMap(addons);
+  }, [addons]);
+
+  function handleAddonsChange(list: AddonInfo[]) {
+    setAddonMap(orgAddonsFromInfoList(list));
+  }
+
+  const visibleNav = NAV.filter((item) => !item.addon || addonMap[item.addon]);
+  const comingSoon = comingSoonLabels(addonMap);
 
   return (
     <div className="flex min-h-screen bg-slate-50">
@@ -119,7 +132,7 @@ export function AppShell({
 
         <div className="space-y-3 p-3">
           {isDemo ? <DemoFinishPanel /> : null}
-          {isHybridLab ? <AddonsLabPanel /> : null}
+          {isHybridLab ? <AddonsLabPanel onAddonsChange={handleAddonsChange} /> : null}
           {comingSoon.length > 0 ? (
             <div className="rounded-lg bg-white/5 px-3 py-3 text-[11px] text-slate-400">
               <p className="mb-2 font-semibold text-slate-300">Add-on belum aktif</p>

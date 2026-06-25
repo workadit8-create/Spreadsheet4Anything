@@ -74,3 +74,9 @@ export function toAddonInfoList(map: OrgAddonsMap): AddonInfo[] {
     enabled: map[key]
   }));
 }
+
+export function orgAddonsFromInfoList(
+  list: Array<{ key: AddonKey; enabled: boolean }>
+): OrgAddonsMap {
+  return resolveAddonsMap(list.map((a) => ({ addon_key: a.key, enabled: a.enabled })));
+}

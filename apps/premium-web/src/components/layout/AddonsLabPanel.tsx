@@ -1,14 +1,28 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { AddonInfo } from "@/lib/org/addons-catalog";
 import { Button } from "@/components/ui/Button";
 
-export function AddonsLabPanel() {
+export function AddonsLabPanel({
+  onAddonsChange
+}: {
+  onAddonsChange?: (addons: AddonInfo[]) => void;
+}) {
+  const router = useRouter();
   const [addons, setAddons] = useState<AddonInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  const applyAddons = useCallback(
+    (list: AddonInfo[]) => {
+      setAddons(list);
+      onAddonsChange?.(list);
+    },
+    [onAddonsChange]
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -16,13 +30,13 @@ export function AddonsLabPanel() {
       const res = await fetch("/api/org/addons");
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setAddons(data.addons || []);
+      applyAddons(data.addons || []);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Gagal memuat add-on");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyAddons]);
 
   useEffect(() => {
     void load();
@@ -39,8 +53,9 @@ export function AddonsLabPanel() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setAddons(data.addons || []);
-      setMessage("Add-on diperbarui — refresh halaman jika menu belum berubah");
+      applyAddons(data.addons || []);
+      router.refresh();
+      setMessage(enabled ? "Add-on aktif — menu diperbarui" : "Add-on dimatikan");
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Gagal simpan");
     } finally {
