@@ -20,7 +20,7 @@ BEGIN
     SELECT *
     FROM (
       VALUES
-        ('staff.hybrid@premium-web.app', 'Hybrid Staff2026!', 'staff', 'Staff Hybrid Lab'),
+        ('staff.hybrid@premium-web.app', 'HybridStaff2026!', 'staff', 'Staff Hybrid Lab'),
         ('akuntan.hybrid@premium-web.app', 'HybridAkuntan2026!', 'akuntan', 'Akuntan Hybrid Lab')
     ) AS t(email, pwd, role, full_name)
   LOOP
