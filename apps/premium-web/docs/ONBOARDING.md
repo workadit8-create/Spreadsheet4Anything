@@ -126,8 +126,12 @@ Add-on (POS, proyek, CRM) diaktifkan per org lewat tabel `tenant_addons` — men
 
 Akun khusus untuk orang yang ingin coba aplikasi: [`docs/DEMO-ACCOUNTS.md`](docs/DEMO-ACCOUNTS.md)
 
+## TIRTA CATERING (produksi)
+
+Tenant produksi terpisah dari hybrid-lab: [`docs/TIRTA-CATERING.md`](docs/TIRTA-CATERING.md)
+
 Setup:
 
 ```bash
-./scripts/run-supabase-migration-file.sh onboard-premium-demo.sql
+./scripts/run-supabase-migration-file.sh onboard-premium-tirta-catering.sql
 ```
