@@ -103,9 +103,19 @@ function formatNum(n: number) {
   return new Intl.NumberFormat("id-ID", { minimumFractionDigits: 0 }).format(n);
 }
 
+/** Kolom saldo: nol tetap ditampilkan (bukan strip kosong). */
+function formatSaldo(n: number) {
+  return new Intl.NumberFormat("id-ID", { minimumFractionDigits: 0 }).format(n);
+}
+
 function MoneyCell({ value, bold }: { value: number; bold?: boolean }) {
   const cls = bold ? "font-semibold tabular-nums" : "tabular-nums";
   return <td className={`px-3 py-1.5 text-right ${cls}`}>{formatNum(value)}</td>;
+}
+
+function SaldoCell({ value, bold }: { value: number; bold?: boolean }) {
+  const cls = bold ? "font-semibold tabular-nums" : "tabular-nums";
+  return <td className={`px-3 py-1.5 text-right ${cls}`}>{formatSaldo(value)}</td>;
 }
 
 function SectionBlock({
@@ -166,7 +176,7 @@ function BukuBesarView({ accounts }: { accounts: BukuBesarAccount[] }) {
                   Saldo Awal Periode
                 </td>
                 <td className="px-3 py-2 text-right font-medium tabular-nums">
-                  {formatNum(acc.saldoAwal)}
+                  {formatSaldo(acc.saldoAwal)}
                 </td>
               </tr>
             </tbody>
@@ -194,7 +204,7 @@ function BukuBesarView({ accounts }: { accounts: BukuBesarAccount[] }) {
                   </td>
                   <MoneyCell value={line.debit} />
                   <MoneyCell value={line.credit} />
-                  <MoneyCell value={line.saldo} />
+                  <SaldoCell value={line.saldo} />
                 </tr>
               ))}
               <tr className="border-t border-slate-200 bg-blue-50/50">
@@ -202,7 +212,7 @@ function BukuBesarView({ accounts }: { accounts: BukuBesarAccount[] }) {
                   Saldo Akhir Periode
                 </td>
                 <td className="px-3 py-2 text-right font-semibold tabular-nums">
-                  {formatNum(acc.saldoAkhir)}
+                  {formatSaldo(acc.saldoAkhir)}
                 </td>
               </tr>
             </tbody>
