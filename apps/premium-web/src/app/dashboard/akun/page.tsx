@@ -16,5 +16,5 @@ export default async function AkunPage() {
     redirect("/dashboard");
   }
 
-  return <AkunPageClient email={auth.user.email} />;
+  return <AkunPageClient email={auth.user.email} role={auth.role} />;
 }

@@ -123,6 +123,10 @@ Staff tidak bisa lagi naikkan role sendiri atau menyisipkan diri ke org lain via
 - Baca: owner + akuntan (RLS `is_org_posting_role`)
 - Tulis: API setelah aksi berhasil (`writeAuditLog` — tidak menggagalkan operasi utama)
 
+## Telegram
+
+Lihat [`docs/TELEGRAM.md`](docs/TELEGRAM.md) — owner digest harian + reminder proyek tim.
+
 ## Ganti password (semua peran)
 
 Menu **Akun** (`/dashboard/akun`) — setiap user bisa ubah password sendiri lewat `POST /api/auth/change-password`.

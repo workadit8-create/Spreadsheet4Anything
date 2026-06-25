@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Input, Label } from "@/components/ui/Input";
+import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
+import type { MembershipRole } from "@/lib/org/roles";
+import type { TelegramSettingsView } from "@/lib/telegram/settings";
 
 function EyeIcon({ open }: { open: boolean }) {
   if (open) {
@@ -64,7 +66,18 @@ function PasswordField({
   );
 }
 
-export default function AkunPageClient({ email }: { email: string }) {
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => ({
+  value: String(i),
+  label: `${String(i).padStart(2, "0")}:00 WIB`
+}));
+
+export default function AkunPageClient({
+  email,
+  role
+}: {
+  email: string;
+  role: MembershipRole;
+}) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -74,6 +87,29 @@ export default function AkunPageClient({ email }: { email: string }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  const [tgLoading, setTgLoading] = useState(true);
+  const [tgSaving, setTgSaving] = useState(false);
+  const [tgSettings, setTgSettings] = useState<TelegramSettingsView | null>(null);
+  const [tgLink, setTgLink] = useState<string | null>(null);
+
+  const loadTelegram = useCallback(async () => {
+    setTgLoading(true);
+    try {
+      const res = await fetch("/api/telegram/settings");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal memuat Telegram");
+      setTgSettings(data.settings);
+    } catch {
+      setTgSettings(null);
+    } finally {
+      setTgLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadTelegram();
+  }, [loadTelegram]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -99,11 +135,100 @@ export default function AkunPageClient({ email }: { email: string }) {
     }
   }
 
+  async function connectTelegram() {
+    setTgSaving(true);
+    setError(null);
+    setMessage(null);
+    setTgLink(null);
+    try {
+      const res = await fetch("/api/telegram/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "link" })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal membuat link");
+      setTgLink(data.deepLink);
+      setMessage(data.message || "Buka link Telegram");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal menghubungkan");
+    } finally {
+      setTgSaving(false);
+    }
+  }
+
+  async function disconnectTelegram() {
+    setTgSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/telegram/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "disconnect" })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal memutus");
+      setTgLink(null);
+      await loadTelegram();
+      setMessage("Telegram diputus");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal memutus");
+    } finally {
+      setTgSaving(false);
+    }
+  }
+
+  async function saveTelegramPrefs(patch: {
+    dailyDigestEnabled?: boolean;
+    projectRemindersEnabled?: boolean;
+    digestHourWib?: number;
+    projectReminderHourWib?: number;
+  }) {
+    setTgSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/telegram/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "preferences", ...patch })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal menyimpan");
+      await loadTelegram();
+      setMessage("Preferensi Telegram disimpan");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal menyimpan");
+    } finally {
+      setTgSaving(false);
+    }
+  }
+
+  async function testDigest() {
+    setTgSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/telegram/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "test-digest" })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal kirim uji coba");
+      setMessage(data.message || "Digest uji coba dikirim");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal kirim uji coba");
+    } finally {
+      setTgSaving(false);
+    }
+  }
+
+  const tg = tgSettings;
+
   return (
     <div className="mx-auto max-w-lg space-y-6 p-6">
       <PageHeader
         title="Akun"
-        description="Kelola password login Anda."
+        description="Password login dan notifikasi Telegram."
       />
 
       {error && (
@@ -118,8 +243,139 @@ export default function AkunPageClient({ email }: { email: string }) {
       )}
 
       <Card className="p-5">
+        <h2 className="text-sm font-semibold text-slate-800">Telegram</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Owner: ringkasan transaksi harian. Tim: reminder tugas proyek (add-on aktif).
+        </p>
+
+        {tgLoading ? (
+          <p className="mt-4 text-sm text-slate-500">Memuat…</p>
+        ) : !tg?.botConfigured ? (
+          <p className="mt-4 text-sm text-amber-700">
+            Bot Telegram belum dikonfigurasi di server (hubungi admin platform).
+          </p>
+        ) : tg.connected ? (
+          <div className="mt-4 space-y-4">
+            <p className="text-sm text-slate-600">
+              Terhubung
+              {tg.telegramUsername ? (
+                <>
+                  {" "}
+                  sebagai <span className="font-medium">@{tg.telegramUsername}</span>
+                </>
+              ) : null}
+            </p>
+
+            {tg.canDailyDigest ? (
+              <div className="space-y-2 rounded-lg border border-slate-100 bg-slate-50/80 p-3">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={tg.dailyDigestEnabled}
+                    disabled={tgSaving}
+                    onChange={(e) => void saveTelegramPrefs({ dailyDigestEnabled: e.target.checked })}
+                  />
+                  Ringkasan harian (owner)
+                </label>
+                <div>
+                  <Label className="text-xs">Jam kirim digest</Label>
+                  <Select
+                    value={String(tg.digestHourWib)}
+                    disabled={tgSaving || !tg.dailyDigestEnabled}
+                    onChange={(e) =>
+                      void saveTelegramPrefs({ digestHourWib: Number(e.target.value) })
+                    }
+                  >
+                    {HOUR_OPTIONS.map((h) => (
+                      <option key={h.value} value={h.value}>
+                        {h.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={tgSaving}
+                  onClick={() => void testDigest()}
+                >
+                  Kirim digest uji coba
+                </Button>
+              </div>
+            ) : null}
+
+            {tg.canProjectReminders ? (
+              <div className="space-y-2 rounded-lg border border-slate-100 bg-slate-50/80 p-3">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={tg.projectRemindersEnabled}
+                    disabled={tgSaving}
+                    onChange={(e) =>
+                      void saveTelegramPrefs({ projectRemindersEnabled: e.target.checked })
+                    }
+                  />
+                  Reminder proyek (tugas jatuh tempo)
+                </label>
+                <div>
+                  <Label className="text-xs">Jam reminder proyek</Label>
+                  <Select
+                    value={String(tg.projectReminderHourWib)}
+                    disabled={tgSaving || !tg.projectRemindersEnabled}
+                    onChange={(e) =>
+                      void saveTelegramPrefs({ projectReminderHourWib: Number(e.target.value) })
+                    }
+                  >
+                    {HOUR_OPTIONS.map((h) => (
+                      <option key={h.value} value={h.value}>
+                        {h.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
+            ) : null}
+
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={tgSaving}
+              onClick={() => void disconnectTelegram()}
+            >
+              Putuskan Telegram
+            </Button>
+          </div>
+        ) : (
+          <div className="mt-4 space-y-3">
+            <Button type="button" disabled={tgSaving} onClick={() => void connectTelegram()}>
+              {tgSaving ? "Membuat link…" : "Hubungkan Telegram"}
+            </Button>
+            {tgLink ? (
+              <p className="text-sm">
+                <a
+                  href={tgLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-brand-600 underline"
+                >
+                  Buka Telegram → tekan Start
+                </a>
+                <span className="block text-xs text-slate-500 mt-1">Link berlaku 15 menit.</span>
+              </p>
+            ) : null}
+          </div>
+        )}
+      </Card>
+
+      <Card className="p-5">
         <p className="text-xs text-slate-500">
           Login sebagai <span className="font-medium text-slate-700">{email}</span>
+          {role ? (
+            <>
+              {" "}
+              · peran <span className="font-medium text-slate-700">{role}</span>
+            </>
+          ) : null}
         </p>
 
         <form onSubmit={onSubmit} className="mt-5 space-y-4">
