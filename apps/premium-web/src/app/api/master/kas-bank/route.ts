@@ -14,7 +14,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("cash_bank_accounts")
-    .select("id, code, name, coa_account_name, active, created_at")
+    .select("id, code, name, coa_account_name, active, metadata, created_at")
     .eq("organization_id", org.id)
     .order("name");
 
@@ -41,12 +41,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Akun COA wajib dipilih" }, { status: 400 });
   }
 
+  const metadata =
+    body.metadata && typeof body.metadata === "object"
+      ? (body.metadata as Record<string, unknown>)
+      : {};
+
   const row = {
     organization_id: org.id,
     code: String(body.code || "").trim() || null,
     name,
     coa_account_name: coaAccountName,
-    active: body.active !== false
+    active: body.active !== false,
+    metadata
   };
 
   if (body.id) {

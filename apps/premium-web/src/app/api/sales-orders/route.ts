@@ -14,6 +14,10 @@ import {
   linkedMutasiTransactionId,
   resolveKasBankAccount
 } from "@/lib/posting/linked-mutasi";
+import {
+  invoiceNeedsPrintRekening,
+  resolveInvoiceBankInfo
+} from "@/lib/penjualan/invoice-rekening";
 import { assertQuotationConvertible, markQuotationConverted } from "@/lib/pre-docs/convert";
 
 type LineInput = {
@@ -35,6 +39,7 @@ type CreateBody = {
   order_date?: string;
   quotation_id?: string;
   lines?: LineInput[];
+  invoice_rekening_id?: string;
 };
 
 export async function GET() {
@@ -296,8 +301,39 @@ async function createProperInvoice(
     totalBayar
   );
   const paymentStatus = deriveOrderPaymentStatus(paymentSlices);
-  const rekening =
-    String(body.rekening || (totalBayar > 0 ? "Kas" : "")).trim();
+  const sisaTagihan = Math.max(0, subtotal - totalBayar);
+
+  let rekening = "";
+  if (totalBayar > 0) {
+    rekening = String(body.rekening || "").trim();
+    if (!rekening) {
+      return NextResponse.json(
+        { error: "Pilih rekening penerimaan untuk pembayaran tunai/sebagian" },
+        { status: 400 }
+      );
+    }
+  }
+
+  let invoiceRekeningId: string | undefined;
+  let invoiceBankInfo: string | undefined;
+  if (invoiceNeedsPrintRekening(subtotal, totalBayar)) {
+    invoiceRekeningId = String(body.invoice_rekening_id || "").trim();
+    if (!invoiceRekeningId) {
+      return NextResponse.json(
+        { error: "Pilih rekening tampil di invoice (wajib untuk kredit / kurang bayar)" },
+        { status: 400 }
+      );
+    }
+    try {
+      invoiceBankInfo = await resolveInvoiceBankInfo(supabase, organizationId, invoiceRekeningId);
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Rekening invoice tidak valid" },
+        { status: 400 }
+      );
+    }
+  }
+
   const orderDate = body.order_date || new Date().toISOString().slice(0, 10);
   const keterangan = buildKeteranganSummary(customer.name, resolvedLines.map((l) => l.description));
 
@@ -323,7 +359,9 @@ async function createProperInvoice(
     customerId: customer.id,
     customerName: customer.name,
     invoiceMode: "proper",
-    quotationId: quotationId || undefined
+    quotationId: quotationId || undefined,
+    invoiceRekeningId,
+    invoiceBankInfo
   };
 
   const { data: order, error: orderErr } = await supabase

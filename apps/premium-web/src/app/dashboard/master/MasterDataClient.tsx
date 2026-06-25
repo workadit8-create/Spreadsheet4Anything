@@ -214,11 +214,15 @@ export default function MasterDataClient() {
                 coaAccountTypes: ["Aset"],
                 required: true
               },
+              { key: "bank_name", label: "Nama bank", type: "text", metaKey: "bank_name" },
+              { key: "account_no", label: "No. rekening", type: "text", metaKey: "account_no" },
+              { key: "account_holder", label: "Atas nama", type: "text", metaKey: "account_holder" },
               { key: "active", label: "Aktif", type: "checkbox" }
             ]}
             columns={[
               { key: "code", label: "Kode" },
               { key: "name", label: "Rekening" },
+              { key: "account_no", label: "No. rekening", metaKey: "account_no" },
               { key: "coa_account_name", label: "Akun COA" },
               { key: "active", label: "Status" }
             ]}

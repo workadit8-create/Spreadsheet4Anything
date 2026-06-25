@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select } from "@/components/ui/Input";
+import { kasBankOptionLabel } from "@/lib/org/kas-bank-display";
 import { computeLineTotal } from "@/lib/posting/invoice-lines";
 
 type Customer = { id: string; code: string | null; name: string };
@@ -14,7 +15,7 @@ type Product = {
   unit_code: string;
   akunPendapatan: string;
 };
-type KasBank = { id: string; code: string | null; name: string };
+type KasBank = { id: string; code: string | null; name: string; bankDisplay?: string };
 type PaymentMode = "TUNAI" | "KREDIT" | "PARTIAL";
 
 type LineState = {
@@ -50,7 +51,8 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
 
   const [orderDate, setOrderDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [customerId, setCustomerId] = useState("");
-  const [rekening, setRekening] = useState("");
+  const [rekeningPenerimaan, setRekeningPenerimaan] = useState("");
+  const [invoiceRekeningId, setInvoiceRekeningId] = useState("");
   const [paymentMode, setPaymentMode] = useState<PaymentMode>("TUNAI");
   const [bayar, setBayar] = useState("");
   const [lines, setLines] = useState<LineState[]>([emptyLine()]);
@@ -77,6 +79,8 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
         ? 0
         : Math.min(subtotal, Math.max(0, Number(bayar) || 0));
   const kurangBayar = Math.max(0, subtotal - bayarNum);
+  const needsPenerimaanRekening = bayarNum > 0.01;
+  const needsInvoiceRekening = kurangBayar > 0.01;
   const paymentLabel =
     paymentMode === "KREDIT" || kurangBayar > 0.01
       ? "PENJUALAN KREDIT"
@@ -93,7 +97,8 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
       setProducts(data.products || []);
       setKasBank(data.kasBank || []);
       if (data.kasBank?.length) {
-        setRekening(data.kasBank[0].name);
+        setRekeningPenerimaan(data.kasBank[0].name);
+        setInvoiceRekeningId(data.kasBank[0].id);
       }
       const qtRes = await fetch("/api/quotations?active=1");
       const qtData = await qtRes.json();
@@ -183,6 +188,14 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
       setError("Minimal satu produk");
       return;
     }
+    if (needsPenerimaanRekening && !rekeningPenerimaan.trim()) {
+      setError("Pilih rekening penerimaan untuk pembayaran tunai/sebagian");
+      return;
+    }
+    if (needsInvoiceRekening && !invoiceRekeningId) {
+      setError("Pilih rekening tampil di invoice (wajib untuk kredit / kurang bayar)");
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -196,7 +209,8 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
           customer_id: customerId,
           order_date: orderDate,
           bayar: bayarNum,
-          rekening,
+          rekening: needsPenerimaanRekening ? rekeningPenerimaan : undefined,
+          invoice_rekening_id: needsInvoiceRekening ? invoiceRekeningId : undefined,
           quotation_id: quotationId || undefined,
           lines: validLines.map((l) => ({
             product_id: l.product_id,
@@ -218,6 +232,10 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
       setBayar("");
       setPaymentMode("TUNAI");
       setQuotationId("");
+      if (kasBank.length) {
+        setRekeningPenerimaan(kasBank[0].name);
+        setInvoiceRekeningId(kasBank[0].id);
+      }
       onCreated();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
@@ -252,7 +270,7 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label>Tanggal</Label>
           <Input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} required />
@@ -266,16 +284,6 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
                 {c.code ? `${c.code} — ` : ""}{c.name}
               </option>
             ))}
-          </Select>
-        </div>
-        <div>
-          <Label>Masuk ke rekening</Label>
-          <Select value={rekening} onChange={(e) => setRekening(e.target.value)}>
-            <option value="">—</option>
-            {kasBank.map((k) => (
-              <option key={k.id} value={k.name}>{k.name}</option>
-            ))}
-            {!kasBank.length && <option value="Kas">Kas</option>}
           </Select>
         </div>
       </div>
@@ -414,6 +422,50 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
             <span>Kurang bayar · {paymentLabel}</span>
             <strong>{formatRp(kurangBayar)}</strong>
           </div>
+
+          {needsPenerimaanRekening && (
+            <div>
+              <Label>Penerimaan ke rekening</Label>
+              <Select
+                value={rekeningPenerimaan}
+                onChange={(e) => setRekeningPenerimaan(e.target.value)}
+                required
+                className="mt-1"
+              >
+                <option value="">Pilih rekening penerimaan</option>
+                {kasBank.map((k) => (
+                  <option key={k.id} value={k.name}>
+                    {kasBankOptionLabel(k)}
+                  </option>
+                ))}
+              </Select>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Untuk mutasi kas saat ada pembayaran tunai/sebagian.
+              </p>
+            </div>
+          )}
+
+          {needsInvoiceRekening && (
+            <div>
+              <Label>Rekening tampil di invoice</Label>
+              <Select
+                value={invoiceRekeningId}
+                onChange={(e) => setInvoiceRekeningId(e.target.value)}
+                required
+                className="mt-1"
+              >
+                <option value="">Pilih rekening untuk customer</option>
+                {kasBank.map((k) => (
+                  <option key={k.id} value={k.id}>
+                    {kasBankOptionLabel(k)}
+                  </option>
+                ))}
+              </Select>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Wajib untuk kredit / kurang bayar — customer lihat ini di cetak invoice.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

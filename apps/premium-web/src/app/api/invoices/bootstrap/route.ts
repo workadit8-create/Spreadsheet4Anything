@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
+import { formatKasBankForInvoice } from "@/lib/org/kas-bank-display";
 
 export async function GET() {
   const supabase = await createClient();
@@ -10,7 +11,7 @@ export async function GET() {
   } catch (e) {
     return toOrgAuthResponse(e);
   }
-  const { user, org } = auth;
+  const { org } = auth;
 
   const [customersRes, productsRes, kasRes] = await Promise.all([
     supabase
@@ -27,7 +28,7 @@ export async function GET() {
       .order("name"),
     supabase
       .from("cash_bank_accounts")
-      .select("id, code, name, coa_account_name")
+      .select("id, code, name, coa_account_name, metadata")
       .eq("organization_id", org.id)
       .eq("active", true)
       .order("name")
@@ -52,9 +53,14 @@ export async function GET() {
     };
   });
 
+  const kasBank = (kasRes.data || []).map((k) => ({
+    ...k,
+    bankDisplay: formatKasBankForInvoice(k)
+  }));
+
   return NextResponse.json({
     customers: customersRes.data || [],
     products,
-    kasBank: kasRes.data || []
+    kasBank
   });
 }

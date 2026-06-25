@@ -264,7 +264,7 @@ export function BusinessProfilePanel() {
               </button>
             ) : null}
             <p className="mt-1 text-[11px] text-slate-400">
-              Tampil di invoice cetak/PDF. Isi nomor rekening lengkap di sini.
+              Tampil di invoice kredit/kurang bayar (pilih per transaksi). Isi juga detail bank di tab Kas & Bank.
             </p>
           </div>
           <div className="sm:col-span-2">

@@ -100,10 +100,15 @@ export function buildInvoicePrintHtml(
         ? `<div class="stamp-paid stamp-void"><span>VOID</span></div>`
         : "";
 
-  const bankBlock = printSettings.invoiceBankInfo
+  const bankText =
+    order.sisaTagihan > 0.01
+      ? detail.order.invoiceBankInfo || printSettings.invoiceBankInfo
+      : "";
+
+  const bankBlock = bankText
     ? `<div class="doc-bank">
         <p class="doc-bank-title">Informasi pembayaran</p>
-        <p class="doc-bank-body">${escapeHtml(printSettings.invoiceBankInfo)}</p>
+        <p class="doc-bank-body">${escapeHtml(bankText)}</p>
       </div>`
     : "";
 

@@ -11,6 +11,7 @@ export type HistoryOrderRow = {
   grandTotal: number;
   bayar: number;
   sisaTagihan: number;
+  invoiceBankInfo: string;
 };
 
 export type HistoryLineRow = {
@@ -96,7 +97,8 @@ export function summarizeOrderForHistory(
     status: order.status,
     grandTotal,
     bayar,
-    sisaTagihan
+    sisaTagihan,
+    invoiceBankInfo: String(meta.invoiceBankInfo || "")
   };
 }
 
