@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { processPendingPostingJobs } from "@/lib/posting/worker";
-import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
+import { requirePostingRole, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -11,6 +11,7 @@ export async function POST(request: Request) {
   } catch (e) {
     return toOrgAuthResponse(e);
   }
+  requirePostingRole(auth.role);
   const { org } = auth;
 
   let limit = 5;

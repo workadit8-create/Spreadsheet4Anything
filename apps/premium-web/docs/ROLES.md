@@ -100,6 +100,15 @@ Mutasi anggota lewat RPC Postgres (`add_org_member`, `update_org_member_role`, `
 
 `028_fix_add_org_member_password.sql` — perbaikan generator password di `add_org_member`.
 
+`029_rls_posting_role.sql` — **Security Fase A** (RLS Postgres):
+
+- `is_org_posting_role(org_id)` — owner atau akuntan
+- Tulis `journal_entries` / `journal_lines` / `posting_jobs` — hanya posting role
+- Update/delete dokumen `POSTED` / `VOIDED` (invoice, PO, pelunasan, mutasi) — hanya posting role; staff tetap boleh `CONFIRMED`
+- `organizations` UPDATE — owner saja (`is_org_owner`)
+
+Bypass PostgREST langsung oleh staff untuk posting jurnal atau ubah profil usaha diblokir di database, bukan hanya di UI/API Next.js.
+
 ## Ganti password (semua peran)
 
 Menu **Akun** (`/dashboard/akun`) — setiap user bisa ubah password sendiri lewat `POST /api/auth/change-password`.
