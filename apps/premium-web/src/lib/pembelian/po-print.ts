@@ -1,4 +1,5 @@
 import { buildPrintCompanyHeader } from "@/lib/org/print-company-header";
+import { escapeHtml, formatRp } from "@/lib/org/print-utils";
 
 export type PoPrintCompany = {
   name: string;
@@ -25,22 +26,6 @@ export type PoPrintDetail = {
     lineTotal: number;
   }>;
 };
-
-function formatRp(n: number) {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0
-  }).format(n);
-}
-
-function escapeHtml(s: string) {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
 
 function statusLabel(status: string): string {
   if (status === "VOIDED") return "Dibatalkan";

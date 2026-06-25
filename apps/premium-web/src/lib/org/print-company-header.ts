@@ -1,17 +1,11 @@
+import { escapeHtml } from "@/lib/org/print-utils";
+
 export type PrintCompanyHeader = {
   name: string;
   address?: string;
   phone?: string;
   logoUrl?: string | null;
 };
-
-function escapeHtml(s: string) {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
 
 export function buildPrintCompanyHeader(company: PrintCompanyHeader): string {
   const logo = company.logoUrl

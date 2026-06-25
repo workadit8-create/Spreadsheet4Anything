@@ -1,5 +1,10 @@
 import type { HistoryDetail } from "./history";
-import { buildPrintCompanyHeader } from "@/lib/org/print-company-header";
+import {
+  escapeHtml,
+  formatDateId,
+  formatRp,
+  printDocumentBaseCss
+} from "@/lib/org/print-utils";
 
 export type InvoicePrintCompany = {
   name: string;
@@ -8,88 +13,167 @@ export type InvoicePrintCompany = {
   logoUrl?: string | null;
 };
 
-function formatRp(n: number) {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0
-  }).format(n);
+export type InvoicePrintCustomer = {
+  name?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+};
+
+function paymentStatus(order: HistoryDetail["order"]): {
+  label: string;
+  className: string;
+  showPaidStamp: boolean;
+} {
+  if (order.status === "VOIDED") {
+    return { label: "Dibatalkan", className: "status-void", showPaidStamp: false };
+  }
+  if (order.sisaTagihan <= 0 && order.grandTotal > 0) {
+    return { label: "Lunas", className: "status-paid", showPaidStamp: true };
+  }
+  if (order.bayar > 0 && order.sisaTagihan > 0) {
+    return { label: "Sebagian", className: "status-unpaid", showPaidStamp: false };
+  }
+  return { label: "Belum lunas", className: "status-unpaid", showPaidStamp: false };
+}
+
+function orderStatusNote(status: string): string {
+  if (status === "POSTED") return "Jurnal tercatat";
+  if (status === "CONFIRMED") return "Belum posting jurnal";
+  if (status === "VOIDED") return "Invoice dibatalkan";
+  return status;
 }
 
 export function buildInvoicePrintHtml(
   detail: HistoryDetail,
-  company: InvoicePrintCompany
+  company: InvoicePrintCompany,
+  customer?: InvoicePrintCustomer | null
 ): string {
   const { order, lines } = detail;
+  const status = paymentStatus(order);
+  const customerName = customer?.name || order.customerName || "—";
+
+  const subtotal = lines.reduce((sum, l) => sum + l.qty * l.unitPrice, 0);
+  const totalDiskon = lines.reduce((sum, l) => sum + l.diskon, 0);
+
   const lineRows = lines
-    .map(
-      (l) =>
-        `<tr>
-          <td style="padding:8px;border-bottom:1px solid #e5e7eb;">${escapeHtml(l.productName)}</td>
-          <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:center;">${l.qty}</td>
-          <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right;">${formatRp(l.unitPrice)}</td>
-          <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right;">${formatRp(l.diskon)}</td>
-          <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:600;">${formatRp(l.lineTotal)}</td>
-        </tr>`
-    )
+    .map((l, i) => {
+      const skuLine = l.sku ? `<div class="product-sku">${escapeHtml(l.sku)}</div>` : "";
+      return `<tr>
+        <td class="center" style="color:#9ca3af;font-size:11px;">${i + 1}</td>
+        <td class="product-name">${escapeHtml(l.productName)}${skuLine}</td>
+        <td class="center">${escapeHtml(l.unitCode || "—")}</td>
+        <td class="center">${l.qty}</td>
+        <td class="num">${formatRp(l.unitPrice)}</td>
+        <td class="num">${l.diskon > 0 ? formatRp(l.diskon) : "—"}</td>
+        <td class="num" style="font-weight:700;">${formatRp(l.lineTotal)}</td>
+      </tr>`;
+    })
     .join("");
+
+  const logo = company.logoUrl
+    ? `<img class="doc-logo" src="${escapeHtml(company.logoUrl)}" alt="" />`
+    : "";
+
+  const companyMeta = [
+    company.address ? escapeHtml(company.address) : "",
+    company.phone ? `Telp: ${escapeHtml(company.phone)}` : ""
+  ]
+    .filter(Boolean)
+    .join("<br />");
+
+  const customerMeta = [
+    customer?.phone ? `Telp: ${escapeHtml(customer.phone)}` : "",
+    customer?.email ? escapeHtml(customer.email) : "",
+    customer?.address ? escapeHtml(customer.address) : ""
+  ]
+    .filter(Boolean)
+    .join("<br />");
+
+  const stamp =
+    status.showPaidStamp && order.status !== "VOIDED"
+      ? `<div class="stamp-paid"><span>LUNAS</span></div>`
+      : order.status === "VOIDED"
+        ? `<div class="stamp-paid stamp-void"><span>VOID</span></div>`
+        : "";
 
   return `<!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="utf-8" />
   <title>Invoice ${escapeHtml(order.orderNo)}</title>
-  <style>
-    body { font-family: system-ui, -apple-system, sans-serif; color: #111; margin: 24px; }
-    h1 { font-size: 20px; margin: 0 0 4px; }
-    .muted { color: #6b7280; font-size: 13px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th { background: #1f6f54; color: white; padding: 10px 8px; text-align: left; font-size: 13px; }
-    .footer-total { font-size: 16px; font-weight: 700; color: #2563eb; }
-    @media print { body { margin: 0; } }
-  </style>
+  <style>${printDocumentBaseCss()}</style>
 </head>
 <body>
-  ${buildPrintCompanyHeader(company)}
-  <hr style="margin:16px 0;border:none;border-top:1px solid #e5e7eb;" />
-  <p><strong>Invoice:</strong> ${escapeHtml(order.orderNo)} &nbsp; <strong>Tanggal:</strong> ${escapeHtml(order.orderDate)}</p>
-  <p><strong>Customer:</strong> ${escapeHtml(order.customerName)}</p>
-  <table>
-    <thead>
-      <tr>
-        <th>Produk</th>
-        <th style="text-align:center;">Qty</th>
-        <th style="text-align:right;">Harga</th>
-        <th style="text-align:right;">Diskon</th>
-        <th style="text-align:right;">Total</th>
-      </tr>
-    </thead>
-    <tbody>${lineRows}</tbody>
-    <tfoot>
-      <tr>
-        <td colspan="4" style="padding:12px 8px;text-align:right;font-weight:700;">Grand Total</td>
-        <td class="footer-total" style="padding:12px 8px;text-align:right;">${formatRp(order.grandTotal)}</td>
-      </tr>
-      <tr>
-        <td colspan="4" style="padding:4px 8px;text-align:right;">Sudah dibayar</td>
-        <td style="padding:4px 8px;text-align:right;">${formatRp(order.bayar)}</td>
-      </tr>
-      <tr>
-        <td colspan="4" style="padding:4px 8px;text-align:right;">Sisa tagihan</td>
-        <td style="padding:4px 8px;text-align:right;">${formatRp(order.sisaTagihan)}</td>
-      </tr>
-    </tfoot>
-  </table>
+  <div class="doc">
+    <header class="doc-header">
+      <div class="doc-header-left">
+        ${logo}
+        <div>
+          <h1 class="doc-company-name">${escapeHtml(company.name || "Perusahaan")}</h1>
+          ${companyMeta ? `<p class="doc-company-meta">${companyMeta}</p>` : ""}
+        </div>
+      </div>
+      <div class="doc-header-right">
+        <h2 class="doc-title">INVOICE</h2>
+        <p class="doc-meta-line"><strong>No.</strong> ${escapeHtml(order.orderNo)}</p>
+        <p class="doc-meta-line"><strong>Tanggal</strong> ${escapeHtml(formatDateId(order.orderDate))}</p>
+      </div>
+    </header>
+
+    <div class="doc-body">
+      <div class="doc-cards">
+        <div class="doc-card">
+          <p class="doc-card-label">Tagihan kepada</p>
+          <p class="doc-card-value">${escapeHtml(customerName)}</p>
+          ${customerMeta ? `<p class="doc-card-sub">${customerMeta}</p>` : ""}
+        </div>
+        <div class="doc-card">
+          <p class="doc-card-label">Status pembayaran</p>
+          <p class="doc-card-value">
+            <span class="status-badge ${status.className}">${status.label}</span>
+          </p>
+          <p class="doc-card-sub">${escapeHtml(orderStatusNote(order.status))}</p>
+        </div>
+      </div>
+
+      <table class="doc-table">
+        <thead>
+          <tr>
+            <th class="center" style="width:36px;">#</th>
+            <th>Produk / Jasa</th>
+            <th class="center" style="width:52px;">Satuan</th>
+            <th class="center" style="width:44px;">Qty</th>
+            <th class="num" style="width:88px;">Harga</th>
+            <th class="num" style="width:72px;">Diskon</th>
+            <th class="num" style="width:96px;">Total</th>
+          </tr>
+        </thead>
+        <tbody>${lineRows || `<tr><td colspan="7" style="text-align:center;padding:24px;color:#9ca3af;">Tidak ada baris</td></tr>`}</tbody>
+      </table>
+
+      <div class="doc-footer-row">
+        ${stamp}
+        <div class="doc-summary">
+          <div class="doc-summary-row"><span>Subtotal</span><span>${formatRp(subtotal)}</span></div>
+          <div class="doc-summary-row"><span>Diskon</span><span>${totalDiskon > 0 ? `−${formatRp(totalDiskon)}` : "—"}</span></div>
+          <div class="doc-summary-total">
+            <span class="label">GRAND TOTAL</span>
+            <span class="value">${formatRp(order.grandTotal)}</span>
+          </div>
+          <div class="doc-summary-row" style="margin-top:10px;"><span>Sudah dibayar</span><span>${formatRp(order.bayar)}</span></div>
+          <div class="doc-summary-row doc-summary-due"><span>Sisa tagihan</span><span class="value">${formatRp(order.sisaTagihan)}</span></div>
+        </div>
+      </div>
+
+      <div class="doc-thanks">
+        <strong>Terima kasih atas kepercayaan Anda.</strong>
+        Dokumen ini dicetak dari Premium Akuntansi · ${escapeHtml(formatDateId(new Date().toISOString().slice(0, 10)))}
+      </div>
+    </div>
+  </div>
 </body>
 </html>`;
-}
-
-function escapeHtml(s: string) {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 export function openInvoicePrintWindow(html: string) {
@@ -112,10 +196,9 @@ export function openInvoicePrintWindow(html: string) {
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
-  // Blob tab may already be complete when opened; otherwise wait for load.
   if (w.document?.readyState === "complete") {
-    setTimeout(triggerPrint, 250);
+    setTimeout(triggerPrint, 400);
   } else {
-    w.addEventListener("load", () => setTimeout(triggerPrint, 250), { once: true });
+    w.addEventListener("load", () => setTimeout(triggerPrint, 400), { once: true });
   }
 }

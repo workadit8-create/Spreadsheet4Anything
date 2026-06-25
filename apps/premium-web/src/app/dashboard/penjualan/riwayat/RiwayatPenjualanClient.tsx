@@ -7,7 +7,11 @@ import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
 import type { HistoryDetail } from "@/lib/penjualan/history";
-import { buildInvoicePrintHtml, openInvoicePrintWindow } from "@/lib/penjualan/invoice-print";
+import {
+  buildInvoicePrintHtml,
+  openInvoicePrintWindow,
+  type InvoicePrintCustomer
+} from "@/lib/penjualan/invoice-print";
 import { confirmPostInvoiceJournal, invoiceDebtStatusLabel } from "@/lib/penjualan/invoice-status-label";
 import { DetailModalTabs, TransactionJournalView } from "@/components/jurnal/TransactionJournalView";
 
@@ -67,6 +71,7 @@ export default function RiwayatPenjualanClient() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detail, setDetail] = useState<HistoryDetail | null>(null);
   const [company, setCompany] = useState({ name: "", address: "", phone: "", logoUrl: null as string | null });
+  const [printCustomer, setPrintCustomer] = useState<InvoicePrintCustomer | null>(null);
 
   const loadCustomers = useCallback(async () => {
     try {
@@ -118,6 +123,7 @@ export default function RiwayatPenjualanClient() {
       if (!res.ok) throw new Error(data.error);
       setDetail(data.detail);
       setCompany(data.company || { name: "", address: "", phone: "", logoUrl: null });
+      setPrintCustomer(data.customer || null);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Gagal memuat detail");
       setDetailOpen(false);
@@ -133,7 +139,7 @@ export default function RiwayatPenjualanClient() {
 
   function printDetail() {
     if (!detail) return;
-    const html = buildInvoicePrintHtml(detail, company);
+    const html = buildInvoicePrintHtml(detail, company, printCustomer);
     openInvoicePrintWindow(html);
   }
 
