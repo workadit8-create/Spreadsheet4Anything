@@ -11,20 +11,26 @@ Notifikasi via bot Telegram (platform-wide).
 
 Angka digest = **CONFIRMED + POSTED** (operasional), exclude VOID.
 
+## Bot produksi
+
+- Username: **[@ownetassistantusahabot](https://t.me/ownetassistantusahabot)**
+- `TELEGRAM_BOT_USERNAME=ownetassistantusahabot` (tanpa `@`)
+
 ## Setup bot (admin platform)
 
-1. Buat bot via [@BotFather](https://t.me/BotFather) → salin token.
-2. Set env di Vercel (Production):
+1. Token bot dari [@BotFather](https://t.me/BotFather) (jangan commit ke repo).
+2. Set env di Vercel → **Production**:
 
 ```bash
-TELEGRAM_BOT_TOKEN=123456:ABC...
-TELEGRAM_BOT_USERNAME=YourPremiumBot   # tanpa @
-TELEGRAM_WEBHOOK_SECRET=random-secret-string
-CRON_SECRET=random-cron-secret
-SUPABASE_SERVICE_ROLE_KEY=...          # untuk webhook pairing + cron
+TELEGRAM_BOT_TOKEN=<token dari BotFather>
+TELEGRAM_BOT_USERNAME=ownetassistantusahabot
+TELEGRAM_WEBHOOK_SECRET=<string acak, mis. openssl rand -hex 16>
+CRON_SECRET=<string acak>
+SUPABASE_SERVICE_ROLE_KEY=<dari Supabase Dashboard → API → service_role>
 ```
 
-3. Set webhook (sekali, ganti URL):
+3. **Redeploy** production setelah env disimpan.
+4. Set webhook (sekali, ganti `<TOKEN>` dan `<TELEGRAM_WEBHOOK_SECRET>`):
 
 ```bash
 curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
@@ -33,6 +39,12 @@ curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
     "url": "https://premium-web-ruby.vercel.app/api/telegram/webhook",
     "secret_token": "<TELEGRAM_WEBHOOK_SECRET>"
   }'
+```
+
+5. Verifikasi:
+
+```bash
+curl "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"
 ```
 
 4. Cron Vercel (Hobby): sekali sehari **20:00 WIB** (`0 13 * * *`) — digest owner + reminder proyek. Jam preferensi di UI dipakai jika nanti pakai cron per jam (Vercel Pro) atau pemicu eksternal.
