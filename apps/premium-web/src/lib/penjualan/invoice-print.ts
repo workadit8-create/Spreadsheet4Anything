@@ -26,24 +26,15 @@ function paymentStatus(order: HistoryDetail["order"]): {
   label: string;
   className: string;
   showPaidStamp: boolean;
+  useBadge: boolean;
 } {
   if (order.status === "VOIDED") {
-    return { label: "Dibatalkan", className: "status-void", showPaidStamp: false };
+    return { label: "—", className: "", showPaidStamp: false, useBadge: false };
   }
   if (order.sisaTagihan <= 0 && order.grandTotal > 0) {
-    return { label: "Lunas", className: "status-paid", showPaidStamp: true };
+    return { label: "Lunas", className: "status-paid", showPaidStamp: true, useBadge: true };
   }
-  if (order.bayar > 0 && order.sisaTagihan > 0) {
-    return { label: "Sebagian", className: "status-unpaid", showPaidStamp: false };
-  }
-  return { label: "Belum lunas", className: "status-unpaid", showPaidStamp: false };
-}
-
-function orderStatusNote(status: string): string {
-  if (status === "POSTED") return "Jurnal tercatat";
-  if (status === "CONFIRMED") return "Belum posting jurnal";
-  if (status === "VOIDED") return "Invoice dibatalkan";
-  return status;
+  return { label: "—", className: "", showPaidStamp: false, useBadge: false };
 }
 
 export function buildInvoicePrintHtml(
@@ -146,9 +137,12 @@ export function buildInvoicePrintHtml(
         <div class="doc-card">
           <p class="doc-card-label">Status pembayaran</p>
           <p class="doc-card-value">
-            <span class="status-badge ${status.className}">${status.label}</span>
+            ${
+              status.useBadge
+                ? `<span class="status-badge ${status.className}">${status.label}</span>`
+                : `<span style="font-size:20px;font-weight:600;color:#94a3b8;">${status.label}</span>`
+            }
           </p>
-          <p class="doc-card-sub">${escapeHtml(orderStatusNote(order.status))}</p>
         </div>
       </div>
 
