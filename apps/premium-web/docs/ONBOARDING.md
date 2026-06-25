@@ -120,7 +120,7 @@ Lihat hint di halaman Kas & Bank di app.
 
 Ulangi langkah 1–2 dengan `slug` dan `email` berbeda. Satu Supabase, banyak baris `organizations` — data terisolasi RLS + `requireUserOrg()`.
 
-Add-on (POS, proyek, CRM) diaktifkan per org lewat tabel `tenant_addons` — menyusul setelah multi-client stabil.
+Add-on (POS, proyek, CRM) diaktifkan per org lewat tabel `tenant_addons` — lihat [`docs/ADDONS.md`](docs/ADDONS.md).
 
 ## Tenant demo (publik)
 

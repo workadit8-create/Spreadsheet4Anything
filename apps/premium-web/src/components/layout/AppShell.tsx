@@ -3,8 +3,22 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { DemoFinishPanel } from "@/components/layout/DemoFinishPanel";
+import { AddonsLabPanel } from "@/components/layout/AddonsLabPanel";
+import {
+  ADDON_CATALOG,
+  ADDON_KEYS,
+  type AddonKey,
+  type OrgAddonsMap
+} from "@/lib/org/addons-catalog";
 
-const NAV = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: string;
+  addon?: AddonKey;
+};
+
+const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: "◆" },
   { href: "/dashboard/master", label: "Master Data", icon: "◇" },
   { href: "/dashboard/penjualan", label: "Penjualan", icon: "◇" },
@@ -18,27 +32,48 @@ const NAV = [
   { href: "/dashboard/kas-bank", label: "Kas & Bank", icon: "◇" },
   { href: "/dashboard/jurnal", label: "Jurnal", icon: "◇" },
   { href: "/dashboard/jurnal/manual", label: "Jurnal Manual", icon: "◇" },
-  { href: "/dashboard/laporan", label: "Laporan", icon: "◇" }
+  { href: "/dashboard/laporan", label: "Laporan", icon: "◇" },
+  {
+    href: "/dashboard/proyek",
+    label: "Proyek",
+    icon: "◇",
+    addon: "project"
+  }
 ];
 
-const COMING_SOON = [
-  "POS / Stok"
-];
+function comingSoonLabels(addons: OrgAddonsMap): string[] {
+  const labels: string[] = [];
+  for (const key of ADDON_KEYS) {
+    if (!addons[key] && key !== "project") {
+      labels.push(ADDON_CATALOG[key].label);
+    }
+  }
+  if (!addons.pos && !addons.pos_gramasi) {
+    labels.push("POS / Stok");
+  }
+  return [...new Set(labels)];
+}
 
 export function AppShell({
   children,
   userEmail,
   orgName,
   orgLogoUrl,
-  isDemo
+  isDemo,
+  isHybridLab,
+  addons
 }: {
   children: React.ReactNode;
   userEmail?: string | null;
   orgName?: string | null;
   orgLogoUrl?: string | null;
   isDemo?: boolean;
+  isHybridLab?: boolean;
+  addons: OrgAddonsMap;
 }) {
   const pathname = usePathname();
+  const visibleNav = NAV.filter((item) => !item.addon || addons[item.addon]);
+  const comingSoon = comingSoonLabels(addons);
 
   return (
     <div className="flex min-h-screen bg-slate-50">
@@ -55,8 +90,8 @@ export function AppShell({
           <p className="mt-1 text-sm font-semibold text-white">{orgName || "Premium"}</p>
         </div>
 
-        <nav className="flex-1 space-y-1 p-3">
-          {NAV.map((item) => {
+        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+          {visibleNav.map((item) => {
             const active =
               pathname === item.href ||
               (item.href !== "/dashboard" &&
@@ -84,14 +119,17 @@ export function AppShell({
 
         <div className="space-y-3 p-3">
           {isDemo ? <DemoFinishPanel /> : null}
-          <div className="rounded-lg bg-white/5 px-3 py-3 text-[11px] text-slate-400">
-            <p className="mb-2 font-semibold text-slate-300">Coming soon</p>
-            <ul className="space-y-0.5">
-              {COMING_SOON.map((label) => (
-                <li key={label}>· {label}</li>
-              ))}
-            </ul>
-          </div>
+          {isHybridLab ? <AddonsLabPanel /> : null}
+          {comingSoon.length > 0 ? (
+            <div className="rounded-lg bg-white/5 px-3 py-3 text-[11px] text-slate-400">
+              <p className="mb-2 font-semibold text-slate-300">Add-on belum aktif</p>
+              <ul className="space-y-0.5">
+                {comingSoon.map((label) => (
+                  <li key={label}>· {label}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           {userEmail && (
             <div className="rounded-lg bg-white/5 px-3 py-2 text-[11px] text-slate-400">
               {userEmail}

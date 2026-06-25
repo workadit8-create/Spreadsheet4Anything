@@ -113,9 +113,7 @@ BEGIN
   VALUES (v_org_id, v_user_id, 'owner')
   ON CONFLICT (organization_id, user_id) DO UPDATE SET role = EXCLUDED.role;
 
-  UPDATE tenant_addons
-  SET enabled = true, updated_at = now()
-  WHERE organization_id = v_org_id AND addon_key = 'project';
+  -- Add-on project: aktifkan manual per client (lihat scripts/enable-project-addon-hybrid-lab.sql)
 
   RAISE NOTICE 'TIRTA CATERING OK — org=%, user=%', v_org_id, v_email;
 END $$;

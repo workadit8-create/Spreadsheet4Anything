@@ -4,6 +4,7 @@ import { fetchCompanyProfile } from "@/lib/org/company-profile";
 import { requireUserOrg } from "@/lib/org/require-user-org";
 import { AppShell } from "@/components/layout/AppShell";
 import { isDemoOrg } from "@/lib/org/demo-reset";
+import { fetchOrgAddons } from "@/lib/org/addons";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -15,6 +16,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
   const { user, org } = auth;
   const company = await fetchCompanyProfile(supabase, org);
+  const addons = await fetchOrgAddons(supabase, org.id);
 
   return (
     <AppShell
@@ -22,6 +24,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
       orgName={org.name}
       orgLogoUrl={company.logoUrl}
       isDemo={isDemoOrg(org)}
+      isHybridLab={org.slug === "hybrid-lab"}
+      addons={addons}
     >
       {children}
     </AppShell>
