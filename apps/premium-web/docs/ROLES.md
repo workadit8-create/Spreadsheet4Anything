@@ -51,6 +51,17 @@ PLATFORM_ADMIN_EMAILS=workadit8@gmail.com
 | Profil usaha & logo | owner |
 | Toggle add-on | admin platform saja |
 
+### Tab Master Data per peran
+
+| Tab | Owner | Staff | Akuntan |
+|-----|-------|-------|---------|
+| Customer, Produk, Kategori Produk, Satuan, Supplier | ✓ | ✓ | ✓ |
+| COA, Kategori Pembelian | ✓ | — | ✓ |
+| Kas & Bank (master rekening) | ✓ | — | — |
+| Profil usaha | ✓ | — | — |
+
+Tab yang tidak boleh diedit disembunyikan di UI (bukan hanya error saat simpan).
+
 ## Kelola tim (fase B)
 
 Menu **Tim & Akses** (`/dashboard/tim`) — **owner saja**.

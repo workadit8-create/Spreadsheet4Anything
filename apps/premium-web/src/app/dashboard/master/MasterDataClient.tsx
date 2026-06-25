@@ -1,11 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MasterCrudPanel } from "@/components/master/MasterCrudPanel";
 import { BusinessProfilePanel } from "@/components/master/BusinessProfilePanel";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PRODUCT_KIND_LABELS } from "@/lib/products/inventory-policy";
+import {
+  MASTER_TAB_LABELS,
+  OWNER_ONLY_ROLES,
+  masterTabsForRole,
+  type MasterTabId,
+  type MembershipRole
+} from "@/lib/org/roles";
 
 const PRODUCT_KIND_OPTIONS = Object.entries(PRODUCT_KIND_LABELS).map(([value, label]) => ({
   value,
@@ -20,21 +27,36 @@ const COA_TYPE_OPTIONS = [
   { value: "Beban", label: "Beban" }
 ];
 
-const TABS = [
-  { id: "customers", label: "Customer" },
-  { id: "product-categories", label: "Kategori Produk" },
-  { id: "products", label: "Produk" },
-  { id: "units", label: "Satuan" },
-  { id: "coa", label: "COA" },
-  { id: "kas-bank", label: "Kas & Bank" },
-  { id: "suppliers", label: "Supplier" },
-  { id: "purchase-categories", label: "Kategori Pembelian" }
-] as const;
+const TABS = (Object.keys(MASTER_TAB_LABELS) as MasterTabId[]).map((id) => ({
+  id,
+  label: MASTER_TAB_LABELS[id]
+}));
 
-type TabId = (typeof TABS)[number]["id"];
+export default function MasterDataClient({ role }: { role: MembershipRole }) {
+  const visibleTabs = useMemo(() => {
+    const allowed = new Set(masterTabsForRole(role));
+    return TABS.filter((t) => allowed.has(t.id));
+  }, [role]);
 
-export default function MasterDataClient() {
-  const [tab, setTab] = useState<TabId>("customers");
+  const [tab, setTab] = useState<MasterTabId>(visibleTabs[0]?.id ?? "customers");
+  const canEditProfile = OWNER_ONLY_ROLES.includes(role);
+
+  useEffect(() => {
+    if (!visibleTabs.some((t) => t.id === tab)) {
+      setTab(visibleTabs[0]?.id ?? "customers");
+    }
+  }, [visibleTabs, tab]);
+
+  if (!visibleTabs.length) {
+    return (
+      <main className="mx-auto max-w-5xl px-6 py-8">
+        <PageHeader badge="Master Data" title="Master Data" />
+        <Card className="p-6 text-sm text-slate-600">
+          Peran Anda tidak punya akses mengubah data master. Hubungi owner jika perlu perubahan.
+        </Card>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-8">
@@ -44,10 +66,10 @@ export default function MasterDataClient() {
         description="Multi-usaha: retail, F&B, manufaktur, jasa. Kategori produk atur apakah item kelola stok."
       />
 
-      <BusinessProfilePanel />
+      {canEditProfile ? <BusinessProfilePanel /> : null}
 
       <div className="mb-6 flex flex-wrap gap-2">
-        {TABS.map((t) => (
+        {visibleTabs.map((t) => (
           <button
             key={t.id}
             type="button"

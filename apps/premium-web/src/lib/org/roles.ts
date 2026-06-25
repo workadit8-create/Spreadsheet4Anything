@@ -138,6 +138,48 @@ export function canEditMasterEntity(role: MembershipRole, entity: MasterEntityKe
   return MASTER_ENTITY_ROLES[entity].includes(role);
 }
 
+export type MasterTabId =
+  | "customers"
+  | "product-categories"
+  | "products"
+  | "units"
+  | "coa"
+  | "kas-bank"
+  | "suppliers"
+  | "purchase-categories";
+
+export const MASTER_TAB_ENTITY: Record<MasterTabId, MasterEntityKey> = {
+  customers: "customer",
+  "product-categories": "product",
+  products: "product",
+  units: "product",
+  coa: "coa",
+  "kas-bank": "kasBank",
+  suppliers: "supplier",
+  "purchase-categories": "purchaseCategory"
+};
+
+export const MASTER_TAB_LABELS: Record<MasterTabId, string> = {
+  customers: "Customer",
+  "product-categories": "Kategori Produk",
+  products: "Produk",
+  units: "Satuan",
+  coa: "COA",
+  "kas-bank": "Kas & Bank",
+  suppliers: "Supplier",
+  "purchase-categories": "Kategori Pembelian"
+};
+
+export function canAccessMasterTab(role: MembershipRole, tabId: MasterTabId): boolean {
+  return canEditMasterEntity(role, MASTER_TAB_ENTITY[tabId]);
+}
+
+export function masterTabsForRole(role: MembershipRole): MasterTabId[] {
+  return (Object.keys(MASTER_TAB_ENTITY) as MasterTabId[]).filter((tabId) =>
+    canAccessMasterTab(role, tabId)
+  );
+}
+
 export function addonNavKey(addon: AddonKey): NavKey | null {
   if (addon === "project") return "proyek";
   return null;

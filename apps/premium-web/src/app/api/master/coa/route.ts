@@ -44,10 +44,10 @@ export async function POST(request: Request) {
   let auth;
   try {
     auth = await requireUserOrg(supabase);
+    requireMasterEntityRole(auth.role, "coa");
   } catch (e) {
     return toOrgAuthResponse(e);
   }
-  requireMasterEntityRole(auth.role, "coa");
   const { org } = auth;
 
   const body = await request.json();

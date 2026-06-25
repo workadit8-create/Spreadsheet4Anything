@@ -27,10 +27,10 @@ export async function POST(request: Request) {
   let auth;
   try {
     auth = await requireUserOrg(supabase);
+    requireMasterEntityRole(auth.role, "kasBank");
   } catch (e) {
     return toOrgAuthResponse(e);
   }
-  requireMasterEntityRole(auth.role, "kasBank");
   const { org } = auth;
 
   const body = await request.json();

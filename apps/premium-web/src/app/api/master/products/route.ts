@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
+import { requireMasterEntityRole, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import {
   effectiveTracksStock,
   formatTracksStockLabel,
@@ -75,6 +75,7 @@ export async function POST(request: Request) {
   let auth;
   try {
     auth = await requireUserOrg(supabase);
+    requireMasterEntityRole(auth.role, "product");
   } catch (e) {
     return toOrgAuthResponse(e);
   }
