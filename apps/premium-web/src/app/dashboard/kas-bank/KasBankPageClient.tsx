@@ -219,7 +219,7 @@ export default function KasBankPageClient() {
       <PageHeader
         badge="Kas & Bank"
         title="Mutasi dana"
-        description="Catat transfer, setoran, penarikan. Post jurnal MUTASI_DANA ke buku besar (sama seperti modul GAS)."
+        description="Saldo = mutasi + pembayaran pembelian/penjualan & pelunasan. Post jurnal MUTASI_DANA untuk transfer/setoran/penarikan manual."
       >
         <Link href="/dashboard/master" className="text-sm text-slate-500 hover:text-slate-700">
           Master Kas & Bank →
