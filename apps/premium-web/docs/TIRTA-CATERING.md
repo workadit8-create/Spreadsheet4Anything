@@ -6,7 +6,7 @@ Tenant produksi terpisah dari **hybrid-lab** (akun lab `workadit8@gmail.com`).
 |---|---|---|
 | **Slug** | `hybrid-lab` | `tirta-catering` |
 | **Nama di app** | HYBRID LAB (Testing) | TIRTA CATERING |
-| **User** | workadit8@gmail.com | owner Tirta (email terpisah) |
+| **User** | workadit8@gmail.com | owner@tirtacatering.com |
 | **URL login** | https://premium-web-ruby.vercel.app/login | sama |
 
 ## Setup (sekali)

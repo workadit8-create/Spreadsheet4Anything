@@ -10,8 +10,8 @@ DO $$
 DECLARE
   v_slug TEXT := 'tirta-catering';
   v_name TEXT := 'TIRTA CATERING';
-  v_email TEXT := 'GANTI_EMAIL_OWNER@example.com';
-  v_password TEXT := 'GantiPasswordKuat123!';
+  v_email TEXT := 'owner@tirtacatering.com';
+  v_password TEXT := 'TirtaPremium2026!';
   v_create_user BOOLEAN := true;
   v_user_id UUID;
   v_org_id UUID;
