@@ -1,3 +1,5 @@
+import type { OrgPrintSettings } from "@/lib/org/print-settings";
+import { DEFAULT_PRINT_SETTINGS } from "@/lib/org/print-settings";
 import type { HistoryDetail } from "./history";
 import {
   escapeHtml,
@@ -47,7 +49,8 @@ function orderStatusNote(status: string): string {
 export function buildInvoicePrintHtml(
   detail: HistoryDetail,
   company: InvoicePrintCompany,
-  customer?: InvoicePrintCustomer | null
+  customer?: InvoicePrintCustomer | null,
+  printSettings: OrgPrintSettings = DEFAULT_PRINT_SETTINGS
 ): string {
   const { order, lines } = detail;
   const status = paymentStatus(order);
@@ -91,11 +94,18 @@ export function buildInvoicePrintHtml(
     .join("<br />");
 
   const stamp =
-    status.showPaidStamp && order.status !== "VOIDED"
+    printSettings.showPaidStamp && status.showPaidStamp && order.status !== "VOIDED"
       ? `<div class="stamp-paid"><span>LUNAS</span></div>`
       : order.status === "VOIDED"
         ? `<div class="stamp-paid stamp-void"><span>VOID</span></div>`
         : "";
+
+  const bankBlock = printSettings.invoiceBankInfo
+    ? `<div class="doc-bank">
+        <p class="doc-bank-title">Informasi pembayaran</p>
+        <p class="doc-bank-body">${escapeHtml(printSettings.invoiceBankInfo)}</p>
+      </div>`
+    : "";
 
   return `<!DOCTYPE html>
 <html lang="id">
@@ -153,6 +163,8 @@ export function buildInvoicePrintHtml(
       </table>
 
       <div class="doc-footer-row">
+        <div class="doc-footer-left">${bankBlock}</div>
+        <div style="position:relative;flex-shrink:0;">
         ${stamp}
         <div class="doc-summary">
           <div class="doc-summary-row"><span>Subtotal</span><span>${formatRp(subtotal)}</span></div>
@@ -164,10 +176,11 @@ export function buildInvoicePrintHtml(
           <div class="doc-summary-row" style="margin-top:10px;"><span>Sudah dibayar</span><span>${formatRp(order.bayar)}</span></div>
           <div class="doc-summary-row doc-summary-due"><span>Sisa tagihan</span><span class="value">${formatRp(order.sisaTagihan)}</span></div>
         </div>
+        </div>
       </div>
 
       <div class="doc-thanks">
-        <strong>Terima kasih atas kepercayaan Anda.</strong>
+        <strong>${escapeHtml(printSettings.invoiceFooter)}</strong>
         Dokumen ini dicetak dari Premium Akuntansi · ${escapeHtml(formatDateId(new Date().toISOString().slice(0, 10)))}
       </div>
     </div>

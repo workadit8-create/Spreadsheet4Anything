@@ -3,6 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { resolveCompanyProfile } from "@/lib/org/company-profile";
 import {
+  buildPrintSettingsPatch,
+  formatBankInfoFromAccounts,
+  resolvePrintSettings
+} from "@/lib/org/print-settings";
+import {
   BUSINESS_SECTORS,
   type BusinessSector,
   BUSINESS_SECTOR_LABELS
@@ -32,12 +37,20 @@ export async function GET() {
     .eq("organization_id", org.id)
     .maybeSingle();
 
-  const settings = settingsRow?.settings as { business?: Record<string, unknown> } | null;
+  const settings = settingsRow?.settings as { business?: Record<string, unknown>; print?: Record<string, unknown> } | null;
   const business = settings?.business;
   const company = resolveCompanyProfile(
     { name: String(orgRow.name || org.name), slug: org.slug },
     settings
   );
+  const print = resolvePrintSettings(settings);
+
+  const { data: kasAccounts } = await supabase
+    .from("cash_bank_accounts")
+    .select("name, code")
+    .eq("organization_id", org.id)
+    .eq("active", true)
+    .order("name");
 
   const sectors = (orgRow.business_sectors as BusinessSector[] | null) || ["retail"];
 
@@ -50,7 +63,13 @@ export async function GET() {
     sectors,
     sectorLabels: sectors.map((s) => BUSINESS_SECTOR_LABELS[s] || s),
     inventoryMode: business?.inventory_mode || "mixed",
-    labels: BUSINESS_SECTOR_LABELS
+    labels: BUSINESS_SECTOR_LABELS,
+    print: {
+      invoiceFooter: print.invoiceFooter,
+      invoiceBankInfo: print.invoiceBankInfo,
+      showPaidStamp: print.showPaidStamp
+    },
+    suggestedBankInfo: formatBankInfoFromAccounts(kasAccounts || [])
   });
 }
 
@@ -109,8 +128,14 @@ export async function POST(request: Request) {
       company_name: companyName,
       address,
       phone
+    },
+    print: {
+      ...(((existing?.settings as { print?: Record<string, unknown> })?.print) || {}),
+      ...buildPrintSettingsPatch(body)
     }
   };
+
+  const print = resolvePrintSettings(mergedSettings);
 
   const { error: settingsError } = await supabase.from("app_settings").upsert({
     organization_id: org.id,
@@ -127,6 +152,11 @@ export async function POST(request: Request) {
     phone,
     sectors,
     sectorLabels: sectors.map((s) => BUSINESS_SECTOR_LABELS[s]),
-    inventoryMode
+    inventoryMode,
+    print: {
+      invoiceFooter: print.invoiceFooter,
+      invoiceBankInfo: print.invoiceBankInfo,
+      showPaidStamp: print.showPaidStamp
+    }
   });
 }

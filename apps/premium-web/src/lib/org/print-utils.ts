@@ -164,10 +164,12 @@ export function printDocumentBaseCss(primary = "#0d5c4d", accent = "#b8860b"): s
     table.doc-table tbody td.product-sku { font-size: 10px; color: #6b7280; margin-top: 2px; }
     .doc-footer-row {
       display: flex;
-      justify-content: flex-end;
-      gap: 24px;
+      justify-content: space-between;
+      gap: 20px;
       align-items: flex-start;
+      flex-wrap: wrap;
     }
+    .doc-footer-left { flex: 1; min-width: 200px; max-width: 380px; }
     .doc-summary {
       width: 280px;
       background: #f8fafc;
@@ -209,6 +211,29 @@ export function printDocumentBaseCss(primary = "#0d5c4d", accent = "#b8860b"): s
       font-variant-numeric: tabular-nums;
     }
     .doc-summary-due .value { color: #dc2626; font-weight: 700; }
+    .doc-bank {
+      margin-top: 20px;
+      padding: 12px 14px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      max-width: 360px;
+    }
+    .doc-bank-title {
+      margin: 0 0 6px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: ${primary};
+    }
+    .doc-bank-body {
+      margin: 0;
+      font-size: 11px;
+      color: #374151;
+      line-height: 1.55;
+      white-space: pre-line;
+    }
     .doc-thanks {
       margin-top: 28px;
       padding-top: 14px;

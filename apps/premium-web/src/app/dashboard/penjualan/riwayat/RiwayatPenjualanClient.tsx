@@ -12,6 +12,7 @@ import {
   openInvoicePrintWindow,
   type InvoicePrintCustomer
 } from "@/lib/penjualan/invoice-print";
+import type { OrgPrintSettings } from "@/lib/org/print-settings";
 import { confirmPostInvoiceJournal, invoiceDebtStatusLabel } from "@/lib/penjualan/invoice-status-label";
 import { DetailModalTabs, TransactionJournalView } from "@/components/jurnal/TransactionJournalView";
 
@@ -72,6 +73,7 @@ export default function RiwayatPenjualanClient() {
   const [detail, setDetail] = useState<HistoryDetail | null>(null);
   const [company, setCompany] = useState({ name: "", address: "", phone: "", logoUrl: null as string | null });
   const [printCustomer, setPrintCustomer] = useState<InvoicePrintCustomer | null>(null);
+  const [printSettings, setPrintSettings] = useState<OrgPrintSettings | null>(null);
 
   const loadCustomers = useCallback(async () => {
     try {
@@ -124,6 +126,7 @@ export default function RiwayatPenjualanClient() {
       setDetail(data.detail);
       setCompany(data.company || { name: "", address: "", phone: "", logoUrl: null });
       setPrintCustomer(data.customer || null);
+      setPrintSettings(data.print || null);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Gagal memuat detail");
       setDetailOpen(false);
@@ -139,7 +142,7 @@ export default function RiwayatPenjualanClient() {
 
   function printDetail() {
     if (!detail) return;
-    const html = buildInvoicePrintHtml(detail, company, printCustomer);
+    const html = buildInvoicePrintHtml(detail, company, printCustomer, printSettings || undefined);
     openInvoicePrintWindow(html);
   }
 

@@ -18,6 +18,12 @@ export function BusinessProfilePanel() {
   const [phone, setPhone] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [sectors, setSectors] = useState<BusinessSector[]>(["retail"]);
+  const [printSettings, setPrintSettings] = useState({
+    invoiceFooter: "Terima kasih atas kepercayaan Anda.",
+    invoiceBankInfo: "",
+    showPaidStamp: true
+  });
+  const [suggestedBankInfo, setSuggestedBankInfo] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -34,6 +40,14 @@ export function BusinessProfilePanel() {
       setPhone(data.phone || "");
       setLogoUrl(data.logoUrl || null);
       setSectors(data.sectors || ["retail"]);
+      if (data.print) {
+        setPrintSettings({
+          invoiceFooter: data.print.invoiceFooter || "Terima kasih atas kepercayaan Anda.",
+          invoiceBankInfo: data.print.invoiceBankInfo || "",
+          showPaidStamp: data.print.showPaidStamp !== false
+        });
+      }
+      setSuggestedBankInfo(data.suggestedBankInfo || "");
     } catch {
       setSectors(["retail"]);
     } finally {
@@ -107,7 +121,10 @@ export function BusinessProfilePanel() {
           address: address.trim(),
           phone: phone.trim(),
           sectors,
-          inventory_mode: "mixed"
+          inventory_mode: "mixed",
+          invoice_footer: printSettings.invoiceFooter.trim(),
+          invoice_bank_info: printSettings.invoiceBankInfo.trim(),
+          show_paid_stamp: printSettings.showPaidStamp
         })
       });
       const data = await res.json();
@@ -116,6 +133,13 @@ export function BusinessProfilePanel() {
       setAddress(data.address || "");
       setPhone(data.phone || "");
       setSectors(data.sectors);
+      if (data.print) {
+        setPrintSettings({
+          invoiceFooter: data.print.invoiceFooter || printSettings.invoiceFooter,
+          invoiceBankInfo: data.print.invoiceBankInfo || "",
+          showPaidStamp: data.print.showPaidStamp !== false
+        });
+      }
       setMessage("Profil usaha disimpan");
       router.refresh();
     } catch (e) {
@@ -135,7 +159,7 @@ export function BusinessProfilePanel() {
         <div>
           <h2 className="text-sm font-semibold text-slate-900">Profil usaha</h2>
           <p className="mt-1 text-xs text-slate-500">
-            Nama, logo, dan alamat dipakai di sidebar serta cetak invoice / PO.
+            Nama, logo, alamat, dan pengaturan cetak dipakai di sidebar serta invoice / PO.
           </p>
         </div>
         <Button type="button" variant="secondary" onClick={save} disabled={saving}>
@@ -207,6 +231,66 @@ export function BusinessProfilePanel() {
             onChange={(e) => setPhone(e.target.value)}
             placeholder="08xx / (021) xxx"
           />
+        </div>
+      </div>
+
+      <div className="mt-5 border-t border-slate-100 pt-4">
+        <p className="text-xs font-medium text-slate-700">Pengaturan cetak invoice</p>
+        <p className="mt-0.5 text-xs text-slate-500">
+          Berlaku untuk organisasi Anda — setiap client punya pengaturan sendiri.
+        </p>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <Label htmlFor="invoice-bank">Rekening / informasi pembayaran</Label>
+            <textarea
+              id="invoice-bank"
+              rows={4}
+              value={printSettings.invoiceBankInfo}
+              onChange={(e) =>
+                setPrintSettings((p) => ({ ...p, invoiceBankInfo: e.target.value }))
+              }
+              placeholder={"BCA 1234567890 a.n. TIRTA CATERING\nMandiri 0987654321 a.n. TIRTA CATERING"}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+            />
+            {suggestedBankInfo ? (
+              <button
+                type="button"
+                className="mt-2 text-xs text-brand-600 hover:underline"
+                onClick={() =>
+                  setPrintSettings((p) => ({ ...p, invoiceBankInfo: suggestedBankInfo }))
+                }
+              >
+                Isi dari daftar Kas & Bank
+              </button>
+            ) : null}
+            <p className="mt-1 text-[11px] text-slate-400">
+              Tampil di invoice cetak/PDF. Isi nomor rekening lengkap di sini.
+            </p>
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="invoice-footer">Pesan penutup invoice</Label>
+            <Input
+              id="invoice-footer"
+              value={printSettings.invoiceFooter}
+              onChange={(e) =>
+                setPrintSettings((p) => ({ ...p, invoiceFooter: e.target.value }))
+              }
+              placeholder="Terima kasih atas kepercayaan Anda."
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={printSettings.showPaidStamp}
+                onChange={(e) =>
+                  setPrintSettings((p) => ({ ...p, showPaidStamp: e.target.checked }))
+                }
+                className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+              />
+              Tampilkan stempel LUNAS jika piutang sudah habis
+            </label>
+          </div>
         </div>
       </div>
 

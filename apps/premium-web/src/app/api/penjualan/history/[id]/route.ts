@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { fetchCompanyProfile } from "@/lib/org/company-profile";
+import { resolvePrintSettings } from "@/lib/org/print-settings";
 import { fetchPenjualanDetail } from "@/lib/penjualan/fetch-history-data";
 
 function customerAddress(meta: Record<string, unknown>): string {
@@ -27,6 +28,12 @@ export async function GET(
     if (!detail) return NextResponse.json({ error: "Invoice tidak ditemukan" }, { status: 404 });
 
     const company = await fetchCompanyProfile(supabase, org);
+    const { data: settingsRow } = await supabase
+      .from("app_settings")
+      .select("settings")
+      .eq("organization_id", org.id)
+      .maybeSingle();
+    const print = resolvePrintSettings(settingsRow?.settings as { print?: Record<string, unknown> });
 
     let customer: {
       name: string;
@@ -62,7 +69,12 @@ export async function GET(
         phone: company.phone,
         logoUrl: company.logoUrl
       },
-      customer
+      customer,
+      print: {
+        invoiceFooter: print.invoiceFooter,
+        invoiceBankInfo: print.invoiceBankInfo,
+        showPaidStamp: print.showPaidStamp
+      }
     });
   } catch (err) {
     return NextResponse.json(
