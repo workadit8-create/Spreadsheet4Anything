@@ -11,7 +11,7 @@ CREATE OR REPLACE FUNCTION public.add_org_member(
 RETURNS TABLE (user_id uuid, created boolean, temp_password text)
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, auth
+SET search_path = public, auth, extensions
 AS $$
 DECLARE
   v_email text;
@@ -44,7 +44,7 @@ BEGIN
   IF v_user_id IS NULL THEN
     v_user_id := gen_random_uuid();
     v_identity_id := gen_random_uuid();
-    v_pwd := 'Premium' || substr(encode(gen_random_bytes(6), 'hex'), 1, 10) || '!';
+    v_pwd := 'Premium' || substr(md5(random()::text || clock_timestamp()::text || v_user_id::text), 1, 10) || '!';
     v_created := true;
 
     INSERT INTO auth.users (
