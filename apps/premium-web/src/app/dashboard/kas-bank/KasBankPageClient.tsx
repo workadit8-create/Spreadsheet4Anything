@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { DetailModalTabs, TransactionJournalView } from "@/components/jurnal/TransactionJournalView";
 
 type KasAccount = { id: string; name: string; coa_account_name: string };
 type CoaOption = { id: string; code: string; name: string; account_type: string };
@@ -97,6 +98,10 @@ export default function KasBankPageClient() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
+
+  const [mutasiDetailOpen, setMutasiDetailOpen] = useState(false);
+  const [mutasiDetailTab, setMutasiDetailTab] = useState<"detail" | "jurnal">("detail");
+  const [mutasiDetail, setMutasiDetail] = useState<MutasiItem | null>(null);
 
   const [kind, setKind] = useState<MutasiKind>("Transfer");
   const [transferDate, setTransferDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -287,6 +292,17 @@ export default function KasBankPageClient() {
     } finally {
       setActingId(null);
     }
+  }
+
+  function openMutasiDetail(row: MutasiItem) {
+    setMutasiDetail(row);
+    setMutasiDetailTab("detail");
+    setMutasiDetailOpen(true);
+  }
+
+  function closeMutasiDetail() {
+    setMutasiDetailOpen(false);
+    setMutasiDetail(null);
   }
 
   async function submitCicilanBank(e: React.FormEvent) {
@@ -702,6 +718,9 @@ export default function KasBankPageClient() {
                           </td>
                           <td className="px-3 py-2">
                             <div className="flex flex-wrap gap-1">
+                              <Button type="button" variant="ghost" onClick={() => openMutasiDetail(row)}>
+                                Detail
+                              </Button>
                               {row.status === "CONFIRMED" && !row.linked && (
                                 <>
                                   <Button
@@ -744,6 +763,89 @@ export default function KasBankPageClient() {
           </Card>
         </div>
       </div>
+
+      {mutasiDetailOpen && mutasiDetail && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={closeMutasiDetail}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <DetailModalTabs
+              tab={mutasiDetailTab}
+              onTabChange={setMutasiDetailTab}
+              showJournal={
+                mutasiDetail.status === "POSTED" ||
+                mutasiDetail.status === "VOIDED" ||
+                mutasiDetail.linked === true
+              }
+            />
+
+            {mutasiDetailTab === "detail" ? (
+              <>
+                <h3 className="text-lg font-semibold">
+                  Detail Mutasi: <span className="font-mono text-brand-600">{mutasiDetail.transferNo}</span>
+                </h3>
+                <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="text-slate-500">Tanggal</dt>
+                    <dd className="font-medium">{mutasiDetail.transferDate}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">Jenis</dt>
+                    <dd className="font-medium">{mutasiDetail.kind}</dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="text-slate-500">Detail</dt>
+                    <dd className="font-medium">{detailText(mutasiDetail)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">Nominal</dt>
+                    <dd className="font-semibold text-slate-900">{formatRp(mutasiDetail.amount)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">Status</dt>
+                    <dd className={`font-semibold ${statusClass(mutasiDetail.status)}`}>
+                      {statusLabel(mutasiDetail.status, mutasiDetail.linked, mutasiDetail.openingBalance)}
+                    </dd>
+                  </div>
+                  {mutasiDetail.keterangan && (
+                    <div className="sm:col-span-2">
+                      <dt className="text-slate-500">Keterangan</dt>
+                      <dd>{mutasiDetail.keterangan}</dd>
+                    </div>
+                  )}
+                  {mutasiDetail.linked && (
+                    <div className="sm:col-span-2 rounded-lg bg-sky-50 px-3 py-2 text-sky-800">
+                      Mutasi otomatis dari transaksi penjualan/pembelian/pelunasan.
+                    </div>
+                  )}
+                </dl>
+                <div className="mt-4 flex justify-end border-t border-slate-100 pt-4">
+                  <Button type="button" variant="ghost" onClick={closeMutasiDetail}>Tutup</Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-semibold">
+                  Jurnal Mutasi: <span className="font-mono text-brand-600">{mutasiDetail.transferNo}</span>
+                </h3>
+                <p className="mb-3 text-sm text-slate-500">{mutasiDetail.transferDate}</p>
+                <TransactionJournalView
+                  sourceType="CASH_TRANSFER"
+                  sourceId={mutasiDetail.id}
+                  active={mutasiDetailTab === "jurnal"}
+                />
+                <div className="mt-4 flex justify-end border-t border-slate-100 pt-4">
+                  <Button type="button" variant="ghost" onClick={closeMutasiDetail}>Tutup</Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }

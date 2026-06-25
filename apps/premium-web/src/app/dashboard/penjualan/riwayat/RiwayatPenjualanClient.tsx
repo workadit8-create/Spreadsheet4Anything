@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import type { HistoryDetail } from "@/lib/penjualan/history";
 import { buildInvoicePrintHtml, openInvoicePrintWindow } from "@/lib/penjualan/invoice-print";
 import { confirmPostInvoiceJournal, invoiceDebtStatusLabel } from "@/lib/penjualan/invoice-status-label";
+import { DetailModalTabs, TransactionJournalView } from "@/components/jurnal/TransactionJournalView";
 
 type HistoryRow = {
   id: string;
@@ -62,6 +63,7 @@ export default function RiwayatPenjualanClient() {
   const [exporting, setExporting] = useState<string | null>(null);
 
   const [detailOpen, setDetailOpen] = useState(false);
+  const [detailTab, setDetailTab] = useState<"detail" | "jurnal">("detail");
   const [detailLoading, setDetailLoading] = useState(false);
   const [detail, setDetail] = useState<HistoryDetail | null>(null);
   const [company, setCompany] = useState({ name: "HYBRID LAB", address: "", phone: "" });
@@ -107,6 +109,7 @@ export default function RiwayatPenjualanClient() {
 
   async function openDetail(orderId: string) {
     setDetailOpen(true);
+    setDetailTab("detail");
     setDetailLoading(true);
     setDetail(null);
     try {
@@ -396,6 +399,14 @@ export default function RiwayatPenjualanClient() {
               <p className="py-10 text-center text-sm text-slate-500">Memuat detail...</p>
             ) : (
               <>
+                <DetailModalTabs
+                  tab={detailTab}
+                  onTabChange={setDetailTab}
+                  showJournal={detail.order.status === "POSTED" || detail.order.status === "VOIDED"}
+                />
+
+                {detailTab === "detail" ? (
+                  <>
                 <div className="mb-4 flex items-start justify-between gap-4">
                   <div>
                     <h3 className="text-lg font-semibold text-slate-900">
@@ -486,6 +497,35 @@ export default function RiwayatPenjualanClient() {
                   <Button type="button" onClick={printDetail}>Cetak invoice</Button>
                   <Button type="button" variant="ghost" onClick={closeDetail}>Tutup</Button>
                 </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-3 flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-900">
+                          Jurnal Invoice:{" "}
+                          <span className="text-brand-600">{detail.order.orderNo}</span>
+                        </h3>
+                        <p className="text-sm text-slate-500">{detail.order.orderDate}</p>
+                      </div>
+                      <button
+                        type="button"
+                        className="text-slate-400 hover:text-slate-600"
+                        onClick={closeDetail}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <TransactionJournalView
+                      sourceType="SALES_ORDER"
+                      sourceId={detail.order.id}
+                      active={detailTab === "jurnal"}
+                    />
+                    <div className="mt-4 flex justify-end border-t border-slate-100 pt-4">
+                      <Button type="button" variant="ghost" onClick={closeDetail}>Tutup</Button>
+                    </div>
+                  </>
+                )}
               </>
             )}
           </div>

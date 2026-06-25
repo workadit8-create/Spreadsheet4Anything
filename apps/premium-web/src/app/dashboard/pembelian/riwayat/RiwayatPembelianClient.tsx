@@ -8,6 +8,7 @@ import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { confirmPostPoJournal, poDebtStatusLabel } from "@/lib/pembelian/po-status-label";
 import { buildPoPrintHtml, openPoPrintWindow, type PoPrintCompany } from "@/lib/pembelian/po-print";
+import { DetailModalTabs, TransactionJournalView } from "@/components/jurnal/TransactionJournalView";
 
 type HistoryRow = {
   id: string;
@@ -69,6 +70,7 @@ export default function RiwayatPembelianClient() {
   const [exporting, setExporting] = useState<string | null>(null);
 
   const [detailOpen, setDetailOpen] = useState(false);
+  const [detailTab, setDetailTab] = useState<"detail" | "jurnal">("detail");
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailOrder, setDetailOrder] = useState<HistoryRow | null>(null);
   const [detailLines, setDetailLines] = useState<DetailLine[]>([]);
@@ -107,6 +109,7 @@ export default function RiwayatPembelianClient() {
 
   async function openDetail(row: HistoryRow) {
     setDetailOpen(true);
+    setDetailTab("detail");
     setDetailOrder(row);
     setDetailLoading(true);
     setDetailLines([]);
@@ -364,6 +367,14 @@ export default function RiwayatPembelianClient() {
       {detailOpen && detailOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setDetailOpen(false)}>
           <div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <DetailModalTabs
+              tab={detailTab}
+              onTabChange={setDetailTab}
+              showJournal={detailOrder.status === "POSTED" || detailOrder.status === "VOIDED"}
+            />
+
+            {detailTab === "detail" ? (
+              <>
             <h3 className="text-lg font-semibold">Detail PO: {detailOrder.poNo}</h3>
             <p className="text-sm text-slate-500">{detailOrder.supplierName} · {detailOrder.orderDate}</p>
             {detailLoading ? (
@@ -414,6 +425,23 @@ export default function RiwayatPembelianClient() {
                   <Button type="button" onClick={printDetail} disabled={!detailLines.length}>
                     Cetak PO
                   </Button>
+                  <Button type="button" variant="ghost" onClick={() => setDetailOpen(false)}>Tutup</Button>
+                </div>
+              </>
+            )}
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-semibold">
+                  Jurnal PO: <span className="text-brand-600">{detailOrder.poNo}</span>
+                </h3>
+                <p className="mb-3 text-sm text-slate-500">{detailOrder.orderDate}</p>
+                <TransactionJournalView
+                  sourceType="PURCHASE_ORDER"
+                  sourceId={detailOrder.id}
+                  active={detailTab === "jurnal"}
+                />
+                <div className="mt-4 flex justify-end border-t border-slate-100 pt-4">
                   <Button type="button" variant="ghost" onClick={() => setDetailOpen(false)}>Tutup</Button>
                 </div>
               </>
