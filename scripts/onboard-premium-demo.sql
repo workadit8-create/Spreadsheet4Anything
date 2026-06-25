@@ -126,30 +126,7 @@ BEGIN
   ON CONFLICT (organization_id, user_id) DO UPDATE SET role = EXCLUDED.role;
 
   -- 5) Data contoh (opsional, mempercepat demo)
-  INSERT INTO cash_bank_accounts (organization_id, code, name, coa_account_name, active)
-  SELECT v_org_id, 'KAS', 'KAS KECIL', 'Kas', true
-  WHERE NOT EXISTS (
-    SELECT 1 FROM cash_bank_accounts c
-    WHERE c.organization_id = v_org_id AND c.name = 'KAS KECIL'
-  );
-
-  INSERT INTO customers (organization_id, code, name, phone, email, active, metadata)
-  SELECT v_org_id, 'C001', 'Customer Demo', '08123456789', 'customer@demo.app', true, '{"alamat":"Jl. Pelanggan Demo"}'::jsonb
-  WHERE NOT EXISTS (
-    SELECT 1 FROM customers c WHERE c.organization_id = v_org_id AND c.code = 'C001'
-  );
-
-  INSERT INTO suppliers (organization_id, code, name, phone, active)
-  SELECT v_org_id, 'S001', 'Supplier Demo', '08198765432', true
-  WHERE NOT EXISTS (
-    SELECT 1 FROM suppliers s WHERE s.organization_id = v_org_id AND s.code = 'S001'
-  );
-
-  INSERT INTO products (organization_id, sku, name, sell_price, active, metadata)
-  SELECT v_org_id, 'P001', 'Produk Demo', 100000, true, '{"akunPendapatan":"Pendapatan"}'::jsonb
-  WHERE NOT EXISTS (
-    SELECT 1 FROM products p WHERE p.organization_id = v_org_id AND p.sku = 'P001'
-  );
+  PERFORM public.seed_demo_master_data(v_org_id);
 
   RAISE NOTICE 'Demo OK — org=%, user=%, password=(lihat docs/DEMO-ACCOUNTS.md)', v_org_id, v_email;
 END $$;

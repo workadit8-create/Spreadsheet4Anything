@@ -19,6 +19,17 @@ User demo **hanya** terhubung ke org `demo` — tidak melihat data organisasi la
 - Gudang MAIN, satuan PCS/KG/GR
 - Contoh: KAS KECIL, Customer Demo, Supplier Demo, Produk Demo
 
+## Reset setelah selesai coba
+
+Di sidebar (tenant demo) ada panel **Mode demo**:
+
+- **Selesai coba & reset** — hapus semua transaksi + master contoh, seed ulang, lalu logout
+- **Reset saja** — reset data tanpa logout
+
+Reset juga otomatis saat logout lewat endpoint `/api/auth/logout` (hanya org `demo`).
+
+Fungsi DB: `reset_demo_organization(org_id)` — migration `022_reset_demo_organization.sql`.
+
 ## Setup ulang / perbarui
 
 ```bash

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { DemoFinishPanel } from "@/components/layout/DemoFinishPanel";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "◆" },
@@ -28,12 +29,14 @@ export function AppShell({
   children,
   userEmail,
   orgName,
-  orgLogoUrl
+  orgLogoUrl,
+  isDemo
 }: {
   children: React.ReactNode;
   userEmail?: string | null;
   orgName?: string | null;
   orgLogoUrl?: string | null;
+  isDemo?: boolean;
 }) {
   const pathname = usePathname();
 
@@ -80,6 +83,7 @@ export function AppShell({
         </nav>
 
         <div className="space-y-3 p-3">
+          {isDemo ? <DemoFinishPanel /> : null}
           <div className="rounded-lg bg-white/5 px-3 py-3 text-[11px] text-slate-400">
             <p className="mb-2 font-semibold text-slate-300">Coming soon</p>
             <ul className="space-y-0.5">
