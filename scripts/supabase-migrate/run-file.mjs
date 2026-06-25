@@ -34,12 +34,12 @@ function loadEnv(file) {
   }
 }
 
-function buildPgConfig() {
+function buildPgConfig(portOverride) {
   const host = process.env.SUPABASE_DB_HOST;
   const user = process.env.SUPABASE_DB_USER;
   const password = process.env.SUPABASE_DB_PASSWORD;
   const database = process.env.SUPABASE_DB_NAME || "postgres";
-  const port = Number(process.env.SUPABASE_DB_PORT || 5432);
+  const port = portOverride ?? Number(process.env.SUPABASE_DB_PORT || 5432);
 
   if (host && user && password) {
     return {
@@ -110,7 +110,17 @@ if (!pgConfig) {
 }
 
 const sql = fs.readFileSync(SQL_FILE, "utf8");
-const client = new pg.Client(pgConfig);
+
+async function runMigration(pgConfig) {
+  const client = new pg.Client(pgConfig);
+  try {
+    await client.connect();
+    await client.query(sql);
+    return true;
+  } finally {
+    await client.end();
+  }
+}
 
 console.log("==> Connect Supabase Postgres...");
 if (pgConfig.host) {
@@ -118,11 +128,24 @@ if (pgConfig.host) {
 }
 console.log("==> Migration:", SQL_FILE);
 
+const fallbackPort = pgConfig.port === 5432 ? 6543 : pgConfig.port === 6543 ? 5432 : null;
+
 try {
-  await client.connect();
-  await client.query(sql);
+  await runMigration(pgConfig);
   console.log("==> SUCCESS");
 } catch (err) {
+  if (err.message === "timeout expired" && fallbackPort && pgConfig.host) {
+    console.error("==> Port", pgConfig.port, "timeout — coba port", fallbackPort, "...");
+    try {
+      await runMigration({ ...pgConfig, port: fallbackPort });
+      console.log("==> SUCCESS (port", fallbackPort + ")");
+      process.exit(0);
+    } catch (retryErr) {
+      console.error("==> FAILED:", formatError(retryErr));
+      process.exit(1);
+    }
+  }
+
   console.error("==> FAILED:", formatError(err));
   if (err.code === "ENOTFOUND" && /db\.[a-z0-9]+\.supabase\.co/i.test(process.env.DATABASE_URL || "")) {
     console.error("");
@@ -133,7 +156,10 @@ try {
     console.error("");
     console.error("Password salah. Reset di Database → Settings → Reset database password.");
   }
+  if (err.message === "timeout expired") {
+    console.error("");
+    console.error("Port 5432 diblokir jaringan? Set SUPABASE_DB_PORT=6543 di supabase.db.env");
+    console.error("Atau jalankan SQL di Supabase → SQL Editor.");
+  }
   process.exit(1);
-} finally {
-  await client.end();
 }
