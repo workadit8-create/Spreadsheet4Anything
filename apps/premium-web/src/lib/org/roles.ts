@@ -18,7 +18,8 @@ export const NAV_KEYS = [
   "jurnal",
   "jurnal-manual",
   "laporan",
-  "proyek"
+  "proyek",
+  "tim"
 ] as const;
 export type NavKey = (typeof NAV_KEYS)[number];
 
@@ -87,6 +88,7 @@ const PATH_NAV_KEY: Array<{ prefix: string; key: NavKey }> = [
   { prefix: "/dashboard/kas-bank", key: "kas-bank" },
   { prefix: "/dashboard/master", key: "master" },
   { prefix: "/dashboard/proyek", key: "proyek" },
+  { prefix: "/dashboard/tim", key: "tim" },
   { prefix: "/dashboard", key: "dashboard" }
 ];
 

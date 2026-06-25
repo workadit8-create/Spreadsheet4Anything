@@ -51,6 +51,23 @@ PLATFORM_ADMIN_EMAILS=workadit8@gmail.com
 | Profil usaha & logo | owner |
 | Toggle add-on | admin platform saja |
 
+## Kelola tim (fase B)
+
+Menu **Tim & Akses** (`/dashboard/tim`) — **owner saja**.
+
+- `GET /api/org/members` — daftar anggota + email
+- `POST /api/org/members` — tambah staff/akuntan (buat akun Auth baru jika email belum ada)
+- `PATCH /api/org/members/[id]` — ubah peran
+- `DELETE /api/org/members/[id]` — hapus dari organisasi
+
+Password sementara ditampilkan sekali saat akun baru dibuat; bagikan ke anggota tim.
+
+```bash
+./scripts/run-supabase-migration-file.sh 026_org_members_rpc.sql
+```
+
 ## Migrasi
 
 `025_membership_role_in_rpc.sql` — RPC `get_my_organizations()` mengembalikan kolom `role`.
+
+`026_org_members_rpc.sql` — RPC `get_org_members()` untuk owner melihat daftar tim.
