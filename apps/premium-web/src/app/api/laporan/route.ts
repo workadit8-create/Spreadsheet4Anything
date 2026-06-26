@@ -5,13 +5,15 @@ import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { ensureDefaultCoa } from "@/lib/coa/seed-default-coa";
 import {
   buildArusKas,
+  buildAssetRegisterReport,
   buildBukuBesar,
   buildLabaRugi,
   buildNeraca,
   fetchReportData
 } from "@/lib/laporan";
+import type { AssetRegisterStatusFilter } from "@/lib/laporan";
 
-const REPORT_TYPES = ["buku-besar", "laba-rugi", "neraca", "arus-kas"] as const;
+const REPORT_TYPES = ["buku-besar", "laba-rugi", "neraca", "arus-kas", "daftar-aset"] as const;
 type ReportType = (typeof REPORT_TYPES)[number];
 
 function defaultPeriod() {
@@ -54,6 +56,7 @@ export async function GET(request: Request) {
 
   const period = { start: periodResult.start, end: periodResult.end };
   const account = url.searchParams.get("account") || undefined;
+  const assetStatus = (url.searchParams.get("asset_status") || "all") as AssetRegisterStatusFilter;
 
   try {
     await ensureDefaultCoa(supabase, org.id);
@@ -84,6 +87,18 @@ export async function GET(request: Request) {
         period,
         report: buildNeraca(data.coa, data.journalLines, period)
       });
+    }
+
+    if (type === "daftar-aset") {
+      const report = await buildAssetRegisterReport(
+        supabase,
+        org.id,
+        period,
+        ["all", "active", "disposed"].includes(assetStatus) ? assetStatus : "all",
+        data.coa,
+        data.journalLines
+      );
+      return NextResponse.json({ type, period, report });
     }
 
     return NextResponse.json({
