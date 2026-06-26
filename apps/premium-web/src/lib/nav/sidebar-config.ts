@@ -142,7 +142,7 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
   },
   {
     id: "master",
-    label: "Master Data",
+    label: "Master · Finance",
     items: [{ key: "master", href: "/dashboard/master", label: "Master Data" }]
   }
 ];

@@ -21,6 +21,7 @@ export default async function MasterDataPage() {
       <MasterDataClient
         role={auth.role}
         outletAddonEnabled={isAddonEnabled(addons, "outlet")}
+        inventoryAddonEnabled={isAddonEnabled(addons, "inventory")}
       />
     </Suspense>
   );

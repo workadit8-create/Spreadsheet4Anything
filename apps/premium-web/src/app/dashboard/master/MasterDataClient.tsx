@@ -11,7 +11,9 @@ import { PRODUCT_KIND_LABELS } from "@/lib/products/inventory-policy";
 import {
   MASTER_TAB_LABELS,
   OWNER_ONLY_ROLES,
-  masterTabsForRole,
+  isInventoryMasterTab,
+  masterContentTabsForOrg,
+  masterNavTabsForOrg,
   type MasterTabId,
   type MembershipRole
 } from "@/lib/org/roles";
@@ -36,42 +38,56 @@ const TABS = (Object.keys(MASTER_TAB_LABELS) as MasterTabId[]).map((id) => ({
 
 export default function MasterDataClient({
   role,
-  outletAddonEnabled
+  outletAddonEnabled,
+  inventoryAddonEnabled
 }: {
   role: MembershipRole;
   outletAddonEnabled: boolean;
+  inventoryAddonEnabled: boolean;
 }) {
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get("tab");
 
-  const visibleTabs = useMemo(() => {
-    const allowed = new Set(masterTabsForRole(role));
-    return TABS.filter((t) => allowed.has(t.id) && (t.id !== "outlets" || outletAddonEnabled));
+  const contentTabs = useMemo(() => {
+    const allowed = new Set(
+      masterContentTabsForOrg(role, { outletAddonEnabled })
+    );
+    return TABS.filter((t) => allowed.has(t.id));
   }, [role, outletAddonEnabled]);
 
+  const navigableTabs = useMemo(() => {
+    const allowed = new Set(
+      masterNavTabsForOrg(role, { inventoryAddonEnabled, outletAddonEnabled })
+    );
+    return TABS.filter((t) => allowed.has(t.id));
+  }, [role, inventoryAddonEnabled, outletAddonEnabled]);
+
+  const inventorySplit = inventoryAddonEnabled;
+
   const initialTab = useMemo(() => {
-    if (tabFromUrl && visibleTabs.some((t) => t.id === tabFromUrl)) {
+    if (tabFromUrl && contentTabs.some((t) => t.id === tabFromUrl)) {
       return tabFromUrl as MasterTabId;
     }
-    return visibleTabs[0]?.id ?? "customers";
-  }, [tabFromUrl, visibleTabs]);
+    return navigableTabs[0]?.id ?? contentTabs[0]?.id ?? "customers";
+  }, [tabFromUrl, contentTabs, navigableTabs]);
 
   const [tab, setTab] = useState<MasterTabId>(initialTab);
+  const isInventoryView = inventorySplit && isInventoryMasterTab(tab);
   const canEditProfile = OWNER_ONLY_ROLES.includes(role);
 
   useEffect(() => {
-    if (tabFromUrl && visibleTabs.some((t) => t.id === tabFromUrl)) {
+    if (tabFromUrl && contentTabs.some((t) => t.id === tabFromUrl)) {
       setTab(tabFromUrl as MasterTabId);
     }
-  }, [tabFromUrl, visibleTabs]);
+  }, [tabFromUrl, contentTabs]);
 
   useEffect(() => {
-    if (!visibleTabs.some((t) => t.id === tab)) {
-      setTab(visibleTabs[0]?.id ?? "customers");
+    if (!contentTabs.some((t) => t.id === tab)) {
+      setTab(navigableTabs[0]?.id ?? contentTabs[0]?.id ?? "customers");
     }
-  }, [visibleTabs, tab]);
+  }, [contentTabs, navigableTabs, tab]);
 
-  if (!visibleTabs.length) {
+  if (!contentTabs.length) {
     return (
       <main className="mx-auto max-w-5xl px-6 py-8">
         <PageHeader badge="Master Data" title="Master Data" />
@@ -85,15 +101,21 @@ export default function MasterDataClient({
   return (
     <main className="mx-auto max-w-5xl px-6 py-8">
       <PageHeader
-        badge="Fase 1 · Master Data"
-        title="Master Data"
-        description="Multi-usaha: retail, F&B, manufaktur, jasa. Kategori produk atur apakah item kelola stok."
+        badge={isInventoryView ? "Management Inventory" : "Master Data"}
+        title={isInventoryView ? MASTER_TAB_LABELS[tab] : "Master Data"}
+        description={
+          isInventoryView
+            ? "Kelola master inventory — diakses dari menu Management Inventory."
+            : inventorySplit
+              ? "Customer, COA, kas, kategori expense. Supplier & produk ada di Management Inventory."
+              : "Multi-usaha: retail, F&B, manufaktur, jasa. Kategori produk atur apakah item kelola stok."
+        }
       />
 
       {canEditProfile ? <BusinessProfilePanel /> : null}
 
       <div className="mb-6 flex flex-wrap gap-2">
-        {visibleTabs.map((t) => (
+        {navigableTabs.map((t) => (
           <button
             key={t.id}
             type="button"
@@ -108,6 +130,13 @@ export default function MasterDataClient({
           </button>
         ))}
       </div>
+
+      {isInventoryView ? (
+        <p className="mb-4 text-xs text-slate-500">
+          Tab ini tidak ada di Master Data — buka lewat sidebar{" "}
+          <strong>Management Inventory</strong>.
+        </p>
+      ) : null}
 
       <Card>
         {tab === "customers" && (
@@ -318,9 +347,11 @@ export default function MasterDataClient({
         {tab === "outlets" && <OutletsMasterPanel />}
       </Card>
 
+      {outletAddonEnabled && !inventorySplit ? (
       <p className="mt-4 text-xs text-slate-400">
         Multi-outlet: kelola di tab Outlet. POS memilih outlet saat buka kasir. Laporan L/R per outlet di menu Laporan.
       </p>
+      ) : null}
     </main>
   );
 }

@@ -240,6 +240,49 @@ export function masterTabsForRole(role: MembershipRole): MasterTabId[] {
   );
 }
 
+/** Tab master yang hanya di menu Management Inventory (add-on inventory) */
+export const INVENTORY_MASTER_TABS: readonly MasterTabId[] = [
+  "suppliers",
+  "product-categories",
+  "products",
+  "outlets"
+];
+
+/** Tab master inti finance & akuntansi */
+export const FINANCE_MASTER_TABS: readonly MasterTabId[] = [
+  "customers",
+  "units",
+  "coa",
+  "kas-bank",
+  "purchase-categories"
+];
+
+export function isInventoryMasterTab(tabId: MasterTabId): boolean {
+  return (INVENTORY_MASTER_TABS as readonly string[]).includes(tabId);
+}
+
+/** Tab yang tampil di navigasi halaman Master Data */
+export function masterNavTabsForOrg(
+  role: MembershipRole,
+  options: { inventoryAddonEnabled: boolean; outletAddonEnabled: boolean }
+): MasterTabId[] {
+  return masterTabsForRole(role).filter((tabId) => {
+    if (tabId === "outlets" && !options.outletAddonEnabled) return false;
+    if (options.inventoryAddonEnabled && isInventoryMasterTab(tabId)) return false;
+    return true;
+  });
+}
+
+/** Semua tab yang boleh dibuka (termasuk deep link dari Management Inventory) */
+export function masterContentTabsForOrg(
+  role: MembershipRole,
+  options: { outletAddonEnabled: boolean }
+): MasterTabId[] {
+  return masterTabsForRole(role).filter(
+    (tabId) => tabId !== "outlets" || options.outletAddonEnabled
+  );
+}
+
 export function addonNavKey(addon: AddonKey): NavKey | null {
   if (addon === "project") return "proyek";
   if (addon === "pos") return "pos";
@@ -247,11 +290,3 @@ export function addonNavKey(addon: AddonKey): NavKey | null {
   if (addon === "pembelian") return "pembelian-inventory";
   return null;
 }
-
-/** Tab master yang dipindah ke menu Management Inventory saat add-on aktif */
-export const INVENTORY_MASTER_TABS: readonly MasterTabId[] = [
-  "suppliers",
-  "product-categories",
-  "products",
-  "outlets"
-];
