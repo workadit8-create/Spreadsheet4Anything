@@ -7,6 +7,11 @@ import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { wibMonthStartIso, wibTodayIso } from "@/lib/date/wib";
+import {
+  buildDaftarAsetPrintHtml,
+  openDaftarAsetPrintWindow
+} from "@/lib/laporan/daftar-aset-print";
+import type { PrintCompanyHeader } from "@/lib/org/print-company-header";
 
 type ReportTab = "buku-besar" | "laba-rugi" | "neraca" | "arus-kas" | "daftar-aset";
 
@@ -76,6 +81,8 @@ type ArusKasReport = {
 };
 
 type AssetRegisterReport = {
+  period: { start: string; end: string };
+  statusFilter: "all" | "active" | "disposed";
   rows: Array<{
     id: string;
     code: string | null;
@@ -85,6 +92,7 @@ type AssetRegisterReport = {
     acquisitionCost: number;
     totalDepreciated: number;
     bookValue: number;
+    status: string;
     statusLabel: string;
     assetCoaAccount: string;
   }>;
@@ -101,7 +109,6 @@ type AssetRegisterReport = {
     neracaAsetTetap: number;
     selisih: number;
   };
-  statusFilter: string;
 };
 
 const TABS: { id: ReportTab; label: string }[] = [
@@ -366,13 +373,29 @@ function ArusKasView({ report }: { report: ArusKasReport }) {
   );
 }
 
-function DaftarAsetView({ report }: { report: AssetRegisterReport }) {
+function DaftarAsetView({
+  report,
+  onPrint,
+  printing
+}: {
+  report: AssetRegisterReport;
+  onPrint: () => void;
+  printing: boolean;
+}) {
   if (!report.rows.length) {
     return <p className="text-sm text-slate-500">Tidak ada aset untuk filter dan periode ini.</p>;
   }
 
   return (
     <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-slate-500">
+          {report.totals.count} aset · filter {report.statusFilter === "active" ? "aktif" : report.statusFilter === "disposed" ? "dispose" : "semua"}
+        </p>
+        <Button type="button" variant="secondary" onClick={onPrint} disabled={printing}>
+          {printing ? "Menyiapkan…" : "Cetak PDF"}
+        </Button>
+      </div>
       <div className="mb-4 grid gap-3 sm:grid-cols-3">
         <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
           <div className="text-xs text-slate-500">Jumlah aset</div>
@@ -488,6 +511,8 @@ export default function LaporanPageClient() {
   const [arusKas, setArusKas] = useState<ArusKasReport | null>(null);
   const [daftarAset, setDaftarAset] = useState<AssetRegisterReport | null>(null);
   const [assetStatus, setAssetStatus] = useState<"all" | "active" | "disposed">("active");
+  const [printCompany, setPrintCompany] = useState<PrintCompanyHeader | null>(null);
+  const [printingDaftarAset, setPrintingDaftarAset] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -525,6 +550,43 @@ export default function LaporanPageClient() {
   useEffect(() => {
     void loadReport();
   }, [loadReport]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/org/business-profile");
+        if (!res.ok) return;
+        const data = await res.json();
+        setPrintCompany({
+          name: String(data.companyName || data.orgName || "").trim() || "Perusahaan",
+          address: data.address ? String(data.address) : undefined,
+          phone: data.phone ? String(data.phone) : undefined,
+          logoUrl: data.logoUrl || null
+        });
+      } catch {
+        // header cetak tanpa profil lengkap tetap OK
+      }
+    })();
+  }, []);
+
+  function printDaftarAset() {
+    if (!daftarAset) return;
+    setPrintingDaftarAset(true);
+    setError(null);
+    try {
+      const html = buildDaftarAsetPrintHtml(daftarAset, {
+        name: printCompany?.name || "Perusahaan",
+        address: printCompany?.address,
+        phone: printCompany?.phone,
+        logoUrl: printCompany?.logoUrl ?? null
+      });
+      openDaftarAsetPrintWindow(html);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal membuka cetak");
+    } finally {
+      setPrintingDaftarAset(false);
+    }
+  }
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-8">
@@ -650,7 +712,11 @@ export default function LaporanPageClient() {
         ) : tab === "arus-kas" && arusKas ? (
           <ArusKasView report={arusKas} />
         ) : tab === "daftar-aset" && daftarAset ? (
-          <DaftarAsetView report={daftarAset} />
+          <DaftarAsetView
+            report={daftarAset}
+            onPrint={printDaftarAset}
+            printing={printingDaftarAset}
+          />
         ) : (
           <p className="text-sm text-slate-500">Tidak ada data.</p>
         )}
