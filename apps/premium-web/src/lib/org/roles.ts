@@ -19,6 +19,7 @@ export const NAV_KEYS = [
   "jurnal-manual",
   "laporan",
   "tax",
+  "aset",
   "proyek",
   "tim",
   "audit-log",
@@ -42,6 +43,7 @@ export const ROLE_MENU_KEYS: Record<MembershipRole, readonly NavKey[] | null> = 
     "hutang",
     "kas-bank",
     "tax",
+    "aset",
     "proyek",
     "akun"
   ],
@@ -55,6 +57,7 @@ export const ROLE_MENU_KEYS: Record<MembershipRole, readonly NavKey[] | null> = 
     "jurnal-manual",
     "laporan",
     "tax",
+    "aset",
     "proyek",
     "audit-log",
     "akun"
@@ -87,6 +90,7 @@ const PATH_NAV_KEY: Array<{ prefix: string; key: NavKey }> = [
   { prefix: "/dashboard/laporan", key: "laporan" },
   { prefix: "/dashboard/tax", key: "tax" },
   { prefix: "/dashboard/ppn", key: "tax" },
+  { prefix: "/dashboard/aset", key: "aset" },
   { prefix: "/dashboard/penjualan/riwayat", key: "penjualan-riwayat" },
   { prefix: "/dashboard/penjualan", key: "penjualan" },
   { prefix: "/dashboard/quotation", key: "quotation" },

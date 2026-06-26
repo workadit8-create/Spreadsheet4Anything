@@ -122,6 +122,13 @@ export const DEFAULT_COA_USAHA: DefaultCoaRow[] = [
     account_type: "Beban",
     sub_category: "Beban Operasional",
     saldo_normal: "Debit"
+  },
+  {
+    code: "5-12001",
+    name: "Beban Penyusutan",
+    account_type: "Beban",
+    sub_category: "Beban Operasional",
+    saldo_normal: "Debit"
   }
 ];
 
