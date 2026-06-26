@@ -25,7 +25,7 @@ export type ColumnDef = {
   key: string;
   label: string;
   metaKey?: string;
-  format?: "boolean" | "product_kind";
+  format?: "boolean" | "product_kind" | "ppn_taxable";
 };
 
 export function MasterCrudPanel({
@@ -33,16 +33,22 @@ export function MasterCrudPanel({
   apiPath,
   fields,
   columns,
-  defaultForm = { active: true }
+  defaultForm = { active: true },
+  ppnProductFields,
+  ppnProductColumns
 }: {
   title: string;
   apiPath: string;
   fields: FieldDef[];
   columns: ColumnDef[];
   defaultForm?: Row;
+  /** Field/kolom tambahan jika GET mengembalikan ppn.pkpEnabled = true */
+  ppnProductFields?: FieldDef[];
+  ppnProductColumns?: ColumnDef[];
 }) {
   const [items, setItems] = useState<Row[]>([]);
   const [extras, setExtras] = useState<Record<string, Row[]>>({});
+  const [ppnPkpEnabled, setPpnPkpEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +62,9 @@ export function MasterCrudPanel({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal memuat");
       setItems(data.items || []);
+      if (data.ppn && typeof data.ppn.pkpEnabled === "boolean") {
+        setPpnPkpEnabled(data.ppn.pkpEnabled);
+      }
       const extraKeys = ["units", "categories", "coa_accounts"];
       extraKeys.forEach((k) => {
         if (data[k]) setExtras((prev) => ({ ...prev, [k]: data[k] }));
@@ -79,9 +88,30 @@ export function MasterCrudPanel({
     }
   }, [apiPath, fields]);
 
+  const activeFields =
+    ppnPkpEnabled && ppnProductFields?.length
+      ? [...fields, ...ppnProductFields]
+      : fields;
+  const activeColumns =
+    ppnPkpEnabled && ppnProductColumns?.length
+      ? [...columns, ...ppnProductColumns]
+      : columns;
+  const activeDefaultForm =
+    ppnPkpEnabled && ppnProductFields?.length
+      ? { ...defaultForm, active: true, ppn_taxable: true }
+      : defaultForm;
+
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!ppnPkpEnabled || !ppnProductFields?.length) return;
+    setForm((prev) => {
+      if (prev.id != null && prev.id !== "") return prev;
+      return { ...defaultForm, active: true, ppn_taxable: true };
+    });
+  }, [ppnPkpEnabled, ppnProductFields?.length, defaultForm]);
 
   function getCell(row: Row, col: ColumnDef) {
     if (col.metaKey) {
@@ -95,6 +125,9 @@ export function MasterCrudPanel({
     if (col.format === "product_kind") {
       const kind = String(raw || "");
       return PRODUCT_KIND_LABELS[kind as keyof typeof PRODUCT_KIND_LABELS] || kind;
+    }
+    if (col.format === "ppn_taxable") {
+      return raw === true ? "Ya" : "Tidak";
     }
     if (col.key === "active") return row.active ? "Aktif" : "Nonaktif";
     return raw ?? "";
@@ -123,7 +156,7 @@ export function MasterCrudPanel({
     setError(null);
     try {
       const payload: Row = { ...form };
-      fields.forEach((f) => {
+      activeFields.forEach((f) => {
         if (f.type === "number" && f.key in payload) payload[f.key] = Number(payload[f.key]);
       });
       const res = await fetch(apiPath, {
@@ -133,7 +166,7 @@ export function MasterCrudPanel({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal simpan");
-      setForm({ ...defaultForm });
+      setForm({ ...activeDefaultForm });
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal simpan");
@@ -143,7 +176,11 @@ export function MasterCrudPanel({
   }
 
   function editRow(row: Row) {
-    setForm({ ...row, metadata: row.metadata || {} });
+    setForm({
+      ...row,
+      metadata: row.metadata || {},
+      ppn_taxable: row.ppn_taxable === true
+    });
   }
 
   function selectOptions(field: FieldDef) {
@@ -176,16 +213,23 @@ export function MasterCrudPanel({
       <h2 className="mb-4 text-base font-semibold text-slate-900">{title}</h2>
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
+      {ppnPkpEnabled && ppnProductFields?.length ? (
+        <p className="mb-4 text-xs text-slate-500">
+          PKP aktif — centang produk yang kena PPN. Invoice/PO belum menghitung PPN otomatis (fase
+          berikutnya).
+        </p>
+      ) : null}
+
       <form onSubmit={onSubmit} className="mb-6 max-w-3xl space-y-4">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {fields.map((field) => (
+          {activeFields.map((field) => (
             <div key={field.key + (field.metaKey || "")}>
               {field.type === "checkbox" ? (
                 <label className="flex items-center gap-2 text-sm text-slate-700">
                   <input
                     type="checkbox"
-                    checked={Boolean(form[field.key])}
-                    onChange={(e) => setForm({ ...form, [field.key]: e.target.checked })}
+                    checked={Boolean(fieldValue(field))}
+                    onChange={(e) => setFieldValue(field, e.target.checked)}
                     className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
                   />
                   {field.label}
@@ -224,7 +268,7 @@ export function MasterCrudPanel({
             {saving ? "Menyimpan..." : form.id ? "Update" : "Tambah"}
           </Button>
           {form.id != null && form.id !== "" && (
-            <Button type="button" variant="secondary" onClick={() => setForm({ ...defaultForm })}>
+            <Button type="button" variant="secondary" onClick={() => setForm({ ...activeDefaultForm })}>
               Batal edit
             </Button>
           )}
@@ -240,7 +284,7 @@ export function MasterCrudPanel({
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
               <tr>
-                {columns.map((c) => (
+                {activeColumns.map((c) => (
                   <th key={c.key + (c.metaKey || "")} className="px-4 py-3">
                     {c.label}
                   </th>
@@ -251,7 +295,7 @@ export function MasterCrudPanel({
             <tbody className="divide-y divide-slate-100">
               {items.map((row) => (
                 <tr key={String(row.id)} className="hover:bg-slate-50/80">
-                  {columns.map((c) => (
+                  {activeColumns.map((c) => (
                     <td key={c.key + (c.metaKey || "")} className="px-4 py-3 text-slate-700">
                       {String(getCell(row, c))}
                     </td>

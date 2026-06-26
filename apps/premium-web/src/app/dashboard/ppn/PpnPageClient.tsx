@@ -160,12 +160,15 @@ export default function PpnPageClient({ role }: { role: MembershipRole }) {
           <Card className="border-amber-100 bg-amber-50/50 p-5">
             <p className="text-sm font-semibold text-amber-900">Fase berikutnya</p>
             <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-amber-900/90">
-              <li>Centang produk kena PPN di Master → Produk</li>
               <li>PPN otomatis di invoice &amp; PO saat PKP aktif</li>
               <li>Ringkasan PPN keluaran / masukan per periode</li>
             </ul>
             <p className="mt-3 text-xs text-amber-800/80">
-              Saat ini menu ini hanya pengaturan — transaksi belum menghitung PPN.
+              Centang produk kena PPN di{" "}
+              <Link href="/dashboard/master" className="font-medium underline">
+                Master → Produk
+              </Link>
+              . Transaksi belum menghitung PPN otomatis.
             </p>
           </Card>
 

@@ -7,6 +7,11 @@ import {
   tracksStockFromPolicy,
   type StockPolicy
 } from "@/lib/products/inventory-policy";
+import {
+  mergeProductMetadata,
+  productPpnTaxableFromMetadata
+} from "@/lib/products/ppn";
+import { fetchOrgPpnSettings } from "@/lib/org/ppn-settings";
 
 export async function GET() {
   const supabase = await createClient();
@@ -17,6 +22,8 @@ export async function GET() {
     return toOrgAuthResponse(e);
   }
   const { org } = auth;
+
+  const ppnSettings = await fetchOrgPpnSettings(supabase, org.id);
 
   const { data: units } = await supabase
     .from("units")
@@ -59,14 +66,18 @@ export async function GET() {
           ? "track"
           : p.tracks_stock === false
             ? "no_track"
-            : "inherit"
+            : "inherit",
+      ppn_taxable: productPpnTaxableFromMetadata(
+        (p.metadata || {}) as Record<string, unknown>
+      )
     };
   });
 
   return NextResponse.json({
     items,
     units: units || [],
-    categories: categories || []
+    categories: categories || [],
+    ppn: { pkpEnabled: ppnSettings.pkpEnabled }
   });
 }
 
@@ -93,9 +104,32 @@ export async function POST(request: Request) {
   const stockPolicy = (body.stock_policy as StockPolicy) || "inherit";
   const tracksStock = tracksStockFromPolicy(stockPolicy);
 
-  const metadata = {
-    akunPendapatan: String(body.akunPendapatan || "Pendapatan").trim()
-  };
+  const ppnSettings = await fetchOrgPpnSettings(supabase, org.id);
+
+  let existingMeta: Record<string, unknown> = {};
+  if (body.id) {
+    const { data: existingRow } = await supabase
+      .from("products")
+      .select("metadata")
+      .eq("id", body.id)
+      .eq("organization_id", org.id)
+      .maybeSingle();
+    existingMeta = (existingRow?.metadata || {}) as Record<string, unknown>;
+  }
+
+  let ppnTaxable = productPpnTaxableFromMetadata(existingMeta);
+  if (ppnSettings.pkpEnabled) {
+    if (body.ppn_taxable !== undefined) {
+      ppnTaxable = body.ppn_taxable === true;
+    } else if (!body.id) {
+      ppnTaxable = true;
+    }
+  }
+
+  const metadata = mergeProductMetadata(existingMeta, {
+    akunPendapatan: String(body.akunPendapatan || existingMeta.akunPendapatan || "Pendapatan").trim(),
+    ppnTaxable
+  });
 
   const row = {
     organization_id: org.id,

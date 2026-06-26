@@ -180,6 +180,8 @@ export default function MasterDataClient({ role }: { role: MembershipRole }) {
               { key: "akunPendapatan", label: "Akun", metaKey: "akunPendapatan" },
               { key: "active", label: "Status" }
             ]}
+            ppnProductFields={[{ key: "ppn_taxable", label: "Kena PPN", type: "checkbox" }]}
+            ppnProductColumns={[{ key: "ppn_taxable", label: "PPN", format: "ppn_taxable" }]}
           />
         )}
         {tab === "units" && (
