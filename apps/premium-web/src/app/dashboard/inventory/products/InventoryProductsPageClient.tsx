@@ -144,7 +144,7 @@ export default function InventoryProductsPageClient({ role }: { role: Membership
       <PageHeader
         badge="Management Inventory"
         title="Produk"
-        description="Katalog produk per outlet. Setiap produk terikat outlet (metadata); filter gudang hanya menampilkan produk outlet tersebut."
+        description="Katalog produk per outlet. Filter mengikuti metadata.outlet produk (bukan barcode). Barcode bebas format angka."
       >
         <Link href="/dashboard/master" className="text-sm text-slate-500 hover:text-slate-700">
           Master · Finance →
@@ -286,7 +286,7 @@ export default function InventoryProductsPageClient({ role }: { role: Membership
                 <th className="px-4 py-3">#</th>
                 <th className="px-4 py-3">Nama</th>
                 <th className="px-4 py-3 text-right">Stok</th>
-                <th className="px-4 py-3">SKU / Kode</th>
+                <th className="px-4 py-3">Barcode</th>
                 <th className="px-4 py-3">Kategori</th>
                 <th className="px-4 py-3">Jenis</th>
                 <th className="px-4 py-3">Gudang</th>

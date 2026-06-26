@@ -82,9 +82,16 @@ export function MasterTabPanel({ tab }: { tab: MasterTabId }) {
         apiPath="/api/master/products"
         productTaxFromApi
         fields={[
-          { key: "sku", label: "Kode/SKU", type: "text" },
+          { key: "sku", label: "Barcode / Kode", type: "text" },
           { key: "name", label: "Nama", type: "text", required: true },
           { key: "sell_price", label: "Harga", type: "number", required: true },
+          {
+            key: "outlet",
+            label: "Outlet",
+            type: "select",
+            metaKey: "outlet",
+            optionsKey: "outlets"
+          },
           {
             key: "category_id",
             label: "Kategori",
@@ -113,8 +120,9 @@ export function MasterTabPanel({ tab }: { tab: MasterTabId }) {
           { key: "active", label: "Aktif", type: "checkbox" }
         ]}
         columns={[
-          { key: "sku", label: "SKU" },
+          { key: "sku", label: "Barcode" },
           { key: "name", label: "Nama" },
+          { key: "outlet_label", label: "Outlet" },
           { key: "category_name", label: "Kategori" },
           { key: "tracks_stock_label", label: "Stok" },
           { key: "sell_price", label: "Harga" },

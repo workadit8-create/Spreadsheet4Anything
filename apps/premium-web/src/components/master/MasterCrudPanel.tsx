@@ -104,7 +104,7 @@ export function MasterCrudPanel({
           activeType: String(data.tax.activeType || "none")
         });
       }
-      const extraKeys = ["units", "categories", "coa_accounts"];
+      const extraKeys = ["units", "categories", "coa_accounts", "outlets"];
       extraKeys.forEach((k) => {
         if (data[k]) setExtras((prev) => ({ ...prev, [k]: data[k] }));
       });
@@ -253,6 +253,12 @@ export function MasterCrudPanel({
         label: `${String(a.code)} — ${String(a.name)}`
       }));
     }
+    if (field.optionsKey === "outlets") {
+      return (extras.outlets || []).map((o) => ({
+        value: String(o.code),
+        label: String(o.name)
+      }));
+    }
     if (field.optionsKey) {
       return (extras[field.optionsKey] || []).map((u) => ({
         value: String(u.id),
@@ -282,7 +288,11 @@ export function MasterCrudPanel({
 
       <form onSubmit={onSubmit} className="mb-6 max-w-3xl space-y-4">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {activeFields.map((field) => (
+          {activeFields.map((field) => {
+            if (field.optionsKey === "outlets" && !(extras.outlets || []).length) {
+              return null;
+            }
+            return (
             <div key={field.key + (field.metaKey || "")}>
               {field.type === "checkbox" ? (
                 <label className="flex items-center gap-2 text-sm text-slate-700">
@@ -321,7 +331,8 @@ export function MasterCrudPanel({
                 </>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
         <div className="flex gap-2">
           <Button type="submit" disabled={saving}>

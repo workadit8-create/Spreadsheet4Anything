@@ -175,7 +175,7 @@ export async function fetchInventoryProductCatalog(
   const search = (filters.search || "").trim().toLowerCase();
   const scopeByOutlet = outletAddon && Boolean(outletCode);
   const filteredRows = (productRows || []).filter((p) => {
-    if (scopeByOutlet && !productMatchesOutlet(p.sku, p.metadata as Record<string, unknown>, outletCode)) {
+    if (scopeByOutlet && !productMatchesOutlet(p.metadata as Record<string, unknown>, outletCode)) {
       return false;
     }
     if (!search) return true;

@@ -11,6 +11,9 @@ import {
   mergeProductMetadata,
   productTaxableFromMetadata
 } from "@/lib/products/ppn";
+import { productOutletCode } from "@/lib/inventory/product-outlet-scope";
+import { fetchOrgAddons, isAddonEnabled } from "@/lib/org/addons";
+import { fetchOutletBootstrap } from "@/lib/outlets/bootstrap-options";
 import {
   fetchOrgTaxSettings,
   isProductTaxEnabled,
@@ -43,6 +46,18 @@ export async function GET() {
     .order("sort_order")
     .order("name");
 
+  const addons = await fetchOrgAddons(supabase, org.id);
+  let outlets: Array<{ code: string; name: string }> = [];
+  if (isAddonEnabled(addons, "outlet")) {
+    const outletBootstrap = await fetchOutletBootstrap(supabase, org.id);
+    outlets = outletBootstrap.options.map((o) => ({
+      code: o.outletCode,
+      name: o.label
+    }));
+  }
+
+  const outletNameByCode = new Map(outlets.map((o) => [o.code, o.name]));
+
   const { data, error } = await supabase
     .from("products")
     .select(
@@ -61,6 +76,8 @@ export async function GET() {
     const cat = p.category_id ? categoryMap.get(p.category_id) : null;
     const categoryTracksStock = cat?.tracks_stock as boolean | null | undefined;
     const effective = effectiveTracksStock(p.tracks_stock, categoryTracksStock);
+    const meta = (p.metadata || {}) as Record<string, unknown>;
+    const outletCode = productOutletCode(meta);
     return {
       ...p,
       category_name: cat?.name || "",
@@ -73,6 +90,8 @@ export async function GET() {
           : p.tracks_stock === false
             ? "no_track"
             : "inherit",
+      outlet: outletCode || "",
+      outlet_label: outletCode ? outletNameByCode.get(outletCode) || outletCode : "",
       tax_taxable: productTaxableFromMetadata(
         (p.metadata || {}) as Record<string, unknown>
       ),
@@ -86,6 +105,7 @@ export async function GET() {
     items,
     units: units || [],
     categories: categories || [],
+    outlets,
     tax: {
       activeType: taxSettings.activeType,
       productTaxEnabled,
@@ -143,10 +163,27 @@ export async function POST(request: Request) {
     }
   }
 
+  const bodyMeta = (body.metadata || {}) as Record<string, unknown>;
+  const outletPatch =
+    bodyMeta.outlet !== undefined
+      ? String(bodyMeta.outlet || "")
+      : body.outlet !== undefined
+        ? String(body.outlet || "")
+        : undefined;
+
   const metadata = mergeProductMetadata(existingMeta, {
     akunPendapatan: String(body.akunPendapatan || existingMeta.akunPendapatan || "Pendapatan").trim(),
-    taxTaxable
+    taxTaxable,
+    outlet: outletPatch
   });
+
+  const addons = await fetchOrgAddons(supabase, org.id);
+  if (isAddonEnabled(addons, "outlet")) {
+    const outletBootstrap = await fetchOutletBootstrap(supabase, org.id);
+    if (outletBootstrap.options.length && !productOutletCode(metadata)) {
+      return NextResponse.json({ error: "Outlet wajib dipilih untuk produk multi-outlet" }, { status: 400 });
+    }
+  }
 
   const row = {
     organization_id: org.id,
