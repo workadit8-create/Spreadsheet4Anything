@@ -14,6 +14,17 @@ function mapAssetRow(
     row.useful_life_months,
     logs
   );
+  const meta = (row.metadata || {}) as Record<string, unknown>;
+  const disposalRaw = meta.disposal as Record<string, unknown> | undefined;
+  const disposal = disposalRaw
+    ? {
+        date: String(disposalRaw.date || ""),
+        proceeds: Number(disposalRaw.proceeds) || 0,
+        gainLoss: Number(disposalRaw.gainLoss) || 0,
+        docNo: disposalRaw.docNo ? String(disposalRaw.docNo) : null
+      }
+    : null;
+
   return {
     id: row.id,
     code: row.code,
@@ -29,6 +40,7 @@ function mapAssetRow(
     status: row.status,
     purchaseOrderId: row.purchase_order_id,
     notes: row.notes,
+    disposal,
     ...summary,
     depreciationLogCount: logs.length
   };

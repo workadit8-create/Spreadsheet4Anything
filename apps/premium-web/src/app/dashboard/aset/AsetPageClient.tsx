@@ -27,6 +27,12 @@ type AssetItem = {
   bookValue: number;
   remainingDepreciable: number;
   depreciationLogCount: number;
+  disposal: {
+    date: string;
+    proceeds: number;
+    gainLoss: number;
+    docNo: string | null;
+  } | null;
 };
 
 type Bootstrap = {
@@ -34,10 +40,13 @@ type Bootstrap = {
   assetAccounts: string[];
   accumAccounts: string[];
   expenseAccounts: string[];
+  kasBank: Array<{ id: string; name: string; coa_account_name: string }>;
   defaults: {
     assetCoaAccount: string;
     accumulatedDepreciationCoa: string;
     depreciationExpenseCoa: string;
+    gainOnDisposalCoa?: string;
+    lossOnDisposalCoa?: string;
   };
   purchaseOrders: Array<{
     id: string;
@@ -62,7 +71,7 @@ function todayIso() {
 
 function statusLabel(status: string) {
   if (status === "fully_depreciated") return "Sudah penuh disusutkan";
-  if (status === "disposed") return "Disposed";
+  if (status === "disposed") return "Sudah dispose";
   return "Aktif";
 }
 
@@ -79,6 +88,11 @@ export default function AsetPageClient({ role }: { role: MembershipRole }) {
   const [depreciatingId, setDepreciatingId] = useState<string | null>(null);
   const [depPeriod, setDepPeriod] = useState(todayIso());
   const [depAmount, setDepAmount] = useState("");
+  const [disposeDate, setDisposeDate] = useState(todayIso());
+  const [disposeProceeds, setDisposeProceeds] = useState("");
+  const [disposeRekening, setDisposeRekening] = useState("");
+  const [disposeNotes, setDisposeNotes] = useState("");
+  const [disposingId, setDisposingId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     code: "",
@@ -109,6 +123,9 @@ export default function AsetPageClient({ role }: { role: MembershipRole }) {
       if (!bootRes.ok) throw new Error(bootData.error || "Gagal memuat data pendukung");
       setAssets(assetsData.assets || []);
       setBootstrap(bootData);
+      if (bootData.kasBank?.length) {
+        setDisposeRekening(bootData.kasBank[0].name);
+      }
       setForm((prev) => ({
         ...prev,
         assetCoaAccount: prev.assetCoaAccount || bootData.defaults?.assetCoaAccount || "",
@@ -128,12 +145,17 @@ export default function AsetPageClient({ role }: { role: MembershipRole }) {
     void load();
   }, [load]);
 
+  const activeAssets = useMemo(
+    () => assets.filter((a) => a.status !== "disposed"),
+    [assets]
+  );
+
   const totals = useMemo(() => {
-    const cost = assets.reduce((s, a) => s + a.acquisitionCost, 0);
-    const depreciated = assets.reduce((s, a) => s + a.totalDepreciated, 0);
-    const book = assets.reduce((s, a) => s + a.bookValue, 0);
+    const cost = activeAssets.reduce((s, a) => s + a.acquisitionCost, 0);
+    const depreciated = activeAssets.reduce((s, a) => s + a.totalDepreciated, 0);
+    const book = activeAssets.reduce((s, a) => s + a.bookValue, 0);
     return { cost, depreciated, book };
-  }, [assets]);
+  }, [activeAssets]);
 
   async function submitAsset(e: React.FormEvent) {
     e.preventDefault();
@@ -208,6 +230,39 @@ export default function AsetPageClient({ role }: { role: MembershipRole }) {
     }
   }
 
+  async function recordDisposal(asset: AssetItem) {
+    if (!canPost) return;
+    setDisposingId(asset.id);
+    setMessage(null);
+    setError(null);
+    try {
+      const proceeds = Number(disposeProceeds) || 0;
+      const res = await fetch(`/api/assets/${asset.id}/dispose`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          disposalDate: disposeDate,
+          proceeds,
+          rekening: proceeds > 0 ? disposeRekening : undefined,
+          notes: disposeNotes.trim() || undefined
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal dispose aset");
+      const gl = Number(data.disposal?.gainLoss) || 0;
+      const glText =
+        gl > 0 ? `laba ${formatMoney(gl)}` : gl < 0 ? `rugi ${formatMoney(-gl)}` : "impas";
+      setMessage(`Dispose ${asset.name} (${data.docNo}) — ${glText}, jurnal otomatis`);
+      setDisposeProceeds("");
+      setDisposeNotes("");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal dispose aset");
+    } finally {
+      setDisposingId(null);
+    }
+  }
+
   const selectedDepAsset = assets.find((a) => a.id === depreciatingId);
 
   return (
@@ -215,7 +270,7 @@ export default function AsetPageClient({ role }: { role: MembershipRole }) {
       <PageHeader
         badge="Core"
         title="Aset Tetap"
-        description="Daftar aset, penyusutan garis lurus manual per periode, dan jurnal otomatis (Dr Beban Penyusutan, Cr Akumulasi)."
+        description="Daftar aset, penyusutan garis lurus manual, dispose/jual dengan jurnal otomatis."
       />
 
       {error && (
@@ -437,6 +492,60 @@ export default function AsetPageClient({ role }: { role: MembershipRole }) {
         </Card>
       )}
 
+      {canPost && (
+        <Card className="mb-6 p-4">
+          <h2 className="mb-2 text-sm font-semibold">Dispose / jual aset</h2>
+          <p className="mb-3 text-xs text-zinc-500">
+            Jurnal: Dr Akumulasi + Dr Kas (jika ada penjualan) + Dr Rugi / Cr Aset + Cr Laba.
+            Nilai buku = perolehan − akumulasi penyusutan.
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <Label>Tanggal disposal</Label>
+              <Input
+                type="date"
+                value={disposeDate}
+                onChange={(e) => setDisposeDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Hasil penjualan (Rp)</Label>
+              <Input
+                type="number"
+                min={0}
+                placeholder="0 = buang/hilang"
+                value={disposeProceeds}
+                onChange={(e) => setDisposeProceeds(e.target.value)}
+              />
+            </div>
+            {Number(disposeProceeds) > 0 && bootstrap ? (
+              <div>
+                <Label>Rekening penerimaan</Label>
+                <select
+                  className="w-full min-w-[140px] rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                  value={disposeRekening}
+                  onChange={(e) => setDisposeRekening(e.target.value)}
+                >
+                  {bootstrap.kasBank.map((k) => (
+                    <option key={k.id} value={k.name}>
+                      {k.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            <div className="min-w-[200px] flex-1">
+              <Label>Catatan (opsional)</Label>
+              <Input
+                value={disposeNotes}
+                onChange={(e) => setDisposeNotes(e.target.value)}
+                placeholder="Mis. dijual ke pihak ketiga"
+              />
+            </div>
+          </div>
+        </Card>
+      )}
+
       <Card className="overflow-x-auto p-0">
         {loading ? (
           <p className="p-4 text-sm text-zinc-500">Memuat…</p>
@@ -455,7 +564,7 @@ export default function AsetPageClient({ role }: { role: MembershipRole }) {
                 <th className="px-3 py-2 text-right">Akumulasi</th>
                 <th className="px-3 py-2 text-right">Nilai buku</th>
                 <th className="px-3 py-2">Status</th>
-                {canPost && <th className="px-3 py-2" />}
+                {canPost && <th className="px-3 py-2 w-28">Aksi</th>}
               </tr>
             </thead>
             <tbody>
@@ -480,21 +589,43 @@ export default function AsetPageClient({ role }: { role: MembershipRole }) {
                   <td className="px-3 py-2 text-right tabular-nums font-medium">
                     {formatMoney(a.bookValue)}
                   </td>
-                  <td className="px-3 py-2 text-xs">{statusLabel(a.status)}</td>
+                  <td className="px-3 py-2 text-xs">
+                    {statusLabel(a.status)}
+                    {a.disposal ? (
+                      <div className="mt-0.5 text-[10px] text-zinc-400">
+                        {a.disposal.date}
+                        {a.disposal.proceeds > 0 ? ` · ${formatMoney(a.disposal.proceeds)}` : ""}
+                      </div>
+                    ) : null}
+                  </td>
                   {canPost && (
                     <td className="px-3 py-2">
-                      {a.status === "active" && a.remainingDepreciable > 0 ? (
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          disabled={depreciatingId === a.id}
-                          onClick={() => void recordDepreciation(a)}
-                        >
-                          {depreciatingId === a.id ? "…" : "Catat"}
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-zinc-400">—</span>
-                      )}
+                      <div className="flex flex-col gap-1">
+                        {a.status === "active" && a.remainingDepreciable > 0 ? (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            className="px-2 py-1 text-xs"
+                            disabled={depreciatingId === a.id || disposingId === a.id}
+                            onClick={() => void recordDepreciation(a)}
+                          >
+                            {depreciatingId === a.id ? "…" : "Susut"}
+                          </Button>
+                        ) : null}
+                        {a.status !== "disposed" ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="px-2 py-1 text-xs text-red-700"
+                            disabled={disposingId === a.id || depreciatingId === a.id}
+                            onClick={() => void recordDisposal(a)}
+                          >
+                            {disposingId === a.id ? "…" : "Dispose"}
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-zinc-400">—</span>
+                        )}
+                      </div>
                     </td>
                   )}
                 </tr>
