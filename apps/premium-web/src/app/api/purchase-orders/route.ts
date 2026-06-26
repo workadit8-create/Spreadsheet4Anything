@@ -20,12 +20,9 @@ import {
 import { assertPurchaseRequestConvertible, markPurchaseRequestConverted } from "@/lib/pre-docs/convert";
 import { resolveProjectCodeForSave } from "@/lib/proyek/helpers";
 import { wibDateIsoFromInput } from "@/lib/date/wib";
-import { fetchOrgTaxSettings } from "@/lib/org/tax-settings";
-import {
-  computeLineTax,
-  getActiveTaxConfig,
-  summarizeLineTax
-} from "@/lib/tax/compute";
+import { fetchOrgTaxSettings, getPurchaseTaxConfig } from "@/lib/org/tax-settings";
+import { supplierPkpFromMetadata } from "@/lib/suppliers/pkp";
+import { computeLineTax, summarizeLineTax } from "@/lib/tax/compute";
 
 type LineInput = {
   description: string;
@@ -184,7 +181,7 @@ export async function POST(request: Request) {
 
     const { data: supplier, error: supErr } = await supabase
       .from("suppliers")
-      .select("id, name")
+      .select("id, name, metadata")
       .eq("id", supplierId)
       .eq("organization_id", org.id)
       .single();
@@ -192,6 +189,10 @@ export async function POST(request: Request) {
     if (supErr || !supplier) {
       return NextResponse.json({ error: "Supplier tidak ditemukan" }, { status: 400 });
     }
+
+    const supplierPkp = supplierPkpFromMetadata(
+      (supplier.metadata || {}) as Record<string, unknown>
+    );
 
     const categoryIds = body.lines.map((l) => l.purchase_category_id);
     const { data: categories, error: catErr } = await supabase
@@ -204,7 +205,7 @@ export async function POST(request: Request) {
 
     const catMap = new Map((categories || []).map((c) => [c.id, c]));
     const taxSettings = await fetchOrgTaxSettings(supabase, org.id);
-    const taxConfig = getActiveTaxConfig(taxSettings);
+    const purchaseTaxConfig = getPurchaseTaxConfig(taxSettings, supplierPkp);
 
     const resolvedLines: Array<{
       description: string;
@@ -243,10 +244,10 @@ export async function POST(request: Request) {
       const netBeforeTax = computePurchaseLineTotal(qty, unitCost, diskon);
       const lineTax = computeLineTax(
         netBeforeTax,
-        Boolean(taxConfig),
-        taxConfig?.ratePercent ?? 0,
-        taxConfig?.priceIncludesTax ?? false,
-        taxConfig?.taxType ?? null
+        Boolean(purchaseTaxConfig),
+        purchaseTaxConfig?.ratePercent ?? 0,
+        purchaseTaxConfig?.priceIncludesTax ?? false,
+        purchaseTaxConfig?.taxType ?? null
       );
       lineTaxResults.push(lineTax);
 
@@ -313,7 +314,8 @@ export async function POST(request: Request) {
       purchaseRequestId: purchaseRequestId || undefined,
       subtotalDpp: subtotal,
       taxTotal: taxSummary.taxTotal,
-      taxType: taxConfig?.taxType
+      taxType: purchaseTaxConfig?.taxType,
+      supplierPkp
     };
 
     const { data: order, error: orderErr } = await supabase

@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { fetchProjectBootstrap } from "@/lib/proyek/bootstrap-options";
 import { fetchOrgTaxSettings } from "@/lib/org/tax-settings";
-import { getActiveTaxConfig, taxTypeLabel } from "@/lib/tax/compute";
+import { supplierPkpFromMetadata } from "@/lib/suppliers/pkp";
 
 export async function GET() {
   const supabase = await createClient();
@@ -18,7 +18,7 @@ export async function GET() {
   const [suppliersRes, categoriesRes, kasRes, projectAddon, taxSettings] = await Promise.all([
     supabase
       .from("suppliers")
-      .select("id, code, name")
+      .select("id, code, name, metadata")
       .eq("organization_id", org.id)
       .eq("active", true)
       .order("name"),
@@ -42,10 +42,16 @@ export async function GET() {
   if (categoriesRes.error) return NextResponse.json({ error: categoriesRes.error.message }, { status: 500 });
   if (kasRes.error) return NextResponse.json({ error: kasRes.error.message }, { status: 500 });
 
-  const taxConfig = getActiveTaxConfig(taxSettings);
+  const purchasePpnAvailable =
+    taxSettings.activeType === "ppn" && taxSettings.ppn.pkpEnabled;
 
   return NextResponse.json({
-    suppliers: suppliersRes.data || [],
+    suppliers: (suppliersRes.data || []).map((s) => ({
+      id: s.id,
+      code: s.code,
+      name: s.name,
+      pkp: supplierPkpFromMetadata((s.metadata || {}) as Record<string, unknown>)
+    })),
     purchaseCategories: (categoriesRes.data || []).map((c) => ({
       id: c.id,
       label: `${c.category} — ${c.sub_category}`,
@@ -53,14 +59,12 @@ export async function GET() {
     })),
     kasBank: kasRes.data || [],
     projectAddon,
-    tax: taxConfig
+    purchasePpn: purchasePpnAvailable
       ? {
-          active: true,
-          taxType: taxConfig.taxType,
-          taxLabel: taxTypeLabel(taxConfig.taxType),
-          ratePercent: taxConfig.ratePercent,
-          priceIncludesTax: taxConfig.priceIncludesTax
+          available: true,
+          ratePercent: taxSettings.ppn.ratePercent,
+          priceIncludesTax: taxSettings.ppn.priceIncludesTax
         }
-      : { active: false }
+      : { available: false }
   });
 }

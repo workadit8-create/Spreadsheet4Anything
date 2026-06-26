@@ -260,6 +260,7 @@ export default function MasterDataClient({ role }: { role: MembershipRole }) {
               { key: "name", label: "Nama", type: "text", required: true },
               { key: "phone", label: "Telepon", type: "text" },
               { key: "email", label: "Email", type: "text" },
+              { key: "pkp", label: "Supplier PKP (PPN masukan)", type: "checkbox" },
               { key: "active", label: "Aktif", type: "checkbox" }
             ]}
             columns={[
@@ -267,6 +268,7 @@ export default function MasterDataClient({ role }: { role: MembershipRole }) {
               { key: "name", label: "Nama" },
               { key: "phone", label: "Telepon" },
               { key: "email", label: "Email" },
+              { key: "pkp", label: "PKP", format: "boolean" },
               { key: "active", label: "Status" }
             ]}
           />

@@ -282,7 +282,8 @@ export default function TaxPageClient({ role }: { role: MembershipRole }) {
               <li>Ringkasan pajak keluaran / masukan per periode</li>
             </ul>
             <p className="mt-3 text-xs text-amber-800/80">
-              Invoice dan PO sudah menghitung PPN/PB otomatis sesuai pengaturan di halaman ini.
+              Invoice sudah menghitung PPN/PB otomatis. Pembelian: PPN masukan hanya untuk supplier
+              PKP di Master → Supplier.
             </p>
           </Card>
 

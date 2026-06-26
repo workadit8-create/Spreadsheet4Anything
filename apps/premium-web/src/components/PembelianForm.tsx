@@ -6,10 +6,10 @@ import { Input, Label, Select } from "@/components/ui/Input";
 import { ProjectSelect } from "@/components/proyek/ProjectSelect";
 import type { ProjectOption } from "@/lib/proyek/bootstrap-options";
 import { computePurchaseLineTotal } from "@/lib/posting/purchase-lines";
-import { computeLineTax, summarizeLineTax, type ActiveTaxConfig } from "@/lib/tax/compute";
+import { computeLineTax, summarizeLineTax } from "@/lib/tax/compute";
 import { wibTodayIso } from "@/lib/date/wib";
 
-type Supplier = { id: string; code: string | null; name: string };
+type Supplier = { id: string; code: string | null; name: string; pkp?: boolean };
 type Category = { id: string; label: string; coa_account: string };
 type KasBank = { id: string; name: string };
 type PaymentMode = "TUNAI" | "KREDIT" | "PARTIAL";
@@ -66,7 +66,15 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
   const [loadingPr, setLoadingPr] = useState(false);
   const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);
   const [projectCode, setProjectCode] = useState("");
-  const [taxConfig, setTaxConfig] = useState<ActiveTaxConfig | null>(null);
+  const [purchasePpnAvailable, setPurchasePpnAvailable] = useState(false);
+  const [purchasePpnSettings, setPurchasePpnSettings] = useState<{
+    ratePercent: number;
+    priceIncludesTax: boolean;
+  } | null>(null);
+
+  const selectedSupplier = suppliers.find((s) => s.id === supplierId);
+  const supplierPkp = selectedSupplier?.pkp === true;
+  const purchaseTaxActive = purchasePpnAvailable && supplierPkp;
 
   const lineTaxResults = lines.map((line) => {
     const qty = Number(line.qty) || 0;
@@ -75,10 +83,10 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
     const netBeforeTax = computePurchaseLineTotal(qty, cost, diskon);
     return computeLineTax(
       netBeforeTax,
-      Boolean(taxConfig),
-      taxConfig?.ratePercent ?? 0,
-      taxConfig?.priceIncludesTax ?? false,
-      taxConfig?.taxType ?? null
+      purchaseTaxActive,
+      purchasePpnSettings?.ratePercent ?? 0,
+      purchasePpnSettings?.priceIncludesTax ?? false,
+      purchaseTaxActive ? "ppn" : null
     );
   });
 
@@ -106,7 +114,15 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
       setCategories(data.purchaseCategories || []);
       setKasBank(data.kasBank || []);
       setProjectOptions(data.projectAddon?.options || []);
-      setTaxConfig(data.tax?.active ? data.tax : null);
+      setPurchasePpnAvailable(data.purchasePpn?.available === true);
+      setPurchasePpnSettings(
+        data.purchasePpn?.available
+          ? {
+              ratePercent: data.purchasePpn.ratePercent,
+              priceIncludesTax: data.purchasePpn.priceIncludesTax
+            }
+          : null
+      );
       if (data.kasBank?.length) setRekening(data.kasBank[0].name);
       if (data.purchaseCategories?.length) {
         setLines((prev) =>
@@ -278,9 +294,19 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
           <Select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} required>
             <option value="">Pilih supplier</option>
             {suppliers.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
+              <option key={s.id} value={s.id}>
+                {s.name}
+                {s.pkp ? " (PKP)" : ""}
+              </option>
             ))}
           </Select>
+          {purchasePpnAvailable && supplierId ? (
+            <p className="mt-1 text-xs text-slate-500">
+              {supplierPkp
+                ? "Supplier PKP — PPN masukan dihitung di PO ini."
+                : "Supplier non-PKP (mis. pasar) — tanpa PPN masukan."}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -386,9 +412,7 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
         </div>
         {taxTotal > 0 ? (
           <div className="flex justify-between text-sm text-slate-600">
-            <span>
-              {taxConfig?.taxType === "pb" ? "PB" : "PPN"} ({taxConfig?.ratePercent}%)
-            </span>
+            <span>PPN masukan ({purchasePpnSettings?.ratePercent}%)</span>
             <span>{formatRp(taxTotal)}</span>
           </div>
         ) : null}

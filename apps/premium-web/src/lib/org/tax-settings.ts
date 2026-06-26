@@ -115,6 +115,34 @@ export function isProductTaxEnabled(settings: TaxSettings): boolean {
   return false;
 }
 
+/** PPN masukan pembelian — hanya jika kita PKP dan supplier PKP (bukan PB, bukan pasar) */
+export function isPurchasePpnEnabled(
+  settings: TaxSettings,
+  supplierPkp: boolean
+): boolean {
+  return (
+    supplierPkp &&
+    settings.activeType === "ppn" &&
+    settings.ppn.pkpEnabled
+  );
+}
+
+export function getPurchaseTaxConfig(
+  settings: TaxSettings,
+  supplierPkp: boolean
+): {
+  ratePercent: number;
+  priceIncludesTax: boolean;
+  taxType: "ppn";
+} | null {
+  if (!isPurchasePpnEnabled(settings, supplierPkp)) return null;
+  return {
+    ratePercent: settings.ppn.ratePercent,
+    priceIncludesTax: settings.ppn.priceIncludesTax,
+    taxType: "ppn"
+  };
+}
+
 export function productTaxFieldLabel(settings: TaxSettings): string {
   return settings.activeType === "pb" ? "Kena PB" : "Kena PPN";
 }

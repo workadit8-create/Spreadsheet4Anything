@@ -215,7 +215,8 @@ export function MasterCrudPanel({
     setForm({
       ...row,
       metadata: row.metadata || {},
-      tax_taxable: row.tax_taxable === true || row.ppn_taxable === true
+      tax_taxable: row.tax_taxable === true || row.ppn_taxable === true,
+      pkp: row.pkp === true
     });
   }
 
