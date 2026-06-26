@@ -70,6 +70,8 @@ Cooldown `/ringkasan`: ~1 menit per chat.
 
 `032_telegram_notifications.sql` — tabel `user_telegram_settings`, RPC `complete_telegram_link`.
 
+`033_telegram_ringkasan_rpc.sql` — RPC `resolve_telegram_ringkasan_targets` untuk `/ringkasan`.
+
 ## Kode
 
 - `src/lib/telegram/` — bot, digest, owner-ringkasan, reminders, cron

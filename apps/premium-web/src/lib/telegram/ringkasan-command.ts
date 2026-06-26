@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { normalizeMembershipRole } from "@/lib/org/roles";
 import { sendTelegramMessage } from "@/lib/telegram/bot";
 import {
   fetchOwnerRingkasan,
@@ -15,6 +14,12 @@ export function isRingkasanOnCooldown(chatId: number): boolean {
   return Date.now() - last < RINGKASAN_COOLDOWN_MS;
 }
 
+type RingkasanTarget = {
+  organization_id: string;
+  organization_name: string;
+  user_id: string;
+};
+
 export async function handleRingkasanCommand(
   supabase: SupabaseClient,
   chatId: number
@@ -27,12 +32,20 @@ export async function handleRingkasanCommand(
     return;
   }
 
-  const { data: rows, error } = await supabase
-    .from("user_telegram_settings")
-    .select("id, user_id, organization_id")
-    .eq("telegram_chat_id", chatId);
+  const { data, error } = await supabase.rpc("resolve_telegram_ringkasan_targets", {
+    p_chat_id: chatId
+  });
 
-  if (error || !rows?.length) {
+  if (error) {
+    await sendTelegramMessage(
+      chatId,
+      `❌ Gagal memuat ringkasan (${escapeErr(error.message)}). Coba lagi atau hubungi admin platform.`
+    );
+    return;
+  }
+
+  const rows = (data || []) as RingkasanTarget[];
+  if (!rows.length) {
     await sendTelegramMessage(
       chatId,
       "Akun Telegram belum terhubung. Buka halaman <b>Akun</b> di Premium Web → <b>Hubungkan Telegram</b>."
@@ -41,29 +54,9 @@ export async function handleRingkasanCommand(
   }
 
   let sent = 0;
-  const orgNameCache = new Map<string, string>();
 
   for (const row of rows) {
-    const { data: membership } = await supabase
-      .from("memberships")
-      .select("role")
-      .eq("user_id", row.user_id)
-      .eq("organization_id", row.organization_id)
-      .maybeSingle();
-
-    if (normalizeMembershipRole(membership?.role) !== "owner") continue;
-
-    let orgName = orgNameCache.get(row.organization_id);
-    if (!orgName) {
-      const { data: orgRow } = await supabase
-        .from("organizations")
-        .select("name")
-        .eq("id", row.organization_id)
-        .maybeSingle();
-      orgName = String(orgRow?.name || "Organisasi");
-      orgNameCache.set(row.organization_id, orgName);
-    }
-
+    const orgName = String(row.organization_name || "Organisasi");
     try {
       const ringkasan = await fetchOwnerRingkasan(supabase, row.organization_id);
       const text = formatOwnerRingkasanMessage(orgName, ringkasan);

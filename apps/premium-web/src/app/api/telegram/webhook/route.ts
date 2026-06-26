@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTelegramMessage } from "@/lib/telegram/bot";
+import { parseBotCommand } from "@/lib/telegram/bot-command";
 import { handleRingkasanCommand } from "@/lib/telegram/ringkasan-command";
 
 type TelegramUpdate = {
@@ -35,8 +36,9 @@ export async function POST(request: Request) {
   const chatId = message.chat.id;
   const username = message.from?.username || message.from?.first_name || "";
   const text = message.text.trim();
+  const command = parseBotCommand(text);
 
-  if (text === "/ringkasan") {
+  if (command === "/ringkasan") {
     try {
       const admin = createAdminClient();
       await handleRingkasanCommand(admin, chatId);
@@ -49,7 +51,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  if (text === "/help" || text === "/start") {
+  if (command === "/help" || command === "/start") {
     await sendTelegramMessage(
       chatId,
       "Halo! Hubungkan akun di halaman <b>Akun</b> → <b>Hubungkan Telegram</b>.\n\nOwner: <b>/ringkasan</b> — posisi keuangan &amp; transaksi hari ini.\nRingkasan harian otomatis jam 20:00 WIB (jika diaktifkan)."
