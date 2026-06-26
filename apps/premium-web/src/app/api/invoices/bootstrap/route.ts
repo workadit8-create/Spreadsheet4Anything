@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { formatKasBankForInvoice } from "@/lib/org/kas-bank-display";
+import { fetchOrgTaxSettings } from "@/lib/org/tax-settings";
+import { productTaxableFromMetadata } from "@/lib/products/ppn";
+import { getActiveTaxConfig, taxTypeLabel } from "@/lib/tax/compute";
 import { fetchProjectBootstrap } from "@/lib/proyek/bootstrap-options";
 
 export async function GET() {
@@ -14,7 +17,7 @@ export async function GET() {
   }
   const { org } = auth;
 
-  const [customersRes, productsRes, kasRes, projectAddon] = await Promise.all([
+  const [customersRes, productsRes, kasRes, projectAddon, taxSettings] = await Promise.all([
     supabase
       .from("customers")
       .select("id, code, name")
@@ -33,7 +36,8 @@ export async function GET() {
       .eq("organization_id", org.id)
       .eq("active", true)
       .order("name"),
-    fetchProjectBootstrap(supabase, org.id)
+    fetchProjectBootstrap(supabase, org.id),
+    fetchOrgTaxSettings(supabase, org.id)
   ]);
 
   if (customersRes.error) return NextResponse.json({ error: customersRes.error.message }, { status: 500 });
@@ -51,9 +55,12 @@ export async function GET() {
       sell_price: p.sell_price,
       unit_code: unit?.code || "PCS",
       unit_name: unit?.name || unit?.code || "PCS",
-      akunPendapatan: String(meta.akunPendapatan || "Pendapatan")
+      akunPendapatan: String(meta.akunPendapatan || "Pendapatan"),
+      tax_taxable: productTaxableFromMetadata(meta)
     };
   });
+
+  const taxConfig = getActiveTaxConfig(taxSettings);
 
   const kasBank = (kasRes.data || []).map((k) => ({
     ...k,
@@ -64,6 +71,15 @@ export async function GET() {
     customers: customersRes.data || [],
     products,
     kasBank,
-    projectAddon
+    projectAddon,
+    tax: taxConfig
+      ? {
+          active: true,
+          taxType: taxConfig.taxType,
+          taxLabel: taxTypeLabel(taxConfig.taxType),
+          ratePercent: taxConfig.ratePercent,
+          priceIncludesTax: taxConfig.priceIncludesTax
+        }
+      : { active: false }
   });
 }

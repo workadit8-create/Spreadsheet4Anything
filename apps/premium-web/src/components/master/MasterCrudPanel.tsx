@@ -256,7 +256,7 @@ export function MasterCrudPanel({
 
       {productTax?.productTaxEnabled ? (
         <p className="mb-4 text-xs text-slate-500">
-          {taxHint} Invoice/PO belum menghitung pajak otomatis (fase berikutnya).
+          {taxHint} Pajak dihitung otomatis saat simpan invoice/PO.
         </p>
       ) : null}
 

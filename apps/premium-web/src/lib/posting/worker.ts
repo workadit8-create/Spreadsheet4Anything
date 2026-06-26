@@ -8,6 +8,7 @@ import {
   buildPembelianJournalLines,
   buildPelunasanUtangJournalLines
 } from "./journal-rules";
+import { TAX_INPUT_ACCOUNT, TAX_OUTPUT_ACCOUNT } from "@/lib/tax/compute";
 import { postCashTransferJournal, type CashTransferRow } from "./mutasi";
 import { postJournalEntry } from "./journal-supabase";
 import type {
@@ -53,7 +54,12 @@ function asLineMeta(raw: unknown): SalesLineMetadata {
     unitCode: m.unitCode ? String(m.unitCode) : undefined,
     bayar: m.bayar != null ? Number(m.bayar) : undefined,
     kurangBayar: m.kurangBayar != null ? Number(m.kurangBayar) : undefined,
-    paymentStatus: m.paymentStatus as SalesLineMetadata["paymentStatus"]
+    paymentStatus: m.paymentStatus as SalesLineMetadata["paymentStatus"],
+    dpp: m.dpp != null ? Number(m.dpp) : undefined,
+    taxAmount: m.taxAmount != null ? Number(m.taxAmount) : undefined,
+    taxRate: m.taxRate != null ? Number(m.taxRate) : undefined,
+    taxType: m.taxType ? String(m.taxType) : undefined,
+    taxable: m.taxable === true
   };
 }
 
@@ -118,7 +124,12 @@ function asPurchaseLineMeta(raw: unknown): PurchaseLineMetadata {
     kurangBayar: m.kurangBayar != null ? Number(m.kurangBayar) : undefined,
     metode: m.metode as PurchaseLineMetadata["metode"],
     tanggalBayar: m.tanggalBayar ? String(m.tanggalBayar) : undefined,
-    purchaseCategoryId: m.purchaseCategoryId ? String(m.purchaseCategoryId) : undefined
+    purchaseCategoryId: m.purchaseCategoryId ? String(m.purchaseCategoryId) : undefined,
+    dpp: m.dpp != null ? Number(m.dpp) : undefined,
+    taxAmount: m.taxAmount != null ? Number(m.taxAmount) : undefined,
+    taxRate: m.taxRate != null ? Number(m.taxRate) : undefined,
+    taxType: m.taxType ? String(m.taxType) : undefined,
+    taxable: m.taxable === true
   };
 }
 
@@ -227,7 +238,10 @@ async function postOrderToSupabaseJournal(
       status: payload.status,
       tanggalBayar: payload.tanggalBayar,
       akunPendapatan: payload.akunPendapatan,
-      rekening: payload.rekening
+      rekening: payload.rekening,
+      dpp: lm.dpp,
+      taxAmount: lm.taxAmount,
+      taxAccountName: TAX_OUTPUT_ACCOUNT
     });
 
     const result = await postJournalEntry(
@@ -280,7 +294,10 @@ async function postPurchaseOrderToSupabaseJournal(
       metode,
       tanggalBayar: meta.tanggalBayar || order.order_date,
       akunPembelian: lm.akunPembelian || meta.akunPembelian,
-      rekening: meta.rekening
+      rekening: meta.rekening,
+      dpp: lm.dpp,
+      taxAmount: lm.taxAmount,
+      taxAccountName: TAX_INPUT_ACCOUNT
     });
 
     const result = await postJournalEntry(

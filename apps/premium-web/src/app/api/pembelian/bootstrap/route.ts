@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { fetchProjectBootstrap } from "@/lib/proyek/bootstrap-options";
+import { fetchOrgTaxSettings } from "@/lib/org/tax-settings";
+import { getActiveTaxConfig, taxTypeLabel } from "@/lib/tax/compute";
 
 export async function GET() {
   const supabase = await createClient();
@@ -13,7 +15,7 @@ export async function GET() {
   }
   const { org } = auth;
 
-  const [suppliersRes, categoriesRes, kasRes, projectAddon] = await Promise.all([
+  const [suppliersRes, categoriesRes, kasRes, projectAddon, taxSettings] = await Promise.all([
     supabase
       .from("suppliers")
       .select("id, code, name")
@@ -32,12 +34,15 @@ export async function GET() {
       .eq("organization_id", org.id)
       .eq("active", true)
       .order("name"),
-    fetchProjectBootstrap(supabase, org.id)
+    fetchProjectBootstrap(supabase, org.id),
+    fetchOrgTaxSettings(supabase, org.id)
   ]);
 
   if (suppliersRes.error) return NextResponse.json({ error: suppliersRes.error.message }, { status: 500 });
   if (categoriesRes.error) return NextResponse.json({ error: categoriesRes.error.message }, { status: 500 });
   if (kasRes.error) return NextResponse.json({ error: kasRes.error.message }, { status: 500 });
+
+  const taxConfig = getActiveTaxConfig(taxSettings);
 
   return NextResponse.json({
     suppliers: suppliersRes.data || [],
@@ -47,6 +52,15 @@ export async function GET() {
       coa_account: c.coa_account
     })),
     kasBank: kasRes.data || [],
-    projectAddon
+    projectAddon,
+    tax: taxConfig
+      ? {
+          active: true,
+          taxType: taxConfig.taxType,
+          taxLabel: taxTypeLabel(taxConfig.taxType),
+          ratePercent: taxConfig.ratePercent,
+          priceIncludesTax: taxConfig.priceIncludesTax
+        }
+      : { active: false }
   });
 }

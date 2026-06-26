@@ -7,6 +7,7 @@ import { ProjectSelect } from "@/components/proyek/ProjectSelect";
 import type { ProjectOption } from "@/lib/proyek/bootstrap-options";
 import { kasBankOptionLabel } from "@/lib/org/kas-bank-display";
 import { computeLineTotal } from "@/lib/posting/invoice-lines";
+import { computeLineTax, summarizeLineTax, type ActiveTaxConfig } from "@/lib/tax/compute";
 import { wibTodayIso } from "@/lib/date/wib";
 
 type Customer = { id: string; code: string | null; name: string };
@@ -17,6 +18,7 @@ type Product = {
   sell_price: number;
   unit_code: string;
   akunPendapatan: string;
+  tax_taxable?: boolean;
 };
 type KasBank = { id: string; code: string | null; name: string; bankDisplay?: string };
 type PaymentMode = "TUNAI" | "KREDIT" | "PARTIAL";
@@ -66,24 +68,37 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
   const [loadingQuotation, setLoadingQuotation] = useState(false);
   const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);
   const [projectCode, setProjectCode] = useState("");
+  const [taxConfig, setTaxConfig] = useState<ActiveTaxConfig | null>(null);
 
   const productMap = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
-  const lineTotals = lines.map((line) => {
+  const lineTaxResults = lines.map((line) => {
     const qty = Number(line.qty) || 0;
     const price = Number(line.unit_price) || 0;
     const diskon = Number(line.diskon) || 0;
-    return computeLineTotal(qty, price, diskon);
+    const netBeforeTax = computeLineTotal(qty, price, diskon);
+    const product = productMap.get(line.product_id);
+    return computeLineTax(
+      netBeforeTax,
+      taxConfig ? product?.tax_taxable === true : false,
+      taxConfig?.ratePercent ?? 0,
+      taxConfig?.priceIncludesTax ?? false,
+      taxConfig?.taxType ?? null
+    );
   });
 
-  const subtotal = lineTotals.reduce((a, b) => a + b, 0);
+  const lineTotals = lineTaxResults.map((t) => t.gross);
+  const taxSummary = summarizeLineTax(lineTaxResults);
+  const subtotalDpp = taxSummary.subtotalDpp;
+  const taxTotal = taxSummary.taxTotal;
+  const grandTotal = taxSummary.grandTotal;
   const bayarNum =
     paymentMode === "TUNAI"
-      ? subtotal
+      ? grandTotal
       : paymentMode === "KREDIT"
         ? 0
-        : Math.min(subtotal, Math.max(0, Number(bayar) || 0));
-  const kurangBayar = Math.max(0, subtotal - bayarNum);
+        : Math.min(grandTotal, Math.max(0, Number(bayar) || 0));
+  const kurangBayar = Math.max(0, grandTotal - bayarNum);
   const needsPenerimaanRekening = bayarNum > 0.01;
   const needsInvoiceRekening = kurangBayar > 0.01;
   const paymentLabel =
@@ -102,6 +117,7 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
       setProducts(data.products || []);
       setKasBank(data.kasBank || []);
       setProjectOptions(data.projectAddon?.options || []);
+      setTaxConfig(data.tax?.active ? data.tax : null);
       if (data.kasBank?.length) {
         setRekeningPenerimaan(data.kasBank[0].name);
         setInvoiceRekeningId(data.kasBank[0].id);
@@ -391,8 +407,20 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
       <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4">
         <div className="mx-auto max-w-md space-y-3 text-sm">
           <div className="flex justify-between">
-            <span className="text-slate-600">Subtotal</span>
-            <strong>{formatRp(subtotal)}</strong>
+            <span className="text-slate-600">Subtotal (DPP)</span>
+            <strong>{formatRp(subtotalDpp)}</strong>
+          </div>
+          {taxTotal > 0 ? (
+            <div className="flex justify-between text-slate-600">
+              <span>
+                {taxConfig?.taxType === "pb" ? "PB" : "PPN"} ({taxConfig?.ratePercent}%)
+              </span>
+              <strong>{formatRp(taxTotal)}</strong>
+            </div>
+          ) : null}
+          <div className="flex justify-between border-t border-slate-200 pt-2">
+            <span className="font-medium text-slate-700">Total</span>
+            <strong>{formatRp(grandTotal)}</strong>
           </div>
           <div>
             <p className="mb-2 text-sm font-medium text-slate-700">Tipe pembayaran</p>
@@ -423,7 +451,7 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
               <Input
                 type="number"
                 min={0}
-                max={subtotal}
+                max={grandTotal}
                 className="max-w-[140px]"
                 value={bayar}
                 onChange={(e) => setBayar(e.target.value)}

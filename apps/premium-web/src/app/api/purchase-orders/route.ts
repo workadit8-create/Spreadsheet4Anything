@@ -20,6 +20,12 @@ import {
 import { assertPurchaseRequestConvertible, markPurchaseRequestConverted } from "@/lib/pre-docs/convert";
 import { resolveProjectCodeForSave } from "@/lib/proyek/helpers";
 import { wibDateIsoFromInput } from "@/lib/date/wib";
+import { fetchOrgTaxSettings } from "@/lib/org/tax-settings";
+import {
+  computeLineTax,
+  getActiveTaxConfig,
+  summarizeLineTax
+} from "@/lib/tax/compute";
 
 type LineInput = {
   description: string;
@@ -197,6 +203,8 @@ export async function POST(request: Request) {
     if (catErr) return NextResponse.json({ error: catErr.message }, { status: 500 });
 
     const catMap = new Map((categories || []).map((c) => [c.id, c]));
+    const taxSettings = await fetchOrgTaxSettings(supabase, org.id);
+    const taxConfig = getActiveTaxConfig(taxSettings);
 
     const resolvedLines: Array<{
       description: string;
@@ -208,7 +216,14 @@ export async function POST(request: Request) {
       unitCode: string;
       akunPembelian: string;
       diskon: number;
+      dpp: number;
+      taxAmount: number;
+      taxRate: number;
+      taxType: string | null;
+      taxable: boolean;
     }> = [];
+
+    const lineTaxResults: ReturnType<typeof computeLineTax>[] = [];
 
     for (let index = 0; index < body.lines.length; index++) {
       const line = body.lines[index];
@@ -225,27 +240,42 @@ export async function POST(request: Request) {
       const qty = Number(line.qty) || 1;
       const unitCost = Number(line.unit_cost) || 0;
       const diskon = Number(line.diskon) || 0;
-      const lineTotal = computePurchaseLineTotal(qty, unitCost, diskon);
+      const netBeforeTax = computePurchaseLineTotal(qty, unitCost, diskon);
+      const lineTax = computeLineTax(
+        netBeforeTax,
+        Boolean(taxConfig),
+        taxConfig?.ratePercent ?? 0,
+        taxConfig?.priceIncludesTax ?? false,
+        taxConfig?.taxType ?? null
+      );
+      lineTaxResults.push(lineTax);
 
       resolvedLines.push({
         description,
         purchase_category_id: cat.id,
         qty,
         unit_cost: unitCost,
-        line_total: lineTotal,
+        line_total: lineTax.gross,
         sort_order: index,
         unitCode: String(line.unit_code || "PCS"),
         akunPembelian: cat.coa_account,
-        diskon
+        diskon,
+        dpp: lineTax.dpp,
+        taxAmount: lineTax.taxAmount,
+        taxRate: lineTax.taxRate,
+        taxType: lineTax.taxType,
+        taxable: lineTax.taxable
       });
     }
 
-    const subtotal = resolvedLines.reduce((sum, l) => sum + l.line_total, 0);
-    if (subtotal <= 0) {
+    const taxSummary = summarizeLineTax(lineTaxResults);
+    const subtotal = taxSummary.subtotalDpp;
+    const grandTotal = taxSummary.grandTotal;
+    if (grandTotal <= 0) {
       return NextResponse.json({ error: "Total pembelian harus > 0" }, { status: 400 });
     }
 
-    const totalBayar = Math.min(subtotal, Math.max(0, Number(body.bayar ?? subtotal)));
+    const totalBayar = Math.min(grandTotal, Math.max(0, Number(body.bayar ?? grandTotal)));
     const paymentSlices = allocatePaymentAcrossPurchaseLines(
       resolvedLines.map((l) => l.line_total),
       totalBayar
@@ -280,7 +310,10 @@ export async function POST(request: Request) {
       supplierId: supplier.id,
       supplierName: supplier.name,
       pembelianMode: "proper",
-      purchaseRequestId: purchaseRequestId || undefined
+      purchaseRequestId: purchaseRequestId || undefined,
+      subtotalDpp: subtotal,
+      taxTotal: taxSummary.taxTotal,
+      taxType: taxConfig?.taxType
     };
 
     const { data: order, error: orderErr } = await supabase
@@ -292,7 +325,7 @@ export async function POST(request: Request) {
         po_no: poNo,
         status: "CONFIRMED",
         order_date: orderDate,
-        total: subtotal,
+        total: grandTotal,
         project_code: projectCode,
         metadata
       })
@@ -314,7 +347,12 @@ export async function POST(request: Request) {
         kurangBayar: slice.kurangBayar,
         metode: slice.metode,
         tanggalBayar: slice.bayar > 0 ? orderDate : undefined,
-        purchaseCategoryId: line.purchase_category_id
+        purchaseCategoryId: line.purchase_category_id,
+        dpp: line.dpp,
+        taxAmount: line.taxAmount,
+        taxRate: line.taxRate,
+        taxType: line.taxType || undefined,
+        taxable: line.taxable
       };
       return {
         purchase_order_id: order.id,

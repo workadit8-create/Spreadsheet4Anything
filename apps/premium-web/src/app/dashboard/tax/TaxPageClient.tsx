@@ -279,15 +279,10 @@ export default function TaxPageClient({ role }: { role: MembershipRole }) {
           <Card className="border-amber-100 bg-amber-50/50 p-5">
             <p className="text-sm font-semibold text-amber-900">Fase berikutnya</p>
             <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-amber-900/90">
-              <li>PPN/PB otomatis di invoice &amp; PO</li>
               <li>Ringkasan pajak keluaran / masukan per periode</li>
             </ul>
             <p className="mt-3 text-xs text-amber-800/80">
-              Centang produk kena pajak di{" "}
-              <Link href="/dashboard/master" className="font-medium underline">
-                Master → Produk
-              </Link>
-              . Transaksi belum menghitung pajak otomatis.
+              Invoice dan PO sudah menghitung PPN/PB otomatis sesuai pengaturan di halaman ini.
             </p>
           </Card>
 

@@ -9,6 +9,9 @@ export type HistoryOrderRow = {
   customerName: string;
   status: string;
   grandTotal: number;
+  subtotalDpp: number;
+  taxTotal: number;
+  taxType: string;
   bayar: number;
   sisaTagihan: number;
   invoiceBankInfo: string;
@@ -87,6 +90,9 @@ export function summarizeOrderForHistory(
   const isVoided = order.status === "VOIDED";
   const sisaTagihan = isVoided ? 0 : (piutang?.sisaTagihan ?? 0);
   const bayar = Math.max(0, grandTotal - sisaTagihan);
+  const taxTotal = Number(meta.taxTotal) || 0;
+  const subtotalDpp =
+    meta.subtotalDpp != null ? Number(meta.subtotalDpp) : Math.max(0, grandTotal - taxTotal);
 
   return {
     id: order.id,
@@ -96,6 +102,9 @@ export function summarizeOrderForHistory(
     customerName: customerName || String(meta.customerName || ""),
     status: order.status,
     grandTotal,
+    subtotalDpp,
+    taxTotal,
+    taxType: String(meta.taxType || ""),
     bayar,
     sisaTagihan,
     invoiceBankInfo: String(meta.invoiceBankInfo || "")

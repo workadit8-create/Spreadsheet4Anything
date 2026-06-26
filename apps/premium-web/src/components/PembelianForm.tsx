@@ -6,6 +6,7 @@ import { Input, Label, Select } from "@/components/ui/Input";
 import { ProjectSelect } from "@/components/proyek/ProjectSelect";
 import type { ProjectOption } from "@/lib/proyek/bootstrap-options";
 import { computePurchaseLineTotal } from "@/lib/posting/purchase-lines";
+import { computeLineTax, summarizeLineTax, type ActiveTaxConfig } from "@/lib/tax/compute";
 import { wibTodayIso } from "@/lib/date/wib";
 
 type Supplier = { id: string; code: string | null; name: string };
@@ -65,22 +66,34 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
   const [loadingPr, setLoadingPr] = useState(false);
   const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);
   const [projectCode, setProjectCode] = useState("");
+  const [taxConfig, setTaxConfig] = useState<ActiveTaxConfig | null>(null);
 
-  const lineTotals = lines.map((line) => {
+  const lineTaxResults = lines.map((line) => {
     const qty = Number(line.qty) || 0;
     const cost = Number(line.unit_cost) || 0;
     const diskon = Number(line.diskon) || 0;
-    return computePurchaseLineTotal(qty, cost, diskon);
+    const netBeforeTax = computePurchaseLineTotal(qty, cost, diskon);
+    return computeLineTax(
+      netBeforeTax,
+      Boolean(taxConfig),
+      taxConfig?.ratePercent ?? 0,
+      taxConfig?.priceIncludesTax ?? false,
+      taxConfig?.taxType ?? null
+    );
   });
 
-  const subtotal = lineTotals.reduce((a, b) => a + b, 0);
+  const lineTotals = lineTaxResults.map((t) => t.gross);
+  const taxSummary = summarizeLineTax(lineTaxResults);
+  const subtotalDpp = taxSummary.subtotalDpp;
+  const taxTotal = taxSummary.taxTotal;
+  const grandTotal = taxSummary.grandTotal;
   const bayarNum =
     paymentMode === "TUNAI"
-      ? subtotal
+      ? grandTotal
       : paymentMode === "KREDIT"
         ? 0
-        : Math.min(subtotal, Math.max(0, Number(bayar) || 0));
-  const kurangBayar = Math.max(0, subtotal - bayarNum);
+        : Math.min(grandTotal, Math.max(0, Number(bayar) || 0));
+  const kurangBayar = Math.max(0, grandTotal - bayarNum);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -93,6 +106,7 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
       setCategories(data.purchaseCategories || []);
       setKasBank(data.kasBank || []);
       setProjectOptions(data.projectAddon?.options || []);
+      setTaxConfig(data.tax?.active ? data.tax : null);
       if (data.kasBank?.length) setRekening(data.kasBank[0].name);
       if (data.purchaseCategories?.length) {
         setLines((prev) =>
@@ -182,7 +196,7 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
       setError("Lengkapi barang dan kategori di setiap baris");
       return;
     }
-    if (subtotal <= 0) {
+    if (grandTotal <= 0) {
       setError("Total harus > 0");
       return;
     }
@@ -365,8 +379,22 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
         </div>
       </div>
 
-      <div className="rounded-lg bg-slate-50 p-4">
-        <p className="text-lg font-semibold">Total: {formatRp(subtotal)}</p>
+      <div className="rounded-lg bg-slate-50 p-4 space-y-2">
+        <div className="flex justify-between text-sm text-slate-600">
+          <span>Subtotal (DPP)</span>
+          <span>{formatRp(subtotalDpp)}</span>
+        </div>
+        {taxTotal > 0 ? (
+          <div className="flex justify-between text-sm text-slate-600">
+            <span>
+              {taxConfig?.taxType === "pb" ? "PB" : "PPN"} ({taxConfig?.ratePercent}%)
+            </span>
+            <span>{formatRp(taxTotal)}</span>
+          </div>
+        ) : null}
+        <p className="text-lg font-semibold border-t border-slate-200 pt-2">
+          Total: {formatRp(grandTotal)}
+        </p>
         <div className="mt-3 flex flex-wrap gap-2">
           {(["TUNAI", "KREDIT", "PARTIAL"] as PaymentMode[]).map((mode) => (
             <button

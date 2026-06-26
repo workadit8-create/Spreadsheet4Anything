@@ -21,6 +21,13 @@ export const DEFAULT_COA_USAHA: DefaultCoaRow[] = [
     sub_category: "Aset Lancar",
     saldo_normal: "Debit"
   },
+  {
+    code: "1-11003",
+    name: "PPN Masukan",
+    account_type: "Aset",
+    sub_category: "Aset Lancar",
+    saldo_normal: "Debit"
+  },
   { code: "1-12001", name: "Peralatan", account_type: "Aset", sub_category: "Aset Tetap", saldo_normal: "Debit" },
   {
     code: "1-12002",

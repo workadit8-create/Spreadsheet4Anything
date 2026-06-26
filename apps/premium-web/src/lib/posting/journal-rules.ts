@@ -18,6 +18,9 @@ export type PemasukanJournalInput = {
   tanggalBayar: string;
   akunPendapatan: string;
   rekening: string;
+  dpp?: number;
+  taxAmount?: number;
+  taxAccountName?: string;
 };
 
 export type PelunasanPiutangJournalInput = {
@@ -40,6 +43,9 @@ export type PembelianJournalInput = {
   tanggalBayar: string;
   akunPembelian: string;
   rekening: string;
+  dpp?: number;
+  taxAmount?: number;
+  taxAccountName?: string;
 };
 
 export type PelunasanUtangJournalInput = {
@@ -74,6 +80,8 @@ export function resolveKasBankAccount(rekening: string): string {
 export function buildPemasukanJournalLines(data: PemasukanJournalInput): JournalLineDraft[] {
   const bayar = Number(data.bayar) || 0;
   const total = Number(data.total) || 0;
+  const taxAmount = Math.max(0, Number(data.taxAmount) || 0);
+  const dpp = taxAmount > 0 ? Math.max(0, Number(data.dpp) || total - taxAmount) : total;
   const tanggalBayar = data.tanggalBayar || data.tanggalPesan;
   const akunKasBank = resolveKasBankAccount(data.rekening);
   const akunDebitPenjualan =
@@ -92,10 +100,20 @@ export function buildPemasukanJournalLines(data: PemasukanJournalInput): Journal
       lineDate: data.tanggalPesan,
       accountName: data.akunPendapatan || "Pendapatan",
       debit: 0,
-      credit: total,
+      credit: dpp,
       keterangan: ketBase
     }
   ];
+
+  if (taxAmount > 0) {
+    lines.push({
+      lineDate: data.tanggalPesan,
+      accountName: data.taxAccountName || "Utang Pajak",
+      debit: 0,
+      credit: taxAmount,
+      keterangan: ketBase + " (pajak)"
+    });
+  }
 
   if (data.status === "PENJUALAN KREDIT" && bayar > 0) {
     lines.push({
@@ -146,6 +164,8 @@ export function buildPelunasanPiutangJournalLines(
 export function buildPembelianJournalLines(data: PembelianJournalInput): JournalLineDraft[] {
   const bayar = Number(data.bayar) || 0;
   const total = Number(data.total) || 0;
+  const taxAmount = Math.max(0, Number(data.taxAmount) || 0);
+  const dpp = taxAmount > 0 ? Math.max(0, Number(data.dpp) || total - taxAmount) : total;
   const tanggalBayar = data.tanggalBayar || data.tanggal;
   const akunKasBank = resolveKasBankAccount(data.rekening);
   const isKredit = data.metode === "Kredit";
@@ -157,7 +177,7 @@ export function buildPembelianJournalLines(data: PembelianJournalInput): Journal
     {
       lineDate: data.tanggal,
       accountName: data.akunPembelian || "Beban",
-      debit: total,
+      debit: dpp,
       credit: 0,
       keterangan: ketBase
     },
@@ -169,6 +189,16 @@ export function buildPembelianJournalLines(data: PembelianJournalInput): Journal
       keterangan: "Pembelian"
     }
   ];
+
+  if (taxAmount > 0) {
+    lines.splice(1, 0, {
+      lineDate: data.tanggal,
+      accountName: data.taxAccountName || "PPN Masukan",
+      debit: taxAmount,
+      credit: 0,
+      keterangan: ketBase + " (pajak)"
+    });
+  }
 
   if (isKredit && bayar > 0) {
     lines.push({

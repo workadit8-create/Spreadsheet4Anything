@@ -21,6 +21,13 @@ import {
 import { resolveProjectCodeForSave } from "@/lib/proyek/helpers";
 import { assertQuotationConvertible, markQuotationConverted } from "@/lib/pre-docs/convert";
 import { wibDateIsoFromInput, wibTodayIso } from "@/lib/date/wib";
+import { fetchOrgTaxSettings } from "@/lib/org/tax-settings";
+import { productTaxableFromMetadata } from "@/lib/products/ppn";
+import {
+  computeLineTax,
+  getActiveTaxConfig,
+  summarizeLineTax
+} from "@/lib/tax/compute";
 
 type LineInput = {
   product_id: string;
@@ -274,6 +281,9 @@ async function createProperInvoice(
   }
 
   const productMap = new Map((products || []).map((p) => [p.id, p]));
+  const taxSettings = await fetchOrgTaxSettings(supabase, organizationId);
+  const taxConfig = getActiveTaxConfig(taxSettings);
+
   const resolvedLines: Array<{
     product_id: string;
     description: string;
@@ -284,7 +294,14 @@ async function createProperInvoice(
     unitCode: string;
     akunPendapatan: string;
     diskon: number;
+    dpp: number;
+    taxAmount: number;
+    taxRate: number;
+    taxType: string | null;
+    taxable: boolean;
   }> = [];
+
+  const lineTaxResults: ReturnType<typeof computeLineTax>[] = [];
 
   for (let index = 0; index < body.lines!.length; index++) {
     const line = body.lines![index];
@@ -295,20 +312,34 @@ async function createProperInvoice(
     const qty = Number(line.qty) || 1;
     const unitPrice = line.unit_price != null ? Number(line.unit_price) : Number(product.sell_price);
     const diskon = Number(line.diskon) || 0;
-    const lineTotal = computeLineTotal(qty, unitPrice, diskon);
+    const netBeforeTax = computeLineTotal(qty, unitPrice, diskon);
     const rawUnit = product.units as { code: string; name: string } | { code: string; name: string }[] | null;
     const unit = Array.isArray(rawUnit) ? rawUnit[0] : rawUnit;
     const meta = (product.metadata || {}) as Record<string, unknown>;
+    const productTaxable = productTaxableFromMetadata(meta);
+    const lineTax = computeLineTax(
+      netBeforeTax,
+      taxConfig ? productTaxable : false,
+      taxConfig?.ratePercent ?? 0,
+      taxConfig?.priceIncludesTax ?? false,
+      taxConfig?.taxType ?? null
+    );
+    lineTaxResults.push(lineTax);
     resolvedLines.push({
       product_id: product.id,
       description: product.name,
       qty,
       unit_price: unitPrice,
-      line_total: lineTotal,
+      line_total: lineTax.gross,
       sort_order: index,
       unitCode: unit?.code || "PCS",
       akunPendapatan: String(meta.akunPendapatan || "Pendapatan"),
-      diskon
+      diskon,
+      dpp: lineTax.dpp,
+      taxAmount: lineTax.taxAmount,
+      taxRate: lineTax.taxRate,
+      taxType: lineTax.taxType,
+      taxable: lineTax.taxable
     });
   }
 
@@ -316,18 +347,20 @@ async function createProperInvoice(
     return NextResponse.json({ error: "Minimal satu baris produk" }, { status: 400 });
   }
 
-  const subtotal = resolvedLines.reduce((sum, l) => sum + l.line_total, 0);
-  if (subtotal <= 0) {
+  const taxSummary = summarizeLineTax(lineTaxResults);
+  const subtotal = taxSummary.subtotalDpp;
+  const grandTotal = taxSummary.grandTotal;
+  if (grandTotal <= 0) {
     return NextResponse.json({ error: "Total invoice harus > 0" }, { status: 400 });
   }
 
-  const totalBayar = Math.min(subtotal, Math.max(0, Number(body.bayar ?? subtotal)));
+  const totalBayar = Math.min(grandTotal, Math.max(0, Number(body.bayar ?? grandTotal)));
   const paymentSlices = allocatePaymentAcrossLines(
     resolvedLines.map((l) => l.line_total),
     totalBayar
   );
   const paymentStatus = deriveOrderPaymentStatus(paymentSlices);
-  const sisaTagihan = Math.max(0, subtotal - totalBayar);
+  const sisaTagihan = Math.max(0, grandTotal - totalBayar);
 
   let rekening = "";
   if (totalBayar > 0) {
@@ -342,7 +375,7 @@ async function createProperInvoice(
 
   let invoiceRekeningId: string | undefined;
   let invoiceBankInfo: string | undefined;
-  if (invoiceNeedsPrintRekening(subtotal, totalBayar)) {
+  if (invoiceNeedsPrintRekening(grandTotal, totalBayar)) {
     invoiceRekeningId = String(body.invoice_rekening_id || "").trim();
     if (!invoiceRekeningId) {
       return NextResponse.json(
@@ -387,7 +420,10 @@ async function createProperInvoice(
     invoiceMode: "proper",
     quotationId: quotationId || undefined,
     invoiceRekeningId,
-    invoiceBankInfo
+    invoiceBankInfo,
+    subtotalDpp: subtotal,
+    taxTotal: taxSummary.taxTotal,
+    taxType: taxConfig?.taxType
   };
 
   const { data: order, error: orderErr } = await supabase
@@ -401,7 +437,7 @@ async function createProperInvoice(
       status: "CONFIRMED",
       order_date: orderDate,
       subtotal,
-      total: subtotal,
+      total: grandTotal,
       project_code: projectCode,
       metadata
     })
@@ -421,7 +457,12 @@ async function createProperInvoice(
       unitCode: line.unitCode,
       bayar: slice.bayar,
       kurangBayar: slice.kurangBayar,
-      paymentStatus: slice.paymentStatus
+      paymentStatus: slice.paymentStatus,
+      dpp: line.dpp,
+      taxAmount: line.taxAmount,
+      taxRate: line.taxRate,
+      taxType: line.taxType || undefined,
+      taxable: line.taxable
     };
     return {
       sales_order_id: order.id,

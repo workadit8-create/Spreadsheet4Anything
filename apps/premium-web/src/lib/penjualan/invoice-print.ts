@@ -48,8 +48,13 @@ export function buildInvoicePrintHtml(
   const status = paymentStatus(order);
   const customerName = customer?.name || order.customerName || "—";
 
-  const subtotal = lines.reduce((sum, l) => sum + l.qty * l.unitPrice, 0);
+  const subtotal = order.subtotalDpp || lines.reduce((sum, l) => sum + l.qty * l.unitPrice, 0);
   const totalDiskon = lines.reduce((sum, l) => sum + l.diskon, 0);
+  const taxLabel = order.taxType === "pb" ? "PB" : order.taxType === "ppn" ? "PPN" : "Pajak";
+  const taxRow =
+    order.taxTotal > 0
+      ? `<div class="doc-summary-row"><span>${taxLabel}</span><span>${formatRp(order.taxTotal)}</span></div>`
+      : "";
 
   const lineRows = lines
     .map((l, i) => {
@@ -167,8 +172,9 @@ export function buildInvoicePrintHtml(
         <div style="position:relative;flex-shrink:0;">
         ${stamp}
         <div class="doc-summary">
-          <div class="doc-summary-row"><span>Subtotal</span><span>${formatRp(subtotal)}</span></div>
+          <div class="doc-summary-row"><span>Subtotal (DPP)</span><span>${formatRp(subtotal)}</span></div>
           <div class="doc-summary-row"><span>Diskon</span><span>${totalDiskon > 0 ? `−${formatRp(totalDiskon)}` : "—"}</span></div>
+          ${taxRow}
           <div class="doc-summary-total">
             <span class="label">GRAND TOTAL</span>
             <span class="value">${formatRp(order.grandTotal)}</span>

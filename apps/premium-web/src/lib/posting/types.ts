@@ -11,6 +11,9 @@ export type SalesOrderMetadata = {
   customerId?: string;
   customerName?: string;
   invoiceMode?: "lab" | "proper";
+  subtotalDpp?: number;
+  taxTotal?: number;
+  taxType?: string;
 };
 
 export type SalesLineMetadata = {
@@ -22,6 +25,11 @@ export type SalesLineMetadata = {
   kurangBayar?: number;
   paymentStatus?: PaymentStatus;
   tanggalBayar?: string;
+  dpp?: number;
+  taxAmount?: number;
+  taxRate?: number;
+  taxType?: string;
+  taxable?: boolean;
 };
 
 export type SalesOrderRow = {
@@ -60,6 +68,9 @@ export type PurchaseOrderMetadata = {
   supplierId?: string;
   supplierName?: string;
   pembelianMode?: "proper";
+  subtotalDpp?: number;
+  taxTotal?: number;
+  taxType?: string;
 };
 
 export type PurchaseLineMetadata = {
@@ -72,6 +83,11 @@ export type PurchaseLineMetadata = {
   metode?: PembelianMetode;
   tanggalBayar?: string;
   purchaseCategoryId?: string;
+  dpp?: number;
+  taxAmount?: number;
+  taxRate?: number;
+  taxType?: string;
+  taxable?: boolean;
 };
 
 export type PurchaseOrderRow = {
