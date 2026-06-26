@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { fetchOrgAddons, isAddonEnabled } from "@/lib/org/addons";
 import { requireUserOrg } from "@/lib/org/require-user-org";
-import InventoryMasterPageClient from "../InventoryMasterPageClient";
+import InventoryOutletsPageClient from "./InventoryOutletsPageClient";
 
 export default async function InventoryOutletsPage() {
   const supabase = await createClient();
@@ -18,8 +18,8 @@ export default async function InventoryOutletsPage() {
     redirect("/dashboard/master");
   }
   if (!isAddonEnabled(addons, "outlet")) {
-    redirect("/dashboard/inventory/products");
+    redirect("/dashboard/inventory/warehouse");
   }
 
-  return <InventoryMasterPageClient tab="outlets" />;
+  return <InventoryOutletsPageClient />;
 }

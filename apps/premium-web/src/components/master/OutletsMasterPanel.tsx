@@ -161,8 +161,33 @@ export function OutletsMasterPanel() {
                 <td className="py-2 font-medium">{o.outlet_code}</td>
                 <td className="py-2">{o.name}</td>
                 <td className="py-2">{BUSINESS_SECTOR_LABELS[o.business_sector as keyof typeof BUSINESS_SECTOR_LABELS] || o.business_sector}</td>
-                <td className="py-2 text-slate-500">
-                  {warehouses.find((w) => w.id === o.warehouse_id)?.name || "—"}
+                <td className="py-2">
+                  <Select
+                    className="max-w-xs py-1 text-sm"
+                    value={o.warehouse_id || ""}
+                    onChange={async (e) => {
+                      const warehouse_id = e.target.value || null;
+                      try {
+                        const res = await fetch("/api/master/outlets", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ id: o.id, warehouse_id })
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error);
+                        await load();
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : "Gagal update gudang");
+                      }
+                    }}
+                  >
+                    <option value="">— pilih gudang —</option>
+                    {warehouses.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.code} — {w.name}
+                      </option>
+                    ))}
+                  </Select>
                 </td>
               </tr>
             ))}

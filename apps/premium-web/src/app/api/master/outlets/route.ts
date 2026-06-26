@@ -53,6 +53,34 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
+
+  if (body.id) {
+    const warehouseId = String(body.warehouse_id || body.warehouseId || "").trim() || null;
+    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (body.name !== undefined) patch.name = String(body.name || "").trim();
+    if (body.business_sector !== undefined || body.businessSector !== undefined) {
+      patch.business_sector = String(body.business_sector || body.businessSector || "retail");
+    }
+    if (body.warehouse_id !== undefined || body.warehouseId !== undefined) {
+      patch.warehouse_id = warehouseId;
+    }
+    if (body.sort_order !== undefined || body.sortOrder !== undefined) {
+      patch.sort_order = Number(body.sort_order ?? body.sortOrder ?? 0);
+    }
+    if (body.active !== undefined) patch.active = body.active !== false;
+
+    const { data, error } = await supabase
+      .from("outlets")
+      .update(patch)
+      .eq("id", body.id)
+      .eq("organization_id", auth.org.id)
+      .select("id, outlet_code, name, warehouse_id")
+      .single();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ outlet: data });
+  }
+
   const outletCode = normalizeOutletCode(body.outlet_code || body.outletCode);
   const name = String(body.name || "").trim();
   const businessSector = String(body.business_sector || body.businessSector || "retail");
