@@ -6,6 +6,11 @@ import { Card } from "@/components/ui/Card";
 import { Input, Label } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
 import type { MembershipRole } from "@/lib/org/roles";
+import {
+  buildAssetLabelsPrintHtml,
+  buildSingleAssetLabelPrintHtml,
+  openAssetLabelPrintWindow
+} from "@/lib/assets/asset-label-print";
 
 type AssetItem = {
   id: string;
@@ -93,6 +98,8 @@ export default function AsetPageClient({ role }: { role: MembershipRole }) {
   const [disposeRekening, setDisposeRekening] = useState("");
   const [disposeNotes, setDisposeNotes] = useState("");
   const [disposingId, setDisposingId] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState("");
+  const [printingLabels, setPrintingLabels] = useState(false);
 
   const [form, setForm] = useState({
     code: "",
@@ -113,16 +120,21 @@ export default function AsetPageClient({ role }: { role: MembershipRole }) {
     setLoading(true);
     setError(null);
     try {
-      const [assetsRes, bootRes] = await Promise.all([
+      const [assetsRes, bootRes, profileRes] = await Promise.all([
         fetch("/api/assets"),
-        fetch("/api/assets/bootstrap")
+        fetch("/api/assets/bootstrap"),
+        fetch("/api/org/business-profile")
       ]);
       const assetsData = await assetsRes.json();
       const bootData = await bootRes.json();
+      const profileData = profileRes.ok ? await profileRes.json() : {};
       if (!assetsRes.ok) throw new Error(assetsData.error || "Gagal memuat aset");
       if (!bootRes.ok) throw new Error(bootData.error || "Gagal memuat data pendukung");
       setAssets(assetsData.assets || []);
       setBootstrap(bootData);
+      setCompanyName(
+        String(profileData.companyName || profileData.orgName || "").trim()
+      );
       if (bootData.kasBank?.length) {
         setDisposeRekening(bootData.kasBank[0].name);
       }
@@ -263,6 +275,52 @@ export default function AsetPageClient({ role }: { role: MembershipRole }) {
     }
   }
 
+  async function printOneLabel(asset: AssetItem) {
+    setError(null);
+    try {
+      const html = await buildSingleAssetLabelPrintHtml(
+        {
+          id: asset.id,
+          code: asset.code,
+          name: asset.name,
+          category: asset.category
+        },
+        companyName,
+        window.location.origin
+      );
+      openAssetLabelPrintWindow(html);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal cetak label");
+    }
+  }
+
+  async function printAllActiveLabels() {
+    const items = activeAssets.map((a) => ({
+      id: a.id,
+      code: a.code,
+      name: a.name,
+      category: a.category
+    }));
+    if (!items.length) {
+      setError("Tidak ada aset aktif untuk dicetak");
+      return;
+    }
+    setPrintingLabels(true);
+    setError(null);
+    try {
+      const html = await buildAssetLabelsPrintHtml(
+        items,
+        companyName,
+        window.location.origin
+      );
+      openAssetLabelPrintWindow(html);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal cetak label");
+    } finally {
+      setPrintingLabels(false);
+    }
+  }
+
   const selectedDepAsset = assets.find((a) => a.id === depreciatingId);
 
   return (
@@ -270,7 +328,7 @@ export default function AsetPageClient({ role }: { role: MembershipRole }) {
       <PageHeader
         badge="Core"
         title="Aset Tetap"
-        description="Daftar aset, penyusutan garis lurus manual, dispose/jual dengan jurnal otomatis."
+        description="Daftar aset, penyusutan, dispose, dan cetak label QR untuk ditempel di barang fisik."
       />
 
       {error && (
@@ -303,9 +361,17 @@ export default function AsetPageClient({ role }: { role: MembershipRole }) {
         <Button type="button" onClick={() => setShowForm((v) => !v)}>
           {showForm ? "Tutup form" : "+ Tambah aset"}
         </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={printingLabels || activeAssets.length === 0}
+          onClick={() => void printAllActiveLabels()}
+        >
+          {printingLabels ? "Menyiapkan…" : `Cetak label QR (${activeAssets.length})`}
+        </Button>
         {!canPost && (
           <span className="text-xs text-zinc-500">
-            Penyusutan & jurnal: owner / akuntan
+            Penyusutan & dispose: owner / akuntan
           </span>
         )}
       </div>
@@ -564,7 +630,7 @@ export default function AsetPageClient({ role }: { role: MembershipRole }) {
                 <th className="px-3 py-2 text-right">Akumulasi</th>
                 <th className="px-3 py-2 text-right">Nilai buku</th>
                 <th className="px-3 py-2">Status</th>
-                {canPost && <th className="px-3 py-2 w-28">Aksi</th>}
+                <th className="px-3 py-2 w-32">Aksi</th>
               </tr>
             </thead>
             <tbody>
@@ -598,36 +664,40 @@ export default function AsetPageClient({ role }: { role: MembershipRole }) {
                       </div>
                     ) : null}
                   </td>
-                  {canPost && (
-                    <td className="px-3 py-2">
-                      <div className="flex flex-col gap-1">
-                        {a.status === "active" && a.remainingDepreciable > 0 ? (
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            className="px-2 py-1 text-xs"
-                            disabled={depreciatingId === a.id || disposingId === a.id}
-                            onClick={() => void recordDepreciation(a)}
-                          >
-                            {depreciatingId === a.id ? "…" : "Susut"}
-                          </Button>
-                        ) : null}
-                        {a.status !== "disposed" ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            className="px-2 py-1 text-xs text-red-700"
-                            disabled={disposingId === a.id || depreciatingId === a.id}
-                            onClick={() => void recordDisposal(a)}
-                          >
-                            {disposingId === a.id ? "…" : "Dispose"}
-                          </Button>
-                        ) : (
-                          <span className="text-xs text-zinc-400">—</span>
-                        )}
-                      </div>
-                    </td>
-                  )}
+                  <td className="px-3 py-2">
+                    <div className="flex flex-col gap-1">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="px-2 py-1 text-xs"
+                        onClick={() => void printOneLabel(a)}
+                      >
+                        QR
+                      </Button>
+                      {canPost && a.status === "active" && a.remainingDepreciable > 0 ? (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="px-2 py-1 text-xs"
+                          disabled={depreciatingId === a.id || disposingId === a.id}
+                          onClick={() => void recordDepreciation(a)}
+                        >
+                          {depreciatingId === a.id ? "…" : "Susut"}
+                        </Button>
+                      ) : null}
+                      {canPost && a.status !== "disposed" ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="px-2 py-1 text-xs text-red-700"
+                          disabled={disposingId === a.id || depreciatingId === a.id}
+                          onClick={() => void recordDisposal(a)}
+                        >
+                          {disposingId === a.id ? "…" : "Dispose"}
+                        </Button>
+                      ) : null}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
