@@ -18,7 +18,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   "member.remove": "Hapus anggota tim",
   "org.profile_update": "Ubah profil usaha",
   "org.logo_update": "Unggah logo usaha",
-  "org.logo_delete": "Hapus logo usaha"
+  "org.logo_delete": "Hapus logo usaha",
+  "org.ppn_update": "Ubah pengaturan PPN"
 };
 
 export function formatAuditMetadataSummary(
@@ -49,6 +50,11 @@ export function formatAuditMetadataSummary(
 
   if (action === "org.profile_update" && metadata.companyName) {
     return String(metadata.companyName);
+  }
+
+  if (action === "org.ppn_update") {
+    const pkp = metadata.pkpEnabled ? "PKP aktif" : "Non-PKP";
+    return pkp;
   }
 
   const keys = Object.keys(metadata);
