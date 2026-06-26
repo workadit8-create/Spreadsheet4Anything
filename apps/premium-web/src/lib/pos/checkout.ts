@@ -26,6 +26,7 @@ import {
 } from "@/lib/tax/compute";
 import { ensureWalkInCustomer } from "@/lib/pos/walk-in-customer";
 import { resolveOutletCodeForSave } from "@/lib/outlets/helpers";
+import { assertPosOutletAllowed } from "@/lib/outlets/membership-scope";
 
 export type PosCheckoutLineInput = {
   product_id: string;
@@ -82,7 +83,8 @@ export async function processPosCheckout(
   supabase: SupabaseClient,
   organizationId: string,
   userId: string | null,
-  body: PosCheckoutInput
+  body: PosCheckoutInput,
+  options?: { allowedPosOutlets?: string[] | null }
 ): Promise<PosCheckoutResult> {
   const localId = String(body.local_id || "").trim();
   if (localId) {
@@ -96,6 +98,7 @@ export async function processPosCheckout(
 
   let outletCode: string | null = null;
   try {
+    assertPosOutletAllowed(options?.allowedPosOutlets ?? null, body.outlet_code);
     outletCode = await resolveOutletCodeForSave(supabase, organizationId, body.outlet_code);
   } catch (err) {
     throw new Error(err instanceof Error ? err.message : "Outlet tidak valid");

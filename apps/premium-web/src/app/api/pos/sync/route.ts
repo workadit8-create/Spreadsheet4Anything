@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAddon } from "@/lib/org/addons";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { processPosCheckout, type PosCheckoutInput } from "@/lib/pos/checkout";
+import { fetchUserPosOutletCodes } from "@/lib/outlets/membership-scope";
 
 type SyncBody = {
   transactions?: Array<PosCheckoutInput & { local_id: string }>;
@@ -33,6 +34,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Tidak ada transaksi untuk sync" }, { status: 400 });
   }
 
+  const allowedPosOutlets = await fetchUserPosOutletCodes(supabase, auth.org.id, auth.role);
+
   const results: Array<{
     local_id: string;
     ok: boolean;
@@ -51,7 +54,7 @@ export async function POST(request: Request) {
       const result = await processPosCheckout(supabase, auth.org.id, auth.user?.id ?? null, {
         ...tx,
         local_id: localId
-      });
+      }, { allowedPosOutlets });
       results.push({
         local_id: localId,
         ok: true,

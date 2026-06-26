@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
+import type { OutletOption } from "@/lib/outlets/bootstrap-options";
 import {
   INVITABLE_ROLES,
   type InvitableRole,
@@ -16,11 +17,14 @@ function roleBadge(role: MembershipRole) {
   if (role === "owner") return "bg-violet-100 text-violet-800";
   if (role === "akuntan") return "bg-blue-100 text-blue-800";
   if (role === "staff") return "bg-emerald-100 text-emerald-800";
+  if (role === "cashier") return "bg-amber-100 text-amber-800";
   return "bg-slate-100 text-slate-700";
 }
 
 export default function TimPageClient() {
   const [members, setMembers] = useState<OrgMemberRow[]>([]);
+  const [outletOptions, setOutletOptions] = useState<OutletOption[]>([]);
+  const [outletAddonEnabled, setOutletAddonEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +34,12 @@ export default function TimPageClient() {
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [inviteRole, setInviteRole] = useState<InvitableRole>("staff");
+  const [inviteOutletCode, setInviteOutletCode] = useState("");
+
+  const invitableRoles = useMemo(() => {
+    if (!outletAddonEnabled) return INVITABLE_ROLES.filter((r) => r !== "cashier");
+    return [...INVITABLE_ROLES];
+  }, [outletAddonEnabled]);
 
   const loadMembers = useCallback(async () => {
     setLoading(true);
@@ -39,6 +49,8 @@ export default function TimPageClient() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal memuat");
       setMembers(data.members || []);
+      setOutletAddonEnabled(data.outletAddon?.enabled === true);
+      setOutletOptions(data.outletAddon?.options || []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal memuat");
     } finally {
@@ -50,6 +62,13 @@ export default function TimPageClient() {
     void loadMembers();
   }, [loadMembers]);
 
+  useEffect(() => {
+    if (inviteRole !== "cashier") return;
+    if (!inviteOutletCode && outletOptions.length) {
+      setInviteOutletCode(outletOptions[0].outletCode);
+    }
+  }, [inviteRole, inviteOutletCode, outletOptions]);
+
   async function onInvite(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -57,10 +76,20 @@ export default function TimPageClient() {
     setMessage(null);
     setTempPassword(null);
     try {
+      const body: Record<string, unknown> = {
+        email,
+        role: inviteRole,
+        fullName: fullName || undefined
+      };
+      if (inviteRole === "cashier") {
+        if (!inviteOutletCode) throw new Error("Pilih outlet untuk kasir");
+        body.outletCodes = [inviteOutletCode];
+      }
+
       const res = await fetch("/api/org/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, role: inviteRole, fullName: fullName || undefined })
+        body: JSON.stringify(body)
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal menambah");
@@ -76,14 +105,31 @@ export default function TimPageClient() {
     }
   }
 
-  async function onRoleChange(membershipId: string, role: MembershipRole) {
+  async function onRoleChange(
+    membershipId: string,
+    role: MembershipRole,
+    outletCodes?: string[]
+  ) {
     setError(null);
     setMessage(null);
     try {
+      const body: Record<string, unknown> = { role };
+      if (role === "cashier") {
+        const member = members.find((m) => m.membershipId === membershipId);
+        const codes =
+          outletCodes ||
+          member?.outletScopes.map((s) => s.outletCode).filter(Boolean) ||
+          (outletOptions[0] ? [outletOptions[0].outletCode] : []);
+        if (!codes.length) {
+          throw new Error("Kasir wajib ditetapkan ke outlet");
+        }
+        body.outletCodes = codes;
+      }
+
       const res = await fetch(`/api/org/members/${membershipId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role })
+        body: JSON.stringify(body)
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal mengubah peran");
@@ -92,6 +138,10 @@ export default function TimPageClient() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal mengubah peran");
     }
+  }
+
+  async function onCashierOutletChange(membershipId: string, outletCode: string) {
+    await onRoleChange(membershipId, "cashier", outletCode ? [outletCode] : []);
   }
 
   async function onRemove(membershipId: string, memberEmail: string) {
@@ -113,7 +163,7 @@ export default function TimPageClient() {
     <div className="mx-auto max-w-5xl space-y-6 p-6">
       <PageHeader
         title="Tim & Akses"
-        description="Kelola anggota organisasi dan peran mereka (staff, akuntan)."
+        description="Kelola anggota organisasi, peran, dan penugasan kasir per outlet."
       />
 
       {error && (
@@ -162,19 +212,56 @@ export default function TimPageClient() {
           </div>
           <div>
             <Label>Peran</Label>
-            <Select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as InvitableRole)}>
-              {INVITABLE_ROLES.map((r) => (
+            <Select
+              value={inviteRole}
+              onChange={(e) => setInviteRole(e.target.value as InvitableRole)}
+            >
+              {invitableRoles.map((r) => (
                 <option key={r} value={r}>
                   {ROLE_LABELS[r]}
                 </option>
               ))}
             </Select>
           </div>
-          <div className="flex items-end">
-            <Button type="submit" disabled={saving} className="w-full sm:w-auto">
-              {saving ? "Menyimpan…" : "Tambah anggota"}
-            </Button>
-          </div>
+          {inviteRole === "cashier" ? (
+            <div>
+              <Label>Outlet kasir *</Label>
+              {outletOptions.length ? (
+                <Select
+                  value={inviteOutletCode}
+                  onChange={(e) => setInviteOutletCode(e.target.value)}
+                  required
+                >
+                  {outletOptions.map((o) => (
+                    <option key={o.outletCode} value={o.outletCode}>
+                      {o.label}
+                    </option>
+                  ))}
+                </Select>
+              ) : (
+                <p className="mt-1 text-xs text-amber-700">
+                  Belum ada outlet aktif — buat dulu di Master → Outlet / Cabang (add-on Multi Outlet).
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-end">
+              <Button type="submit" disabled={saving} className="w-full sm:w-auto">
+                {saving ? "Menyimpan…" : "Tambah anggota"}
+              </Button>
+            </div>
+          )}
+          {inviteRole === "cashier" ? (
+            <div className="flex items-end sm:col-span-2">
+              <Button
+                type="submit"
+                disabled={saving || !outletOptions.length}
+                className="w-full sm:w-auto"
+              >
+                {saving ? "Menyimpan…" : "Tambah kasir outlet"}
+              </Button>
+            </div>
+          ) : null}
         </form>
       </Card>
 
@@ -194,6 +281,9 @@ export default function TimPageClient() {
                   <th className="px-5 py-3 font-semibold">Email</th>
                   <th className="px-5 py-3 font-semibold">Nama</th>
                   <th className="px-5 py-3 font-semibold">Peran</th>
+                  {outletAddonEnabled ? (
+                    <th className="px-5 py-3 font-semibold">Outlet</th>
+                  ) : null}
                   <th className="px-5 py-3 font-semibold">Bergabung</th>
                   <th className="px-5 py-3 font-semibold" />
                 </tr>
@@ -205,23 +295,55 @@ export default function TimPageClient() {
                     <td className="px-5 py-3">{m.fullName || "—"}</td>
                     <td className="px-5 py-3">
                       {m.role === "owner" ? (
-                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${roleBadge(m.role)}`}>
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${roleBadge(m.role)}`}
+                        >
                           {ROLE_LABELS[m.role]}
                         </span>
                       ) : (
                         <Select
                           value={m.role}
-                          onChange={(e) => onRoleChange(m.membershipId, e.target.value as MembershipRole)}
+                          onChange={(e) =>
+                            void onRoleChange(m.membershipId, e.target.value as MembershipRole)
+                          }
                           className="max-w-[140px] py-1.5 text-xs"
                         >
-                          {MEMBERSHIP_ROLES.filter((r) => r !== "cashier").map((r) => (
-                            <option key={r} value={r}>
-                              {ROLE_LABELS[r]}
-                            </option>
-                          ))}
+                          {MEMBERSHIP_ROLES.filter((r) => r !== "owner").map((r) => {
+                            if (r === "cashier" && !outletAddonEnabled) return null;
+                            return (
+                              <option key={r} value={r}>
+                                {ROLE_LABELS[r]}
+                              </option>
+                            );
+                          })}
                         </Select>
                       )}
                     </td>
+                    {outletAddonEnabled ? (
+                      <td className="px-5 py-3">
+                        {m.role === "cashier" ? (
+                          outletOptions.length ? (
+                            <Select
+                              value={m.outletScopes[0]?.outletCode || ""}
+                              onChange={(e) =>
+                                void onCashierOutletChange(m.membershipId, e.target.value)
+                              }
+                              className="max-w-[180px] py-1.5 text-xs"
+                            >
+                              {outletOptions.map((o) => (
+                                <option key={o.outletCode} value={o.outletCode}>
+                                  {o.outletCode}
+                                </option>
+                              ))}
+                            </Select>
+                          ) : (
+                            <span className="text-xs text-amber-700">Belum ada outlet</span>
+                          )
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
+                        )}
+                      </td>
+                    ) : null}
                     <td className="px-5 py-3 text-xs text-slate-500">
                       {new Date(m.createdAt).toLocaleDateString("id-ID")}
                     </td>
@@ -229,7 +351,7 @@ export default function TimPageClient() {
                       {m.role !== "owner" && (
                         <button
                           type="button"
-                          onClick={() => onRemove(m.membershipId, m.email)}
+                          onClick={() => void onRemove(m.membershipId, m.email)}
                           className="text-xs font-semibold text-red-600 hover:text-red-700"
                         >
                           Hapus
@@ -252,6 +374,10 @@ export default function TimPageClient() {
           </li>
           <li>
             <strong>Akuntan</strong> — jurnal, posting, laporan, COA
+          </li>
+          <li>
+            <strong>Kasir</strong> — hanya POS, terkunci ke outlet yang ditetapkan (perlu add-on Multi
+            Outlet)
           </li>
           <li>
             <strong>Owner</strong> — akses penuh operasional + pengaturan usaha

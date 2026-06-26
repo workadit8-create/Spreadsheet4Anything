@@ -1,6 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { type MembershipRole, normalizeMembershipRole } from "@/lib/org/roles";
 
+export type MembershipOutletScope = {
+  outletCode: string;
+  canPos: boolean;
+  canInventory: boolean;
+};
+
 export type OrgMemberRow = {
   membershipId: string;
   userId: string;
@@ -8,10 +14,11 @@ export type OrgMemberRow = {
   fullName: string;
   role: MembershipRole;
   createdAt: string;
+  outletScopes: MembershipOutletScope[];
 };
 
 /** Role yang boleh ditambahkan owner lewat UI (bukan owner). */
-export const INVITABLE_ROLES = ["staff", "akuntan"] as const;
+export const INVITABLE_ROLES = ["staff", "akuntan", "cashier"] as const;
 export type InvitableRole = (typeof INVITABLE_ROLES)[number];
 
 export function isInvitableRole(value: string): value is InvitableRole {
@@ -33,13 +40,23 @@ export async function listOrgMembers(
       full_name: string;
       role: string;
       created_at: string;
+      outlet_scopes?: Array<{
+        outletCode?: string;
+        canPos?: boolean;
+        canInventory?: boolean;
+      }> | null;
     }) => ({
       membershipId: row.membership_id,
       userId: row.user_id,
       email: row.email,
       fullName: row.full_name || "",
       role: normalizeMembershipRole(row.role),
-      createdAt: row.created_at
+      createdAt: row.created_at,
+      outletScopes: (row.outlet_scopes || []).map((s) => ({
+        outletCode: String(s.outletCode || ""),
+        canPos: s.canPos !== false,
+        canInventory: Boolean(s.canInventory)
+      }))
     })
   );
 }
@@ -51,16 +68,27 @@ export async function addOrgMember(
     email: string;
     role: InvitableRole;
     fullName?: string;
+    outletCodes?: string[];
   }
-): Promise<{ userId: string; created: boolean; tempPassword?: string }> {
+): Promise<{ userId: string; membershipId: string; created: boolean; tempPassword?: string }> {
   const email = params.email.trim().toLowerCase();
   if (!email) throw new Error("Email wajib diisi");
+
+  const outletCodes =
+    params.role === "cashier"
+      ? (params.outletCodes || []).map((c) => c.trim().toUpperCase()).filter(Boolean)
+      : null;
+
+  if (params.role === "cashier" && !outletCodes?.length) {
+    throw new Error("Kasir wajib ditetapkan ke minimal satu outlet");
+  }
 
   const { data, error } = await supabase.rpc("add_org_member", {
     p_org_id: params.orgId,
     p_email: email,
     p_role: params.role,
-    p_full_name: params.fullName?.trim() || ""
+    p_full_name: params.fullName?.trim() || "",
+    p_outlet_codes: outletCodes
   });
   if (error) throw new Error(error.message);
 
@@ -69,9 +97,27 @@ export async function addOrgMember(
 
   return {
     userId: row.user_id as string,
+    membershipId: row.membership_id as string,
     created: Boolean(row.created),
     tempPassword: row.temp_password ? String(row.temp_password) : undefined
   };
+}
+
+export async function setMembershipOutletScopes(
+  supabase: SupabaseClient,
+  params: {
+    orgId: string;
+    membershipId: string;
+    outletCodes: string[];
+  }
+): Promise<void> {
+  const outletCodes = params.outletCodes.map((c) => c.trim().toUpperCase()).filter(Boolean);
+  const { error } = await supabase.rpc("set_membership_outlet_scopes", {
+    p_org_id: params.orgId,
+    p_membership_id: params.membershipId,
+    p_outlet_codes: outletCodes
+  });
+  if (error) throw new Error(error.message);
 }
 
 export async function updateOrgMemberRole(

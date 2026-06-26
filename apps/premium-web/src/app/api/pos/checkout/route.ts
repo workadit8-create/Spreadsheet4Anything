@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAddon } from "@/lib/org/addons";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { processPosCheckout, type PosCheckoutInput } from "@/lib/pos/checkout";
+import { fetchUserPosOutletCodes } from "@/lib/outlets/membership-scope";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -25,11 +26,13 @@ export async function POST(request: Request) {
   const body = (await request.json()) as PosCheckoutInput;
 
   try {
+    const allowedPosOutlets = await fetchUserPosOutletCodes(supabase, auth.org.id, auth.role);
     const result = await processPosCheckout(
       supabase,
       auth.org.id,
       auth.user?.id ?? null,
-      body
+      body,
+      { allowedPosOutlets }
     );
     return NextResponse.json({
       ok: true,

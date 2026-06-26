@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { requireOwnerRole, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { AUDIT_ACTIONS, auditFromContext, writeAuditLog } from "@/lib/audit/log";
 import { addOrgMember, isInvitableRole, listOrgMembers } from "@/lib/org/members";
+import { fetchOrgAddons, isAddonEnabled } from "@/lib/org/addons";
+import { fetchOutletBootstrap } from "@/lib/outlets/bootstrap-options";
 
 export async function GET() {
   const supabase = await createClient();
@@ -16,7 +18,12 @@ export async function GET() {
 
   try {
     const members = await listOrgMembers(supabase, auth.org.id);
-    return NextResponse.json({ members });
+    const addons = await fetchOrgAddons(supabase, auth.org.id);
+    const outletAddon = isAddonEnabled(addons, "outlet")
+      ? await fetchOutletBootstrap(supabase, auth.org.id)
+      : { enabled: false, options: [] };
+
+    return NextResponse.json({ members, outletAddon });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Gagal memuat anggota";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -33,7 +40,7 @@ export async function POST(request: Request) {
     return toOrgAuthResponse(e);
   }
 
-  let body: { email?: string; role?: string; fullName?: string };
+  let body: { email?: string; role?: string; fullName?: string; outletCodes?: string[] };
   try {
     body = await request.json();
   } catch {
@@ -43,12 +50,18 @@ export async function POST(request: Request) {
   const email = String(body.email ?? "").trim();
   const role = String(body.role ?? "").trim().toLowerCase();
   const fullName = String(body.fullName ?? "").trim();
+  const outletCodes = Array.isArray(body.outletCodes)
+    ? body.outletCodes.map((c) => String(c).trim()).filter(Boolean)
+    : [];
 
   if (!email) {
     return NextResponse.json({ error: "Email wajib diisi" }, { status: 400 });
   }
   if (!isInvitableRole(role)) {
-    return NextResponse.json({ error: "Peran harus staff atau akuntan" }, { status: 400 });
+    return NextResponse.json({ error: "Peran harus staff, akuntan, atau kasir" }, { status: 400 });
+  }
+  if (role === "cashier" && !outletCodes.length) {
+    return NextResponse.json({ error: "Kasir wajib ditetapkan ke minimal satu outlet" }, { status: 400 });
   }
 
   try {
@@ -56,7 +69,8 @@ export async function POST(request: Request) {
       orgId: auth.org.id,
       email,
       role,
-      fullName: fullName || undefined
+      fullName: fullName || undefined,
+      outletCodes: role === "cashier" ? outletCodes : undefined
     });
 
     await writeAuditLog(
@@ -64,7 +78,7 @@ export async function POST(request: Request) {
       auditFromContext(auth, AUDIT_ACTIONS.memberAdd, {
         resourceType: "membership",
         resourceId: result.userId,
-        metadata: { email, role, created: result.created },
+        metadata: { email, role, created: result.created, outletCodes: role === "cashier" ? outletCodes : [] },
         request
       })
     );

@@ -5,6 +5,10 @@ import { productTaxableFromMetadata } from "@/lib/products/ppn";
 import { getActiveTaxConfig, taxTypeLabel } from "@/lib/tax/compute";
 import { ensureWalkInCustomer } from "@/lib/pos/walk-in-customer";
 import { fetchOutletBootstrap } from "@/lib/outlets/bootstrap-options";
+import {
+  buildPosOutletScopeInfo,
+  filterOutletOptionsByScope
+} from "@/lib/outlets/membership-scope";
 
 export type PosBootstrapProduct = {
   id: string;
@@ -24,7 +28,8 @@ export type PosBootstrapProduct = {
 export async function fetchPosBootstrap(
   supabase: SupabaseClient,
   organizationId: string,
-  outletCodeFilter?: string
+  outletCodeFilter?: string,
+  posOutletScopeCodes?: string[] | null
 ) {
   let warehouseFilterId: string | null = null;
   if (outletCodeFilter) {
@@ -135,6 +140,12 @@ export async function fetchPosBootstrap(
 
   const defaultKas = kasBank.find((k) => /kas/i.test(k.name)) || kasBank[0] || null;
 
+  const scopedOutletOptions = filterOutletOptionsByScope(
+    outletBootstrap.options,
+    posOutletScopeCodes ?? null
+  );
+  const posOutletScope = buildPosOutletScopeInfo(posOutletScopeCodes ?? null);
+
   return {
     organizationId,
     syncedAt: new Date().toISOString(),
@@ -149,7 +160,11 @@ export async function fetchPosBootstrap(
     products,
     kasBank,
     defaultKasRekening: defaultKas?.name || "",
-    outlets: outletBootstrap,
+    outlets: {
+      ...outletBootstrap,
+      options: scopedOutletOptions
+    },
+    posOutletScope,
     tax: taxConfig
       ? {
           active: true,

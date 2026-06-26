@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { removeOrgMember, updateOrgMemberRole } from "@/lib/org/members";
+import { removeOrgMember, setMembershipOutletScopes, updateOrgMemberRole } from "@/lib/org/members";
 import { normalizeMembershipRole } from "@/lib/org/roles";
 import { requireOwnerRole, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { AUDIT_ACTIONS, auditFromContext, writeAuditLog } from "@/lib/audit/log";
@@ -18,7 +18,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   const { id } = await context.params;
-  let body: { role?: string };
+  let body: { role?: string; outletCodes?: string[] };
   try {
     body = await request.json();
   } catch {
@@ -26,6 +26,13 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   const role = normalizeMembershipRole(body.role);
+  const outletCodes = Array.isArray(body.outletCodes)
+    ? body.outletCodes.map((c) => String(c).trim()).filter(Boolean)
+    : undefined;
+
+  if (role === "cashier" && outletCodes !== undefined && !outletCodes.length) {
+    return NextResponse.json({ error: "Kasir wajib punya minimal satu outlet" }, { status: 400 });
+  }
 
   try {
     await updateOrgMemberRole(supabase, {
@@ -34,12 +41,20 @@ export async function PATCH(request: Request, context: RouteContext) {
       role
     });
 
+    if (role === "cashier" && outletCodes) {
+      await setMembershipOutletScopes(supabase, {
+        orgId: auth.org.id,
+        membershipId: id,
+        outletCodes
+      });
+    }
+
     await writeAuditLog(
       supabase,
       auditFromContext(auth, AUDIT_ACTIONS.memberRoleUpdate, {
         resourceType: "membership",
         resourceId: id,
-        metadata: { role },
+        metadata: { role, outletCodes: outletCodes || [] },
         request
       })
     );

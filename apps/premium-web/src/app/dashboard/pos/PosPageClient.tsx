@@ -19,6 +19,12 @@ import type { OutletOption } from "@/lib/outlets/bootstrap-options";
 
 const POS_OUTLET_STORAGE_KEY = "premium-pos-outlet";
 
+type PosOutletScope = {
+  restricted: boolean;
+  locked: boolean;
+  outletCodes: string[];
+};
+
 type CartLine = {
   product_id: string;
   name: string;
@@ -32,6 +38,7 @@ type CartLine = {
 type Bootstrap = PosCatalogSnapshot & {
   kasBank: Array<{ id: string; name: string; bankDisplay: string }>;
   outlets?: { enabled: boolean; options: OutletOption[] };
+  posOutletScope?: PosOutletScope;
 };
 
 function formatRp(n: number): string {
@@ -79,6 +86,7 @@ export default function PosPageClient({ userEmail }: { userEmail: string }) {
   const [outletOptions, setOutletOptions] = useState<OutletOption[]>([]);
   const [selectedOutlet, setSelectedOutlet] = useState("");
   const [outletsRequired, setOutletsRequired] = useState(false);
+  const [outletLocked, setOutletLocked] = useState(false);
 
   const isFnb = catalog?.businessSectors?.includes("fnb") ?? false;
   const showGramasi = catalog?.businessSectors?.includes("retail") ?? false;
@@ -118,17 +126,31 @@ export default function PosPageClient({ userEmail }: { userEmail: string }) {
         kasBank: data.kasBank || [],
         tax: data.tax || { active: false },
         syncedAt: data.syncedAt,
-        outlets: data.outlets
+        outlets: data.outlets,
+        posOutletScope: data.posOutletScope
       };
+      const scope = data.posOutletScope as PosOutletScope | undefined;
+      setOutletLocked(Boolean(scope?.locked));
+
       if (data.outlets?.enabled && data.outlets.options?.length) {
         setOutletOptions(data.outlets.options);
         setOutletsRequired(true);
+
+        if (scope?.locked && data.outlets.options.length === 1) {
+          const only = data.outlets.options[0].outletCode;
+          setSelectedOutlet(only);
+          localStorage.setItem(POS_OUTLET_STORAGE_KEY, only);
+          await applyBootstrap({ ...snapshot, warehouseId: data.warehouse?.id || null });
+          return;
+        }
+
         if (!code) {
           setLoading(false);
           return;
         }
       } else {
         setOutletsRequired(false);
+        setOutletLocked(false);
       }
       await applyBootstrap(snapshot);
     } catch (e) {
@@ -149,6 +171,16 @@ export default function PosPageClient({ userEmail }: { userEmail: string }) {
     const saved = localStorage.getItem(POS_OUTLET_STORAGE_KEY) || "";
     if (saved) setSelectedOutlet(saved);
   }, []);
+
+  useEffect(() => {
+    if (!outletOptions.length || !selectedOutlet) return;
+    const allowed = new Set(outletOptions.map((o) => o.outletCode));
+    if (!allowed.has(selectedOutlet)) {
+      setSelectedOutlet("");
+      localStorage.removeItem(POS_OUTLET_STORAGE_KEY);
+      setCatalog(null);
+    }
+  }, [outletOptions, selectedOutlet]);
 
   useEffect(() => {
     setOnline(typeof navigator !== "undefined" ? navigator.onLine : true);
@@ -473,7 +505,7 @@ export default function PosPageClient({ userEmail }: { userEmail: string }) {
           Stok: {formatSyncTime(catalog.syncedAt)}
           {selectedOutlet ? ` · ${selectedOutlet}` : ""}
         </span>
-        {selectedOutlet ? (
+        {selectedOutlet && !outletLocked && outletOptions.length > 1 ? (
           <button
             type="button"
             className="text-xs text-brand-600 hover:underline"
