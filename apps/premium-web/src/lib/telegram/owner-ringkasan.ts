@@ -14,6 +14,12 @@ import {
 
 const OPERATIONAL_STATUSES = ["CONFIRMED", "POSTED"] as const;
 
+type DbResult = { error: { message: string } | null };
+
+function throwIfDbError(label: string, res: DbResult): void {
+  if (res.error) throw new Error(`${label}: ${res.error.message}`);
+}
+
 export type OwnerRingkasan = {
   date: string;
   monthStart: string;
@@ -89,6 +95,14 @@ export async function fetchOwnerRingkasan(
       .limit(80)
   ]);
 
+  throwIfDbError("sales_orders bulan", salesMonthRes);
+  throwIfDbError("sales_orders backlog", salesOpenRes);
+  throwIfDbError("purchase_orders backlog", purchaseOpenRes);
+  throwIfDbError("cash_bank_accounts", kasAccountsRes);
+  throwIfDbError("cash_transfers", transfersRes);
+  throwIfDbError("sales_orders piutang", salesPiutangRes);
+  throwIfDbError("purchase_orders hutang", purchaseHutangRes);
+
   const salesOrderIds = (salesPiutangRes.data || []).map((o) => o.id);
   const purchaseOrderIds = (purchaseHutangRes.data || []).map((o) => o.id);
 
@@ -101,6 +115,9 @@ export async function fetchOwnerRingkasan(
       : Promise.resolve({ data: [] as PurchaseLineRow[] }),
     fetchLabaBersihBulanIni(supabase, organizationId, monthStart, dateIso)
   ]);
+
+  throwIfDbError("sales_lines", salesLinesRes as DbResult);
+  throwIfDbError("purchase_lines", purchaseLinesRes as DbResult);
 
   const salesLinesByOrder = new Map<string, SalesLineRow[]>();
   for (const line of salesLinesRes.data || []) {
