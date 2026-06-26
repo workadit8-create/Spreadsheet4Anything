@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Label } from "@/components/ui/Input";
@@ -41,46 +41,90 @@ export default function StokOutletPageClient({ role }: { role: MembershipRole })
   const [products, setProducts] = useState<StockRow[]>([]);
   const [counts, setCounts] = useState<CountDraft>({});
   const [notes, setNotes] = useState("Opname harian");
+  const requestSeq = useRef(0);
 
-  const loadBootstrap = useCallback(async (outletCode?: string) => {
+  const applyBootstrap = useCallback((data: Bootstrap) => {
+    setOutletOptions(data.outlets?.options || []);
+    setOutletLocked(Boolean(data.inventoryScope?.locked));
+
+    if (data.outlet) {
+      setSelectedOutlet(data.outlet.outletCode);
+      setWarehouseName(data.warehouse?.name || "");
+      setProducts(data.products || []);
+      const draft: CountDraft = {};
+      for (const p of data.products || []) {
+        draft[p.id] = String(p.stockQty);
+      }
+      setCounts(draft);
+    }
+  }, []);
+
+  const loadOutletStock = useCallback(
+    async (outletCode: string, parentSeq?: number) => {
+      const seq = parentSeq ?? ++requestSeq.current;
+      if (parentSeq === undefined) {
+        requestSeq.current = seq;
+      }
+      setLoading(true);
+      setError(null);
+      setSelectedOutlet(outletCode);
+      try {
+        const res = await fetch(
+          `/api/inventory/outlet/bootstrap?outlet_code=${encodeURIComponent(outletCode)}`
+        );
+        const data = (await res.json()) as Bootstrap & { error?: string };
+        if (!res.ok) throw new Error(data.error || "Gagal memuat");
+        if (seq !== requestSeq.current) return;
+
+        applyBootstrap(data);
+      } catch (e) {
+        if (seq === requestSeq.current) {
+          setError(e instanceof Error ? e.message : "Gagal memuat");
+          setSelectedOutlet("");
+          setProducts([]);
+          setCounts({});
+        }
+      } finally {
+        if (seq === requestSeq.current) {
+          setLoading(false);
+        }
+      }
+    },
+    [applyBootstrap]
+  );
+
+  const loadOutletList = useCallback(async () => {
+    const seq = ++requestSeq.current;
     setLoading(true);
     setError(null);
     try {
-      const q = outletCode ? `?outlet_code=${encodeURIComponent(outletCode)}` : "";
-      const res = await fetch(`/api/inventory/outlet/bootstrap${q}`);
+      const res = await fetch("/api/inventory/outlet/bootstrap");
       const data = (await res.json()) as Bootstrap & { error?: string };
       if (!res.ok) throw new Error(data.error || "Gagal memuat");
+      if (seq !== requestSeq.current) return;
 
       setOutletOptions(data.outlets?.options || []);
       setOutletLocked(Boolean(data.inventoryScope?.locked));
 
-      if (data.outlets?.options?.length && !outletCode && !data.outlet) {
-        setProducts([]);
-        setCounts({});
-        setWarehouseName("");
+      if (data.inventoryScope?.locked && data.outlets?.options?.length === 1) {
+        const only = data.outlets.options[0].outletCode;
+        await loadOutletStock(only, seq);
         return;
       }
-
-      if (data.outlet) {
-        setSelectedOutlet(data.outlet.outletCode);
-        setWarehouseName(data.warehouse?.name || "");
-        setProducts(data.products || []);
-        const draft: CountDraft = {};
-        for (const p of data.products || []) {
-          draft[p.id] = String(p.stockQty);
-        }
-        setCounts(draft);
-      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Gagal memuat");
+      if (seq === requestSeq.current) {
+        setError(e instanceof Error ? e.message : "Gagal memuat");
+      }
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) {
+        setLoading(false);
+      }
     }
-  }, []);
+  }, [loadOutletStock]);
 
   useEffect(() => {
-    void loadBootstrap();
-  }, [loadBootstrap]);
+    void loadOutletList();
+  }, [loadOutletList]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -128,7 +172,7 @@ export default function StokOutletPageClient({ role }: { role: MembershipRole })
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal menyimpan");
       setMessage(data.message || "Opname tersimpan");
-      await loadBootstrap(selectedOutlet);
+      await loadOutletStock(selectedOutlet);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal menyimpan");
     } finally {
@@ -136,7 +180,17 @@ export default function StokOutletPageClient({ role }: { role: MembershipRole })
     }
   }
 
-  if (loading && !products.length && !outletOptions.length) {
+  function backToPicker() {
+    requestSeq.current += 1;
+    setSelectedOutlet("");
+    setProducts([]);
+    setCounts({});
+    setWarehouseName("");
+    setError(null);
+    setMessage(null);
+  }
+
+  if (loading && !outletOptions.length && !selectedOutlet) {
     return (
       <main className="mx-auto max-w-5xl px-6 py-8 text-sm text-slate-500">
         Memuat stok outlet…
@@ -155,20 +209,26 @@ export default function StokOutletPageClient({ role }: { role: MembershipRole })
     );
   }
 
-  if (!selectedOutlet || (!products.length && !loading)) {
+  if (!selectedOutlet) {
     return (
       <main className="mx-auto max-w-lg px-6 py-12">
         <PageHeader
           title="Stok Outlet"
           description="Pilih outlet untuk opname / penyesuaian stok gudang."
         />
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
         <div className="mt-6 grid gap-2">
           {outletOptions.map((o) => (
             <button
               key={o.outletCode}
               type="button"
-              onClick={() => void loadBootstrap(o.outletCode)}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm hover:border-brand-400"
+              disabled={loading}
+              onClick={() => void loadOutletStock(o.outletCode)}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm hover:border-brand-400 disabled:opacity-50"
             >
               <div className="font-semibold text-slate-900">{o.name}</div>
               <div className="text-xs text-slate-500">{o.outletCode}</div>
@@ -195,15 +255,7 @@ export default function StokOutletPageClient({ role }: { role: MembershipRole })
       >
         <div className="flex gap-3 text-sm">
           {!outletLocked && outletOptions.length > 1 ? (
-            <button
-              type="button"
-              className="text-brand-600 hover:underline"
-              onClick={() => {
-                setSelectedOutlet("");
-                setProducts([]);
-                setCounts({});
-              }}
-            >
+            <button type="button" className="text-brand-600 hover:underline" onClick={backToPicker}>
               Ganti outlet
             </button>
           ) : null}
@@ -212,6 +264,10 @@ export default function StokOutletPageClient({ role }: { role: MembershipRole })
           </Link>
         </div>
       </PageHeader>
+
+      {loading ? (
+        <p className="mb-4 text-sm text-slate-500">Memuat produk…</p>
+      ) : null}
 
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -296,8 +352,10 @@ export default function StokOutletPageClient({ role }: { role: MembershipRole })
             </tbody>
           </table>
         </div>
-        {!filtered.length ? (
-          <p className="px-4 py-8 text-sm text-slate-500">Tidak ada produk ber-stok.</p>
+        {!loading && !filtered.length ? (
+          <p className="px-4 py-8 text-sm text-slate-500">
+            Tidak ada produk ber-stok di master. Aktifkan pelacakan stok di kategori/produk.
+          </p>
         ) : null}
       </Card>
 
