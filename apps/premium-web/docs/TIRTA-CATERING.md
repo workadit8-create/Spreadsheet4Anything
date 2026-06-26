@@ -26,8 +26,14 @@ Tenant produksi terpisah dari **hybrid-lab** (akun lab `workadit8@gmail.com`).
 - COA default (auto)
 - Gudang MAIN, satuan PCS/KG/GR
 - Kategori produk catering (bahan baku, menu, jasa)
-- Add-on **project** diaktifkan manual per client (pilot di hybrid-lab)
+- Add-on **project**, **pos**, **pos_gramasi**, **crm** — aktif (gratis beta tester)
 - Profil usaha: TIRTA CATERING, Tangerang
+
+Aktifkan ulang / verifikasi:
+
+```bash
+./scripts/run-supabase-migration-file.sh enable-addons-tirta-catering.sql
+```
 
 ## Setelah onboarding
 
