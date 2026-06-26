@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { fetchOrgAddons, isAddonEnabled } from "@/lib/org/addons";
 import { requireUserOrg } from "@/lib/org/require-user-org";
-import InventoryMasterPageClient from "../InventoryMasterPageClient";
+import InventoryProductsPageClient from "./InventoryProductsPageClient";
 
 export default async function InventoryProductsPage() {
   const supabase = await createClient();
@@ -18,5 +18,5 @@ export default async function InventoryProductsPage() {
     redirect("/dashboard/master");
   }
 
-  return <InventoryMasterPageClient tab="products" />;
+  return <InventoryProductsPageClient role={auth.role} />;
 }
