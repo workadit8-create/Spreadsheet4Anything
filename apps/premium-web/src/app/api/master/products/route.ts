@@ -9,9 +9,14 @@ import {
 } from "@/lib/products/inventory-policy";
 import {
   mergeProductMetadata,
-  productPpnTaxableFromMetadata
+  productTaxableFromMetadata
 } from "@/lib/products/ppn";
-import { fetchOrgPpnSettings } from "@/lib/org/ppn-settings";
+import {
+  fetchOrgTaxSettings,
+  isProductTaxEnabled,
+  productTaxColumnLabel,
+  productTaxFieldLabel
+} from "@/lib/org/tax-settings";
 
 export async function GET() {
   const supabase = await createClient();
@@ -23,7 +28,8 @@ export async function GET() {
   }
   const { org } = auth;
 
-  const ppnSettings = await fetchOrgPpnSettings(supabase, org.id);
+  const taxSettings = await fetchOrgTaxSettings(supabase, org.id);
+  const productTaxEnabled = isProductTaxEnabled(taxSettings);
 
   const { data: units } = await supabase
     .from("units")
@@ -67,7 +73,10 @@ export async function GET() {
           : p.tracks_stock === false
             ? "no_track"
             : "inherit",
-      ppn_taxable: productPpnTaxableFromMetadata(
+      tax_taxable: productTaxableFromMetadata(
+        (p.metadata || {}) as Record<string, unknown>
+      ),
+      ppn_taxable: productTaxableFromMetadata(
         (p.metadata || {}) as Record<string, unknown>
       )
     };
@@ -77,7 +86,13 @@ export async function GET() {
     items,
     units: units || [],
     categories: categories || [],
-    ppn: { pkpEnabled: ppnSettings.pkpEnabled }
+    tax: {
+      activeType: taxSettings.activeType,
+      productTaxEnabled,
+      taxableFieldLabel: productTaxFieldLabel(taxSettings),
+      taxColumnLabel: productTaxColumnLabel(taxSettings)
+    },
+    ppn: { pkpEnabled: taxSettings.ppn.pkpEnabled }
   });
 }
 
@@ -104,7 +119,8 @@ export async function POST(request: Request) {
   const stockPolicy = (body.stock_policy as StockPolicy) || "inherit";
   const tracksStock = tracksStockFromPolicy(stockPolicy);
 
-  const ppnSettings = await fetchOrgPpnSettings(supabase, org.id);
+  const taxSettings = await fetchOrgTaxSettings(supabase, org.id);
+  const productTaxEnabled = isProductTaxEnabled(taxSettings);
 
   let existingMeta: Record<string, unknown> = {};
   if (body.id) {
@@ -117,18 +133,19 @@ export async function POST(request: Request) {
     existingMeta = (existingRow?.metadata || {}) as Record<string, unknown>;
   }
 
-  let ppnTaxable = productPpnTaxableFromMetadata(existingMeta);
-  if (ppnSettings.pkpEnabled) {
-    if (body.ppn_taxable !== undefined) {
-      ppnTaxable = body.ppn_taxable === true;
+  let taxTaxable = productTaxableFromMetadata(existingMeta);
+  if (productTaxEnabled) {
+    const bodyTaxable = body.tax_taxable ?? body.ppn_taxable;
+    if (bodyTaxable !== undefined) {
+      taxTaxable = bodyTaxable === true;
     } else if (!body.id) {
-      ppnTaxable = true;
+      taxTaxable = true;
     }
   }
 
   const metadata = mergeProductMetadata(existingMeta, {
     akunPendapatan: String(body.akunPendapatan || existingMeta.akunPendapatan || "Pendapatan").trim(),
-    ppnTaxable
+    taxTaxable
   });
 
   const row = {

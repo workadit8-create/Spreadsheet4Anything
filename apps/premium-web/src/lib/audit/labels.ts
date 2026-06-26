@@ -19,7 +19,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   "org.profile_update": "Ubah profil usaha",
   "org.logo_update": "Unggah logo usaha",
   "org.logo_delete": "Hapus logo usaha",
-  "org.ppn_update": "Ubah pengaturan PPN"
+  "org.ppn_update": "Ubah pengaturan PPN",
+  "org.tax_update": "Ubah pengaturan pajak"
 };
 
 export function formatAuditMetadataSummary(
@@ -52,9 +53,11 @@ export function formatAuditMetadataSummary(
     return String(metadata.companyName);
   }
 
-  if (action === "org.ppn_update") {
+  if (action === "org.ppn_update" || action === "org.tax_update") {
+    const type = metadata.activeType ? String(metadata.activeType).toUpperCase() : "";
     const pkp = metadata.pkpEnabled ? "PKP aktif" : "Non-PKP";
-    return pkp;
+    const pb = metadata.pbEnabled ? `PB ${metadata.pbRatePercent ?? ""}%` : "";
+    return [type, pkp, pb].filter(Boolean).join(" · ") || pkp;
   }
 
   const keys = Object.keys(metadata);

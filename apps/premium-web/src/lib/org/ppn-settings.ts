@@ -1,12 +1,17 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+/** @deprecated Gunakan tax-settings — dipertahankan untuk kompatibilitas import lama */
 
-export const DEFAULT_PPN_RATE_PERCENT = 11;
+import {
+  DEFAULT_PPN_RATE_PERCENT,
+  fetchOrgTaxSettings,
+  resolveTaxSettings,
+  type TaxSettings
+} from "@/lib/org/tax-settings";
+
+export { DEFAULT_PPN_RATE_PERCENT };
 
 export type PpnSettings = {
-  /** Usaha terdaftar PKP — PPN aktif di transaksi (fase berikutnya) */
   pkpEnabled: boolean;
   ratePercent: number;
-  /** true = harga produk sudah termasuk PPN */
   priceIncludesPpn: boolean;
 };
 
@@ -18,23 +23,18 @@ export function defaultPpnSettings(): PpnSettings {
   };
 }
 
-export function resolvePpnSettings(
-  settings: { ppn?: Record<string, unknown> } | null | undefined
-): PpnSettings {
-  const raw = settings?.ppn;
-  const defaults = defaultPpnSettings();
-  if (!raw || typeof raw !== "object") return defaults;
-
+export function taxSettingsToPpn(settings: TaxSettings): PpnSettings {
   return {
-    pkpEnabled: raw.pkp_enabled === true || raw.pkpEnabled === true,
-    ratePercent:
-      typeof raw.rate_percent === "number"
-        ? raw.rate_percent
-        : typeof raw.ratePercent === "number"
-          ? raw.ratePercent
-          : DEFAULT_PPN_RATE_PERCENT,
-    priceIncludesPpn: raw.price_includes_ppn === true || raw.priceIncludesPpn === true
+    pkpEnabled: settings.ppn.pkpEnabled,
+    ratePercent: settings.ppn.ratePercent,
+    priceIncludesPpn: settings.ppn.priceIncludesTax
   };
+}
+
+export function resolvePpnSettings(
+  settings: { ppn?: Record<string, unknown>; tax?: Record<string, unknown> } | null | undefined
+): PpnSettings {
+  return taxSettingsToPpn(resolveTaxSettings(settings));
 }
 
 export function buildPpnSettingsPatch(input: {
@@ -48,20 +48,15 @@ export function buildPpnSettingsPatch(input: {
     patch.pkp_enabled = input.pkpEnabled;
   }
   if (input.priceIncludesPpn !== undefined) {
-    patch.price_includes_ppn = input.priceIncludesPpn;
+    patch.price_includes_tax = input.priceIncludesPpn;
   }
   return patch;
 }
 
 export async function fetchOrgPpnSettings(
-  supabase: SupabaseClient,
+  supabase: Parameters<typeof fetchOrgTaxSettings>[0],
   organizationId: string
 ): Promise<PpnSettings> {
-  const { data } = await supabase
-    .from("app_settings")
-    .select("settings")
-    .eq("organization_id", organizationId)
-    .maybeSingle();
-
-  return resolvePpnSettings(data?.settings as { ppn?: Record<string, unknown> } | undefined);
+  const tax = await fetchOrgTaxSettings(supabase, organizationId);
+  return taxSettingsToPpn(tax);
 }

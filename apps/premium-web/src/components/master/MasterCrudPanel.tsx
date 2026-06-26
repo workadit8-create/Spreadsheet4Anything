@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { PRODUCT_KIND_LABELS } from "@/lib/products/inventory-policy";
@@ -25,7 +25,14 @@ export type ColumnDef = {
   key: string;
   label: string;
   metaKey?: string;
-  format?: "boolean" | "product_kind" | "ppn_taxable";
+  format?: "boolean" | "product_kind" | "tax_taxable";
+};
+
+type ProductTaxApiConfig = {
+  productTaxEnabled: boolean;
+  taxableFieldLabel: string;
+  taxColumnLabel: string;
+  activeType: string;
 };
 
 export function MasterCrudPanel({
@@ -34,25 +41,45 @@ export function MasterCrudPanel({
   fields,
   columns,
   defaultForm = { active: true },
-  ppnProductFields,
-  ppnProductColumns
+  productTaxFromApi = false
 }: {
   title: string;
   apiPath: string;
   fields: FieldDef[];
   columns: ColumnDef[];
   defaultForm?: Row;
-  /** Field/kolom tambahan jika GET mengembalikan ppn.pkpEnabled = true */
-  ppnProductFields?: FieldDef[];
-  ppnProductColumns?: ColumnDef[];
+  /** Baca konfig pajak produk dari GET (Master → Produk) */
+  productTaxFromApi?: boolean;
 }) {
   const [items, setItems] = useState<Row[]>([]);
   const [extras, setExtras] = useState<Record<string, Row[]>>({});
-  const [ppnPkpEnabled, setPpnPkpEnabled] = useState(false);
+  const [productTax, setProductTax] = useState<ProductTaxApiConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<Row>(defaultForm);
+
+  const taxProductFields = useMemo<FieldDef[]>(() => {
+    if (!productTax?.productTaxEnabled) return [];
+    return [
+      {
+        key: "tax_taxable",
+        label: productTax.taxableFieldLabel,
+        type: "checkbox"
+      }
+    ];
+  }, [productTax]);
+
+  const taxProductColumns = useMemo<ColumnDef[]>(() => {
+    if (!productTax?.productTaxEnabled) return [];
+    return [
+      {
+        key: "tax_taxable",
+        label: productTax.taxColumnLabel,
+        format: "tax_taxable"
+      }
+    ];
+  }, [productTax]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -62,8 +89,13 @@ export function MasterCrudPanel({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal memuat");
       setItems(data.items || []);
-      if (data.ppn && typeof data.ppn.pkpEnabled === "boolean") {
-        setPpnPkpEnabled(data.ppn.pkpEnabled);
+      if (productTaxFromApi && data.tax) {
+        setProductTax({
+          productTaxEnabled: data.tax.productTaxEnabled === true,
+          taxableFieldLabel: String(data.tax.taxableFieldLabel || "Kena pajak"),
+          taxColumnLabel: String(data.tax.taxColumnLabel || "Pajak"),
+          activeType: String(data.tax.activeType || "none")
+        });
       }
       const extraKeys = ["units", "categories", "coa_accounts"];
       extraKeys.forEach((k) => {
@@ -86,19 +118,19 @@ export function MasterCrudPanel({
     } finally {
       setLoading(false);
     }
-  }, [apiPath, fields]);
+  }, [apiPath, fields, productTaxFromApi]);
 
   const activeFields =
-    ppnPkpEnabled && ppnProductFields?.length
-      ? [...fields, ...ppnProductFields]
+    productTax?.productTaxEnabled && taxProductFields.length
+      ? [...fields, ...taxProductFields]
       : fields;
   const activeColumns =
-    ppnPkpEnabled && ppnProductColumns?.length
-      ? [...columns, ...ppnProductColumns]
+    productTax?.productTaxEnabled && taxProductColumns.length
+      ? [...columns, ...taxProductColumns]
       : columns;
   const activeDefaultForm =
-    ppnPkpEnabled && ppnProductFields?.length
-      ? { ...defaultForm, active: true, ppn_taxable: true }
+    productTax?.productTaxEnabled && taxProductFields.length
+      ? { ...defaultForm, active: true, tax_taxable: true }
       : defaultForm;
 
   useEffect(() => {
@@ -106,12 +138,12 @@ export function MasterCrudPanel({
   }, [load]);
 
   useEffect(() => {
-    if (!ppnPkpEnabled || !ppnProductFields?.length) return;
+    if (!productTax?.productTaxEnabled || !taxProductFields.length) return;
     setForm((prev) => {
       if (prev.id != null && prev.id !== "") return prev;
-      return { ...defaultForm, active: true, ppn_taxable: true };
+      return { ...defaultForm, active: true, tax_taxable: true };
     });
-  }, [ppnPkpEnabled, ppnProductFields?.length, defaultForm]);
+  }, [productTax?.productTaxEnabled, taxProductFields.length, defaultForm]);
 
   function getCell(row: Row, col: ColumnDef) {
     if (col.metaKey) {
@@ -126,8 +158,9 @@ export function MasterCrudPanel({
       const kind = String(raw || "");
       return PRODUCT_KIND_LABELS[kind as keyof typeof PRODUCT_KIND_LABELS] || kind;
     }
-    if (col.format === "ppn_taxable") {
-      return raw === true ? "Ya" : "Tidak";
+    if (col.format === "tax_taxable") {
+      const taxable = row.tax_taxable ?? row.ppn_taxable;
+      return taxable === true ? "Ya" : "Tidak";
     }
     if (col.key === "active") return row.active ? "Aktif" : "Nonaktif";
     return raw ?? "";
@@ -137,6 +170,9 @@ export function MasterCrudPanel({
     if (field.metaKey) {
       const meta = (form.metadata || {}) as Record<string, unknown>;
       return meta[field.metaKey] ?? "";
+    }
+    if (field.key === "tax_taxable") {
+      return form.tax_taxable ?? form.ppn_taxable ?? "";
     }
     return form[field.key] ?? "";
   }
@@ -179,7 +215,7 @@ export function MasterCrudPanel({
     setForm({
       ...row,
       metadata: row.metadata || {},
-      ppn_taxable: row.ppn_taxable === true
+      tax_taxable: row.tax_taxable === true || row.ppn_taxable === true
     });
   }
 
@@ -208,15 +244,19 @@ export function MasterCrudPanel({
     return [];
   }
 
+  const taxHint =
+    productTax?.activeType === "pb"
+      ? "PB aktif — centang produk yang kena PB."
+      : "PPN aktif — centang produk yang kena PPN.";
+
   return (
     <div>
       <h2 className="mb-4 text-base font-semibold text-slate-900">{title}</h2>
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
-      {ppnPkpEnabled && ppnProductFields?.length ? (
+      {productTax?.productTaxEnabled ? (
         <p className="mb-4 text-xs text-slate-500">
-          PKP aktif — centang produk yang kena PPN. Invoice/PO belum menghitung PPN otomatis (fase
-          berikutnya).
+          {taxHint} Invoice/PO belum menghitung pajak otomatis (fase berikutnya).
         </p>
       ) : null}
 

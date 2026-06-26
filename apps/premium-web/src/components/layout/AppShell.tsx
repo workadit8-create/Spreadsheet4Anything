@@ -45,7 +45,7 @@ const NAV: NavItem[] = [
   { key: "jurnal", href: "/dashboard/jurnal", label: "Jurnal", icon: "◇" },
   { key: "jurnal-manual", href: "/dashboard/jurnal/manual", label: "Jurnal Manual", icon: "◇" },
   { key: "laporan", href: "/dashboard/laporan", label: "Laporan", icon: "◇" },
-  { key: "ppn", href: "/dashboard/ppn", label: "PPN", icon: "◇" },
+  { key: "tax", href: "/dashboard/tax", label: "Pajak", icon: "◇" },
   {
     key: "proyek",
     href: "/dashboard/proyek",

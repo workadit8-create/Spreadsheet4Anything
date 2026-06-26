@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { AUDIT_ACTIONS, auditFromContext, writeAuditLog } from "@/lib/audit/log";
 import { requireOwnerRole, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
-import { taxSettingsToPpn } from "@/lib/org/ppn-settings";
-import { fetchOrgTaxSettings, saveOrgTaxSettings } from "@/lib/org/tax-settings";
-
-/** Kompatibilitas lama — gunakan /api/org/tax-settings */
+import {
+  fetchOrgTaxSettings,
+  saveOrgTaxSettings,
+  type TaxActiveType,
+  type TaxSettingsPatch
+} from "@/lib/org/tax-settings";
 
 export async function GET() {
   const supabase = await createClient();
@@ -17,7 +19,7 @@ export async function GET() {
   }
 
   const tax = await fetchOrgTaxSettings(supabase, auth.org.id);
-  return NextResponse.json({ ppn: taxSettingsToPpn(tax), canEdit: auth.role === "owner" });
+  return NextResponse.json({ tax, canEdit: auth.role === "owner" });
 }
 
 export async function POST(request: Request) {
@@ -30,22 +32,14 @@ export async function POST(request: Request) {
   }
   requireOwnerRole(auth.role);
 
-  let body: { pkpEnabled?: boolean; priceIncludesPpn?: boolean } = {};
+  let body: TaxSettingsPatch & { activeType?: TaxActiveType } = {};
   try {
     body = await request.json();
   } catch {
     body = {};
   }
 
-  const patch = {
-    ...(body.pkpEnabled === true ? { activeType: "ppn" as const } : {}),
-    ppn: {
-      pkpEnabled: body.pkpEnabled,
-      priceIncludesTax: body.priceIncludesPpn
-    }
-  };
-
-  const { tax, error } = await saveOrgTaxSettings(supabase, auth.org.id, patch);
+  const { tax, error } = await saveOrgTaxSettings(supabase, auth.org.id, body);
   if (error) return NextResponse.json({ error }, { status: 500 });
 
   await writeAuditLog(
@@ -56,11 +50,12 @@ export async function POST(request: Request) {
       metadata: {
         activeType: tax.activeType,
         pkpEnabled: tax.ppn.pkpEnabled,
-        priceIncludesPpn: tax.ppn.priceIncludesTax
+        pbEnabled: tax.pb.enabled,
+        pbRatePercent: tax.pb.ratePercent
       },
       request
     })
   );
 
-  return NextResponse.json({ ppn: taxSettingsToPpn(tax), canEdit: true });
+  return NextResponse.json({ tax, canEdit: true });
 }

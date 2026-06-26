@@ -140,6 +140,7 @@ export default function MasterDataClient({ role }: { role: MembershipRole }) {
           <MasterCrudPanel
             title="Produk"
             apiPath="/api/master/products"
+            productTaxFromApi
             fields={[
               { key: "sku", label: "Kode/SKU", type: "text" },
               { key: "name", label: "Nama", type: "text", required: true },
@@ -180,8 +181,6 @@ export default function MasterDataClient({ role }: { role: MembershipRole }) {
               { key: "akunPendapatan", label: "Akun", metaKey: "akunPendapatan" },
               { key: "active", label: "Status" }
             ]}
-            ppnProductFields={[{ key: "ppn_taxable", label: "Kena PPN", type: "checkbox" }]}
-            ppnProductColumns={[{ key: "ppn_taxable", label: "PPN", format: "ppn_taxable" }]}
           />
         )}
         {tab === "units" && (

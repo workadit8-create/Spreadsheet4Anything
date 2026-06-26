@@ -20,7 +20,8 @@ export const AUDIT_ACTIONS = {
   orgProfileUpdate: "org.profile_update",
   orgLogoUpdate: "org.logo_update",
   orgLogoDelete: "org.logo_delete",
-  orgPpnUpdate: "org.ppn_update"
+  orgPpnUpdate: "org.ppn_update",
+  orgTaxUpdate: "org.tax_update"
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
