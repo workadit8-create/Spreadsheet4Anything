@@ -144,7 +144,7 @@ export default function InventoryProductsPageClient({ role }: { role: Membership
       <PageHeader
         badge="Management Inventory"
         title="Produk"
-        description="Katalog produk per outlet/gudang. Stok mengikuti jenis item: barang dagang & bahan baku tampil stok; menu F&B tanpa BOM tanpa stok; jasa tanpa stok."
+        description="Katalog produk per outlet. Setiap produk terikat outlet (metadata); filter gudang hanya menampilkan produk outlet tersebut."
       >
         <Link href="/dashboard/master" className="text-sm text-slate-500 hover:text-slate-700">
           Master · Finance →

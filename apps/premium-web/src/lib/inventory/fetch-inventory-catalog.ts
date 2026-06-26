@@ -8,6 +8,7 @@ import {
 } from "@/lib/outlets/membership-scope";
 import { normalizeOutletCode } from "@/lib/outlets/helpers";
 import { resolveProductStockDisplay } from "@/lib/inventory/product-stock-display";
+import { productMatchesOutlet } from "@/lib/inventory/product-outlet-scope";
 import { PRODUCT_KINDS, PRODUCT_KIND_LABELS } from "@/lib/products/inventory-policy";
 
 export type InventoryCatalogItem = {
@@ -172,7 +173,11 @@ export async function fetchInventoryProductCatalog(
   if (prodErr) throw new Error(prodErr.message);
 
   const search = (filters.search || "").trim().toLowerCase();
+  const scopeByOutlet = outletAddon && Boolean(outletCode);
   const filteredRows = (productRows || []).filter((p) => {
+    if (scopeByOutlet && !productMatchesOutlet(p.sku, p.metadata as Record<string, unknown>, outletCode)) {
+      return false;
+    }
     if (!search) return true;
     const hay = `${p.sku || ""} ${p.name} ${p.category_name || ""}`.toLowerCase();
     return hay.includes(search);
