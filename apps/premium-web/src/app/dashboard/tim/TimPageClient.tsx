@@ -18,6 +18,7 @@ function roleBadge(role: MembershipRole) {
   if (role === "akuntan") return "bg-blue-100 text-blue-800";
   if (role === "staff") return "bg-emerald-100 text-emerald-800";
   if (role === "cashier") return "bg-amber-100 text-amber-800";
+  if (role === "outlet_staff") return "bg-orange-100 text-orange-800";
   return "bg-slate-100 text-slate-700";
 }
 
@@ -37,9 +38,13 @@ export default function TimPageClient() {
   const [inviteOutletCode, setInviteOutletCode] = useState("");
 
   const invitableRoles = useMemo(() => {
-    if (!outletAddonEnabled) return INVITABLE_ROLES.filter((r) => r !== "cashier");
+    if (!outletAddonEnabled) {
+      return INVITABLE_ROLES.filter((r) => r !== "cashier" && r !== "outlet_staff");
+    }
     return [...INVITABLE_ROLES];
   }, [outletAddonEnabled]);
+
+  const needsOutletOnInvite = inviteRole === "cashier" || inviteRole === "outlet_staff";
 
   const loadMembers = useCallback(async () => {
     setLoading(true);
@@ -63,11 +68,11 @@ export default function TimPageClient() {
   }, [loadMembers]);
 
   useEffect(() => {
-    if (inviteRole !== "cashier") return;
+    if (!needsOutletOnInvite) return;
     if (!inviteOutletCode && outletOptions.length) {
       setInviteOutletCode(outletOptions[0].outletCode);
     }
-  }, [inviteRole, inviteOutletCode, outletOptions]);
+  }, [needsOutletOnInvite, inviteOutletCode, outletOptions]);
 
   async function onInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -81,8 +86,8 @@ export default function TimPageClient() {
         role: inviteRole,
         fullName: fullName || undefined
       };
-      if (inviteRole === "cashier") {
-        if (!inviteOutletCode) throw new Error("Pilih outlet untuk kasir");
+      if (inviteRole === "cashier" || inviteRole === "outlet_staff") {
+        if (!inviteOutletCode) throw new Error("Pilih outlet");
         body.outletCodes = [inviteOutletCode];
       }
 
@@ -114,14 +119,14 @@ export default function TimPageClient() {
     setMessage(null);
     try {
       const body: Record<string, unknown> = { role };
-      if (role === "cashier") {
+      if (role === "cashier" || role === "outlet_staff") {
         const member = members.find((m) => m.membershipId === membershipId);
         const codes =
           outletCodes ||
           member?.outletScopes.map((s) => s.outletCode).filter(Boolean) ||
           (outletOptions[0] ? [outletOptions[0].outletCode] : []);
         if (!codes.length) {
-          throw new Error("Kasir wajib ditetapkan ke outlet");
+          throw new Error("Wajib ditetapkan ke outlet");
         }
         body.outletCodes = codes;
       }
@@ -141,7 +146,9 @@ export default function TimPageClient() {
   }
 
   async function onCashierOutletChange(membershipId: string, outletCode: string) {
-    await onRoleChange(membershipId, "cashier", outletCode ? [outletCode] : []);
+    const member = members.find((m) => m.membershipId === membershipId);
+    if (!member) return;
+    await onRoleChange(membershipId, member.role, outletCode ? [outletCode] : []);
   }
 
   async function onRemove(membershipId: string, memberEmail: string) {
@@ -223,9 +230,9 @@ export default function TimPageClient() {
               ))}
             </Select>
           </div>
-          {inviteRole === "cashier" ? (
+          {needsOutletOnInvite ? (
             <div>
-              <Label>Outlet kasir *</Label>
+              <Label>Outlet *</Label>
               {outletOptions.length ? (
                 <Select
                   value={inviteOutletCode}
@@ -251,14 +258,18 @@ export default function TimPageClient() {
               </Button>
             </div>
           )}
-          {inviteRole === "cashier" ? (
+          {needsOutletOnInvite ? (
             <div className="flex items-end sm:col-span-2">
               <Button
                 type="submit"
                 disabled={saving || !outletOptions.length}
                 className="w-full sm:w-auto"
               >
-                {saving ? "Menyimpan…" : "Tambah kasir outlet"}
+                {saving
+                  ? "Menyimpan…"
+                  : inviteRole === "cashier"
+                    ? "Tambah kasir outlet"
+                    : "Tambah staf stok outlet"}
               </Button>
             </div>
           ) : null}
@@ -309,7 +320,9 @@ export default function TimPageClient() {
                           className="max-w-[140px] py-1.5 text-xs"
                         >
                           {MEMBERSHIP_ROLES.filter((r) => r !== "owner").map((r) => {
-                            if (r === "cashier" && !outletAddonEnabled) return null;
+                            if ((r === "cashier" || r === "outlet_staff") && !outletAddonEnabled) {
+                              return null;
+                            }
                             return (
                               <option key={r} value={r}>
                                 {ROLE_LABELS[r]}
@@ -321,7 +334,7 @@ export default function TimPageClient() {
                     </td>
                     {outletAddonEnabled ? (
                       <td className="px-5 py-3">
-                        {m.role === "cashier" ? (
+                        {m.role === "cashier" || m.role === "outlet_staff" ? (
                           outletOptions.length ? (
                             <Select
                               value={m.outletScopes[0]?.outletCode || ""}
@@ -376,7 +389,10 @@ export default function TimPageClient() {
             <strong>Akuntan</strong> — jurnal, posting, laporan, COA
           </li>
           <li>
-            <strong>Kasir</strong> — hanya POS, terkunci ke outlet yang ditetapkan (perlu add-on Multi
+            <strong>Kasir</strong> — hanya POS, terkunci ke outlet yang ditetapkan
+          </li>
+          <li>
+            <strong>Stok Outlet</strong> — opname/penyesuaian stok gudang outlet (perlu add-on Multi
             Outlet)
           </li>
           <li>

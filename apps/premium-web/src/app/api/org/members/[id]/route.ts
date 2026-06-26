@@ -33,6 +33,9 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (role === "cashier" && outletCodes !== undefined && !outletCodes.length) {
     return NextResponse.json({ error: "Kasir wajib punya minimal satu outlet" }, { status: 400 });
   }
+  if (role === "outlet_staff" && outletCodes !== undefined && !outletCodes.length) {
+    return NextResponse.json({ error: "Staf stok wajib punya minimal satu outlet" }, { status: 400 });
+  }
 
   try {
     await updateOrgMemberRole(supabase, {
@@ -41,7 +44,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       role
     });
 
-    if (role === "cashier" && outletCodes) {
+    if ((role === "cashier" || role === "outlet_staff") && outletCodes) {
       await setMembershipOutletScopes(supabase, {
         orgId: auth.org.id,
         membershipId: id,

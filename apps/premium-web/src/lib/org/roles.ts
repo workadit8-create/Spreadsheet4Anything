@@ -1,6 +1,6 @@
 import type { AddonKey } from "@/lib/org/addons-catalog";
 
-export const MEMBERSHIP_ROLES = ["owner", "staff", "akuntan", "cashier"] as const;
+export const MEMBERSHIP_ROLES = ["owner", "staff", "akuntan", "cashier", "outlet_staff"] as const;
 export type MembershipRole = (typeof MEMBERSHIP_ROLES)[number];
 
 export const NAV_KEYS = [
@@ -22,6 +22,7 @@ export const NAV_KEYS = [
   "aset",
   "proyek",
   "pos",
+  "stok-outlet",
   "tim",
   "audit-log",
   "akun"
@@ -48,6 +49,7 @@ export const ROLE_MENU_KEYS: Record<MembershipRole, readonly NavKey[] | null> = 
     "aset",
     "proyek",
     "pos",
+    "stok-outlet",
     "akun"
   ],
   akuntan: [
@@ -62,17 +64,20 @@ export const ROLE_MENU_KEYS: Record<MembershipRole, readonly NavKey[] | null> = 
     "tax",
     "aset",
     "proyek",
+    "stok-outlet",
     "audit-log",
     "akun"
   ],
-  cashier: ["dashboard", "pos", "akun"]
+  cashier: ["dashboard", "pos", "akun"],
+  outlet_staff: ["dashboard", "stok-outlet", "akun"]
 };
 
 export const ROLE_LABELS: Record<MembershipRole, string> = {
   owner: "Owner",
   staff: "Staff",
   akuntan: "Akuntan",
-  cashier: "Kasir"
+  cashier: "Kasir",
+  outlet_staff: "Stok Outlet"
 };
 
 export function normalizeMembershipRole(value: string | null | undefined): MembershipRole {
@@ -106,6 +111,7 @@ const PATH_NAV_KEY: Array<{ prefix: string; key: NavKey }> = [
   { prefix: "/dashboard/master", key: "master" },
   { prefix: "/dashboard/proyek", key: "proyek" },
   { prefix: "/dashboard/pos", key: "pos" },
+  { prefix: "/dashboard/stok-outlet", key: "stok-outlet" },
   { prefix: "/dashboard/tim", key: "tim" },
   { prefix: "/dashboard/audit-log", key: "audit-log" },
   { prefix: "/dashboard/akun", key: "akun" },
@@ -208,5 +214,6 @@ export function masterTabsForRole(role: MembershipRole): MasterTabId[] {
 export function addonNavKey(addon: AddonKey): NavKey | null {
   if (addon === "project") return "proyek";
   if (addon === "pos") return "pos";
+  if (addon === "outlet") return "stok-outlet";
   return null;
 }

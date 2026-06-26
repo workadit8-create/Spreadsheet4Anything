@@ -18,7 +18,7 @@ export type OrgMemberRow = {
 };
 
 /** Role yang boleh ditambahkan owner lewat UI (bukan owner). */
-export const INVITABLE_ROLES = ["staff", "akuntan", "cashier"] as const;
+export const INVITABLE_ROLES = ["staff", "akuntan", "cashier", "outlet_staff"] as const;
 export type InvitableRole = (typeof INVITABLE_ROLES)[number];
 
 export function isInvitableRole(value: string): value is InvitableRole {
@@ -75,12 +75,12 @@ export async function addOrgMember(
   if (!email) throw new Error("Email wajib diisi");
 
   const outletCodes =
-    params.role === "cashier"
+    params.role === "cashier" || params.role === "outlet_staff"
       ? (params.outletCodes || []).map((c) => c.trim().toUpperCase()).filter(Boolean)
       : null;
 
-  if (params.role === "cashier" && !outletCodes?.length) {
-    throw new Error("Kasir wajib ditetapkan ke minimal satu outlet");
+  if ((params.role === "cashier" || params.role === "outlet_staff") && !outletCodes?.length) {
+    throw new Error("Wajib ditetapkan ke minimal satu outlet");
   }
 
   const { data, error } = await supabase.rpc("add_org_member", {

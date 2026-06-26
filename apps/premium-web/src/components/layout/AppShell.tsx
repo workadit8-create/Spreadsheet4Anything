@@ -41,6 +41,13 @@ const NAV: NavItem[] = [
     icon: "◇",
     addon: "pos"
   },
+  {
+    key: "stok-outlet",
+    href: "/dashboard/stok-outlet",
+    label: "Stok Outlet",
+    icon: "◇",
+    addon: "outlet"
+  },
   { key: "quotation", href: "/dashboard/quotation", label: "Quotation", icon: "◇" },
   { key: "penjualan-riwayat", href: "/dashboard/penjualan/riwayat", label: "Riwayat Invoice", icon: "◇" },
   { key: "piutang", href: "/dashboard/piutang", label: "Piutang", icon: "◇" },

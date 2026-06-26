@@ -58,10 +58,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Email wajib diisi" }, { status: 400 });
   }
   if (!isInvitableRole(role)) {
-    return NextResponse.json({ error: "Peran harus staff, akuntan, atau kasir" }, { status: 400 });
+    return NextResponse.json({ error: "Peran harus staff, akuntan, kasir, atau stok outlet" }, { status: 400 });
   }
-  if (role === "cashier" && !outletCodes.length) {
-    return NextResponse.json({ error: "Kasir wajib ditetapkan ke minimal satu outlet" }, { status: 400 });
+  if ((role === "cashier" || role === "outlet_staff") && !outletCodes.length) {
+    return NextResponse.json({ error: "Wajib ditetapkan ke minimal satu outlet" }, { status: 400 });
   }
 
   try {
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
       email,
       role,
       fullName: fullName || undefined,
-      outletCodes: role === "cashier" ? outletCodes : undefined
+      outletCodes: role === "cashier" || role === "outlet_staff" ? outletCodes : undefined
     });
 
     await writeAuditLog(
@@ -78,7 +78,12 @@ export async function POST(request: Request) {
       auditFromContext(auth, AUDIT_ACTIONS.memberAdd, {
         resourceType: "membership",
         resourceId: result.userId,
-        metadata: { email, role, created: result.created, outletCodes: role === "cashier" ? outletCodes : [] },
+        metadata: {
+          email,
+          role,
+          created: result.created,
+          outletCodes: role === "cashier" || role === "outlet_staff" ? outletCodes : []
+        },
         request
       })
     );
