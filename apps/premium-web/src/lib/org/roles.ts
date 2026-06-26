@@ -37,6 +37,7 @@ export const ROLE_MENU_KEYS: Record<MembershipRole, readonly NavKey[] | null> = 
     "quotation",
     "penjualan",
     "penjualan-riwayat",
+    "pos",
     "piutang",
     "purchase-request",
     "pembelian",

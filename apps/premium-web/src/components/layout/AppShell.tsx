@@ -34,6 +34,13 @@ const NAV: NavItem[] = [
   { key: "dashboard", href: "/dashboard", label: "Dashboard", icon: "◆" },
   { key: "master", href: "/dashboard/master", label: "Master Data", icon: "◇" },
   { key: "penjualan", href: "/dashboard/penjualan", label: "Penjualan", icon: "◇" },
+  {
+    key: "pos",
+    href: "/dashboard/pos",
+    label: "Kasir",
+    icon: "◇",
+    addon: "pos"
+  },
   { key: "quotation", href: "/dashboard/quotation", label: "Quotation", icon: "◇" },
   { key: "penjualan-riwayat", href: "/dashboard/penjualan/riwayat", label: "Riwayat Invoice", icon: "◇" },
   { key: "piutang", href: "/dashboard/piutang", label: "Piutang", icon: "◇" },
@@ -53,13 +60,6 @@ const NAV: NavItem[] = [
     label: "Proyek",
     icon: "◇",
     addon: "project"
-  },
-  {
-    key: "pos",
-    href: "/dashboard/pos",
-    label: "Kasir",
-    icon: "◇",
-    addon: "pos"
   },
   { key: "tim", href: "/dashboard/tim", label: "Tim & Akses", icon: "◇" },
   { key: "audit-log", href: "/dashboard/audit-log", label: "Log Audit", icon: "◇" },
