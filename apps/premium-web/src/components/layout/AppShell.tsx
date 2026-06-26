@@ -339,9 +339,18 @@ export function AppShell({
       const active = group.items.some((item) => isSidebarHrefActive(pathname, item.href));
       if (active) next[group.id] = true;
     }
-    if (Object.keys(next).length) {
-      setOpenGroups((prev) => ({ ...prev, ...next }));
-    }
+    if (!Object.keys(next).length) return;
+    setOpenGroups((prev) => {
+      let changed = false;
+      const merged = { ...prev };
+      for (const [id, open] of Object.entries(next)) {
+        if (open && !prev[id]) {
+          merged[id] = true;
+          changed = true;
+        }
+      }
+      return changed ? merged : prev;
+    });
   }, [pathname, visibleGroups]);
 
   const handleAddonsChange = useCallback((list: AddonInfo[]) => {

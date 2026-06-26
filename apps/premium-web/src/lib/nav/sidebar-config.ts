@@ -73,19 +73,19 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
     items: [
       {
         key: "inventory-suppliers",
-        href: "/dashboard/master?tab=suppliers",
+        href: "/dashboard/inventory/suppliers",
         label: "Supplier",
         requireAddons: ["inventory"]
       },
       {
         key: "inventory-product-categories",
-        href: "/dashboard/master?tab=product-categories",
+        href: "/dashboard/inventory/product-categories",
         label: "Kategori Produk",
         requireAddons: ["inventory"]
       },
       {
         key: "inventory-products",
-        href: "/dashboard/master?tab=products",
+        href: "/dashboard/inventory/products",
         label: "Produk",
         requireAddons: ["inventory"]
       },
@@ -97,7 +97,7 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
       },
       {
         key: "inventory-outlets",
-        href: "/dashboard/master?tab=outlets",
+        href: "/dashboard/inventory/outlets",
         label: "Outlet / Cabang",
         requireAddons: ["inventory", "outlet"]
       },
@@ -121,7 +121,7 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
       },
       {
         key: "inventory-stock-report",
-        href: "/dashboard/laporan?tab=stok-minus",
+        href: "/dashboard/laporan",
         label: "Laporan Stok",
         requireAddons: ["inventory"]
       }
@@ -166,7 +166,12 @@ export function isSidebarHrefActive(pathname: string, href: string): boolean {
   const pathOnly = href.split("?")[0];
   if (pathname === pathOnly) return true;
   if (pathOnly === "/dashboard") return false;
-  if (pathOnly === "/dashboard/penjualan" || pathOnly === "/dashboard/pembelian") {
+  const exactOnly = [
+    "/dashboard/penjualan",
+    "/dashboard/pembelian",
+    "/dashboard/inventory/pembelian"
+  ];
+  if (exactOnly.includes(pathOnly)) {
     return pathname === pathOnly;
   }
   return pathname.startsWith(`${pathOnly}/`);
