@@ -4,6 +4,7 @@ import { fetchOrgTaxSettings } from "@/lib/org/tax-settings";
 import { productTaxableFromMetadata } from "@/lib/products/ppn";
 import { getActiveTaxConfig, taxTypeLabel } from "@/lib/tax/compute";
 import { ensureWalkInCustomer } from "@/lib/pos/walk-in-customer";
+import { productMatchesOutlet } from "@/lib/inventory/product-outlet-scope";
 import { fetchOutletBootstrap } from "@/lib/outlets/bootstrap-options";
 import {
   buildPosOutletScopeInfo,
@@ -98,8 +99,20 @@ export async function fetchPosBootstrap(
     ]);
 
   let stockMap = new Map<string, number>();
-  if (warehouseId && productsRes.data?.length) {
-    const productIds = productsRes.data.map((p) => p.id);
+
+  const outletScoped =
+    outletBootstrap.enabled && Boolean(outletCodeFilter?.trim());
+  const productRows = (productsRes.data || []).filter((p) => {
+    if (String(p.effective_product_kind) === "raw_material") return false;
+    if (!outletScoped) return true;
+    return productMatchesOutlet(
+      (p.metadata || {}) as Record<string, unknown>,
+      outletCodeFilter
+    );
+  });
+
+  if (warehouseId && productRows.length) {
+    const productIds = productRows.map((p) => p.id);
     const { data: levels } = await supabase
       .from("stock_levels")
       .select("product_id, qty")
@@ -109,7 +122,7 @@ export async function fetchPosBootstrap(
     stockMap = new Map((levels || []).map((l) => [l.product_id, Number(l.qty) || 0]));
   }
 
-  const products: PosBootstrapProduct[] = (productsRes.data || []).map((p) => {
+  const products: PosBootstrapProduct[] = productRows.map((p) => {
     const rawUnit = p.units as { code: string; name: string } | { code: string; name: string }[] | null;
     const unit = Array.isArray(rawUnit) ? rawUnit[0] : rawUnit;
     const meta = (p.metadata || {}) as Record<string, unknown>;
@@ -140,6 +153,13 @@ export async function fetchPosBootstrap(
 
   const defaultKas = kasBank.find((k) => /kas/i.test(k.name)) || kasBank[0] || null;
 
+  const productCategoryIds = new Set(
+    products.map((p) => p.category_id).filter((id): id is string => Boolean(id))
+  );
+  const categories = outletScoped
+    ? (categoriesRes.data || []).filter((c) => productCategoryIds.has(c.id))
+    : categoriesRes.data || [];
+
   const scopedOutletOptions = filterOutletOptionsByScope(
     outletBootstrap.options,
     posOutletScopeCodes ?? null
@@ -156,7 +176,7 @@ export async function fetchPosBootstrap(
       : null,
     walkInCustomerId,
     customers: customersRes.data || [],
-    categories: categoriesRes.data || [],
+    categories,
     products,
     kasBank,
     defaultKasRekening: defaultKas?.name || "",
