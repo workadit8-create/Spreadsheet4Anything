@@ -1,11 +1,10 @@
 import { redirect } from "next/navigation";
-import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { fetchOrgAddons, isAddonEnabled } from "@/lib/org/addons";
 import { requireUserOrg } from "@/lib/org/require-user-org";
-import LaporanPageClient from "./LaporanPageClient";
+import { InventoryPlaceholderPage } from "@/components/inventory/InventoryPlaceholderPage";
 
-export default async function LaporanPage() {
+export default async function PurchaseRequestInventoryPage() {
   const supabase = await createClient();
   let auth;
   try {
@@ -15,10 +14,15 @@ export default async function LaporanPage() {
   }
 
   const addons = await fetchOrgAddons(supabase, auth.org.id);
+  if (!isAddonEnabled(addons, "pembelian")) {
+    redirect("/dashboard");
+  }
 
   return (
-    <Suspense fallback={<main className="mx-auto max-w-5xl px-6 py-8 text-sm text-slate-500">Memuat laporan…</main>}>
-      <LaporanPageClient outletAddonEnabled={isAddonEnabled(addons, "outlet")} />
-    </Suspense>
+    <InventoryPlaceholderPage
+      badge="Pembelian · Inventory"
+      title="Permintaan Pembelian"
+      description="PR untuk barang inventory — konversi ke PO setelah disetujui."
+    />
   );
 }

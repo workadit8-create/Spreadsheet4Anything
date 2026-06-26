@@ -23,6 +23,17 @@ export const NAV_KEYS = [
   "proyek",
   "pos",
   "stok-outlet",
+  "pembelian-inventory",
+  "purchase-request-inventory",
+  "pembelian-inventory-riwayat",
+  "inventory-suppliers",
+  "inventory-product-categories",
+  "inventory-products",
+  "inventory-warehouse",
+  "inventory-outlets",
+  "inventory-transfer",
+  "inventory-return",
+  "inventory-stock-report",
   "tim",
   "audit-log",
   "akun"
@@ -50,6 +61,17 @@ export const ROLE_MENU_KEYS: Record<MembershipRole, readonly NavKey[] | null> = 
     "proyek",
     "pos",
     "stok-outlet",
+    "pembelian-inventory",
+    "purchase-request-inventory",
+    "pembelian-inventory-riwayat",
+    "inventory-suppliers",
+    "inventory-product-categories",
+    "inventory-products",
+    "inventory-warehouse",
+    "inventory-outlets",
+    "inventory-transfer",
+    "inventory-return",
+    "inventory-stock-report",
     "akun"
   ],
   akuntan: [
@@ -65,11 +87,12 @@ export const ROLE_MENU_KEYS: Record<MembershipRole, readonly NavKey[] | null> = 
     "aset",
     "proyek",
     "stok-outlet",
+    "inventory-stock-report",
     "audit-log",
     "akun"
   ],
   cashier: ["dashboard", "pos", "akun"],
-  outlet_staff: ["dashboard", "stok-outlet", "akun"]
+  outlet_staff: ["dashboard", "stok-outlet", "inventory-stock-report", "akun"]
 };
 
 export const ROLE_LABELS: Record<MembershipRole, string> = {
@@ -111,6 +134,12 @@ const PATH_NAV_KEY: Array<{ prefix: string; key: NavKey }> = [
   { prefix: "/dashboard/master", key: "master" },
   { prefix: "/dashboard/proyek", key: "proyek" },
   { prefix: "/dashboard/pos", key: "pos" },
+  { prefix: "/dashboard/inventory/pembelian/riwayat", key: "pembelian-inventory-riwayat" },
+  { prefix: "/dashboard/inventory/pembelian", key: "pembelian-inventory" },
+  { prefix: "/dashboard/inventory/purchase-request", key: "purchase-request-inventory" },
+  { prefix: "/dashboard/inventory/warehouse", key: "inventory-warehouse" },
+  { prefix: "/dashboard/inventory/transfer", key: "inventory-transfer" },
+  { prefix: "/dashboard/inventory/return", key: "inventory-return" },
   { prefix: "/dashboard/stok-outlet", key: "stok-outlet" },
   { prefix: "/dashboard/tim", key: "tim" },
   { prefix: "/dashboard/audit-log", key: "audit-log" },
@@ -214,6 +243,15 @@ export function masterTabsForRole(role: MembershipRole): MasterTabId[] {
 export function addonNavKey(addon: AddonKey): NavKey | null {
   if (addon === "project") return "proyek";
   if (addon === "pos") return "pos";
-  if (addon === "outlet") return "stok-outlet";
+  if (addon === "inventory") return "stok-outlet";
+  if (addon === "pembelian") return "pembelian-inventory";
   return null;
 }
+
+/** Tab master yang dipindah ke menu Management Inventory saat add-on aktif */
+export const INVENTORY_MASTER_TABS: readonly MasterTabId[] = [
+  "suppliers",
+  "product-categories",
+  "products",
+  "outlets"
+];

@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    await requireAddon(supabase, auth.org.id, "outlet");
+    await requireAddon(supabase, auth.org.id, "inventory");
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Add-on Multi Outlet tidak aktif" },

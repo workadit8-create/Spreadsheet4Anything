@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { DemoFinishPanel } from "@/components/layout/DemoFinishPanel";
 import { LogoutButton } from "@/components/layout/LogoutButton";
 import { AddonsLabPanel } from "@/components/layout/AddonsLabPanel";
@@ -15,63 +15,15 @@ import {
   orgAddonsFromInfoList
 } from "@/lib/org/addons-catalog";
 import {
-  addonNavKey,
-  isNavKeyAllowed,
-  ROLE_LABELS,
-  type MembershipRole,
-  type NavKey
-} from "@/lib/org/roles";
-
-type NavItem = {
-  key: NavKey;
-  href: string;
-  label: string;
-  icon: string;
-  addon?: AddonKey;
-};
-
-const NAV: NavItem[] = [
-  { key: "dashboard", href: "/dashboard", label: "Dashboard", icon: "◆" },
-  { key: "master", href: "/dashboard/master", label: "Master Data", icon: "◇" },
-  { key: "penjualan", href: "/dashboard/penjualan", label: "Penjualan", icon: "◇" },
-  {
-    key: "pos",
-    href: "/dashboard/pos",
-    label: "Kasir",
-    icon: "◇",
-    addon: "pos"
-  },
-  {
-    key: "stok-outlet",
-    href: "/dashboard/stok-outlet",
-    label: "Stok Outlet",
-    icon: "◇",
-    addon: "outlet"
-  },
-  { key: "quotation", href: "/dashboard/quotation", label: "Quotation", icon: "◇" },
-  { key: "penjualan-riwayat", href: "/dashboard/penjualan/riwayat", label: "Riwayat Invoice", icon: "◇" },
-  { key: "piutang", href: "/dashboard/piutang", label: "Piutang", icon: "◇" },
-  { key: "pembelian", href: "/dashboard/pembelian", label: "Expense", icon: "◇" },
-  { key: "purchase-request", href: "/dashboard/purchase-request", label: "PRE", icon: "◇" },
-  { key: "pembelian-riwayat", href: "/dashboard/pembelian/riwayat", label: "Riwayat Expense", icon: "◇" },
-  { key: "hutang", href: "/dashboard/hutang", label: "Hutang", icon: "◇" },
-  { key: "kas-bank", href: "/dashboard/kas-bank", label: "Kas & Bank", icon: "◇" },
-  { key: "jurnal", href: "/dashboard/jurnal", label: "Jurnal", icon: "◇" },
-  { key: "jurnal-manual", href: "/dashboard/jurnal/manual", label: "Jurnal Manual", icon: "◇" },
-  { key: "laporan", href: "/dashboard/laporan", label: "Laporan", icon: "◇" },
-  { key: "tax", href: "/dashboard/tax", label: "Pajak", icon: "◇" },
-  { key: "aset", href: "/dashboard/aset", label: "Aset Tetap", icon: "◇" },
-  {
-    key: "proyek",
-    href: "/dashboard/proyek",
-    label: "Proyek",
-    icon: "◇",
-    addon: "project"
-  },
-  { key: "tim", href: "/dashboard/tim", label: "Tim & Akses", icon: "◇" },
-  { key: "audit-log", href: "/dashboard/audit-log", label: "Log Audit", icon: "◇" },
-  { key: "akun", href: "/dashboard/akun", label: "Akun", icon: "◇" }
-];
+  SIDEBAR_GROUPS,
+  SIDEBAR_STANDALONE_BOTTOM,
+  SIDEBAR_STANDALONE_TOP,
+  isSidebarHrefActive,
+  sidebarItemVisible,
+  type SidebarGroup,
+  type SidebarNavItem
+} from "@/lib/nav/sidebar-config";
+import { isNavKeyAllowed, ROLE_LABELS, type MembershipRole } from "@/lib/org/roles";
 
 function comingSoonLabels(addons: OrgAddonsMap): string[] {
   const labels: string[] = [];
@@ -86,13 +38,32 @@ function comingSoonLabels(addons: OrgAddonsMap): string[] {
   return [...new Set(labels)];
 }
 
-function isNavActive(pathname: string, href: string): boolean {
+function navItemAllowed(
+  item: SidebarNavItem,
+  role: MembershipRole,
+  addonMap: OrgAddonsMap
+): boolean {
+  if (!isNavKeyAllowed(role, item.key)) return false;
+  return sidebarItemVisible(item, addonMap);
+}
+
+function filterGroup(group: SidebarGroup, role: MembershipRole, addonMap: OrgAddonsMap): SidebarGroup | null {
+  const items = group.items.filter((item) => navItemAllowed(item, role, addonMap));
+  if (!items.length) return null;
+  return { ...group, items };
+}
+
+function Chevron({ open }: { open: boolean }) {
   return (
-    pathname === href ||
-    (href !== "/dashboard" &&
-      href !== "/dashboard/penjualan" &&
-      href !== "/dashboard/pembelian" &&
-      pathname.startsWith(href))
+    <svg
+      className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${open ? "rotate-90" : ""}`}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+    </svg>
   );
 }
 
@@ -112,9 +83,84 @@ function CloseIcon() {
   );
 }
 
+function SidebarNavLink({
+  item,
+  pathname,
+  onNavigate,
+  indent
+}: {
+  item: SidebarNavItem;
+  pathname: string;
+  onNavigate?: () => void;
+  indent?: boolean;
+}) {
+  const active = isSidebarHrefActive(pathname, item.href);
+  return (
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      className={`flex items-center gap-2 rounded-lg py-2 text-sm font-medium transition-colors ${
+        indent ? "pl-9 pr-3" : "px-3"
+      } ${
+        active
+          ? "bg-white/10 text-white shadow-inner"
+          : "text-slate-300 hover:bg-white/5 hover:text-white"
+      }`}
+    >
+      {item.label}
+    </Link>
+  );
+}
+
+function SidebarGroupSection({
+  group,
+  pathname,
+  open,
+  onToggle,
+  onNavigate
+}: {
+  group: SidebarGroup;
+  pathname: string;
+  open: boolean;
+  onToggle: () => void;
+  onNavigate?: () => void;
+}) {
+  const hasActive = group.items.some((item) => isSidebarHrefActive(pathname, item.href));
+
+  return (
+    <div className="py-0.5">
+      <button
+        type="button"
+        onClick={onToggle}
+        className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+          hasActive ? "text-white" : "text-slate-200 hover:bg-white/5 hover:text-white"
+        }`}
+      >
+        <span>{group.label}</span>
+        <Chevron open={open} />
+      </button>
+      {open ? (
+        <div className="mt-0.5 space-y-0.5 border-l border-white/10 ml-4 pl-1">
+          {group.items.map((item) => (
+            <SidebarNavLink
+              key={`${group.id}-${item.href}`}
+              item={item}
+              pathname={pathname}
+              onNavigate={onNavigate}
+              indent
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function SidebarPanel({
   pathname,
-  visibleNav,
+  groups,
+  standaloneTop,
+  standaloneBottom,
   orgName,
   orgLogoUrl,
   userEmail,
@@ -122,11 +168,15 @@ function SidebarPanel({
   isDemo,
   isPlatformAdmin,
   comingSoon,
+  openGroups,
+  onToggleGroup,
   onAddonsChange,
   onNavigate
 }: {
   pathname: string;
-  visibleNav: NavItem[];
+  groups: SidebarGroup[];
+  standaloneTop: SidebarNavItem[];
+  standaloneBottom: SidebarNavItem[];
   orgName?: string | null;
   orgLogoUrl?: string | null;
   userEmail?: string | null;
@@ -134,6 +184,8 @@ function SidebarPanel({
   isDemo?: boolean;
   isPlatformAdmin: boolean;
   comingSoon: string[];
+  openGroups: Record<string, boolean>;
+  onToggleGroup: (groupId: string) => void;
   onAddonsChange: (list: AddonInfo[]) => void;
   onNavigate?: () => void;
 }) {
@@ -165,27 +217,31 @@ function SidebarPanel({
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-        {visibleNav.map((item) => {
-          const active = isNavActive(pathname, item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
-              className={`flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                active
-                  ? "bg-white/10 text-white shadow-inner"
-                  : "text-slate-300 hover:bg-white/5 hover:text-white"
-              }`}
-            >
-              <span className={`text-xs ${active ? "text-brand-500" : "text-slate-500"}`}>
-                {item.icon}
-              </span>
-              {item.label}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 overflow-y-auto p-3">
+        <div className="space-y-0.5">
+          {standaloneTop.map((item) => (
+            <SidebarNavLink key={item.href} item={item} pathname={pathname} onNavigate={onNavigate} />
+          ))}
+        </div>
+
+        <div className="mt-2 space-y-1">
+          {groups.map((group) => (
+            <SidebarGroupSection
+              key={group.id}
+              group={group}
+              pathname={pathname}
+              open={openGroups[group.id] ?? false}
+              onToggle={() => onToggleGroup(group.id)}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </div>
+
+        <div className="mt-3 space-y-0.5 border-t border-white/10 pt-3">
+          {standaloneBottom.map((item) => (
+            <SidebarNavLink key={item.href} item={item} pathname={pathname} onNavigate={onNavigate} />
+          ))}
+        </div>
       </nav>
 
       <div className="space-y-3 p-3">
@@ -235,6 +291,7 @@ export function AppShell({
   const pathname = usePathname();
   const [addonMap, setAddonMap] = useState(addons);
   const [navOpen, setNavOpen] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setAddonMap(addons);
@@ -258,27 +315,53 @@ export function AppShell({
     };
   }, [navOpen]);
 
+  const visibleGroups = useMemo(
+    () =>
+      SIDEBAR_GROUPS.map((g) => filterGroup(g, role, addonMap)).filter(
+        (g): g is SidebarGroup => g !== null
+      ),
+    [role, addonMap]
+  );
+
+  const standaloneTop = useMemo(
+    () => SIDEBAR_STANDALONE_TOP.filter((item) => navItemAllowed(item, role, addonMap)),
+    [role, addonMap]
+  );
+
+  const standaloneBottom = useMemo(
+    () => SIDEBAR_STANDALONE_BOTTOM.filter((item) => navItemAllowed(item, role, addonMap)),
+    [role, addonMap]
+  );
+
+  useEffect(() => {
+    const next: Record<string, boolean> = {};
+    for (const group of visibleGroups) {
+      const active = group.items.some((item) => isSidebarHrefActive(pathname, item.href));
+      if (active) next[group.id] = true;
+    }
+    if (Object.keys(next).length) {
+      setOpenGroups((prev) => ({ ...prev, ...next }));
+    }
+  }, [pathname, visibleGroups]);
+
   const handleAddonsChange = useCallback((list: AddonInfo[]) => {
     setAddonMap(orgAddonsFromInfoList(list));
   }, []);
 
+  const toggleGroup = useCallback((groupId: string) => {
+    setOpenGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
+  }, []);
+
   const closeNav = useCallback(() => setNavOpen(false), []);
 
-  const visibleNav = NAV.filter((item) => {
-    if (!isNavKeyAllowed(role, item.key)) return false;
-    if (item.addon) {
-      if (!addonMap[item.addon]) return false;
-      const navKey = addonNavKey(item.addon);
-      if (navKey && !isNavKeyAllowed(role, navKey)) return false;
-    }
-    return true;
-  });
   const comingSoon = isPlatformAdmin ? comingSoonLabels(addonMap) : [];
   const isPosFullscreen = pathname === "/dashboard/pos" || pathname.startsWith("/dashboard/pos/");
 
   const sidebarProps = {
     pathname,
-    visibleNav,
+    groups: visibleGroups,
+    standaloneTop,
+    standaloneBottom,
     orgName,
     orgLogoUrl,
     userEmail,
@@ -286,6 +369,8 @@ export function AppShell({
     isDemo,
     isPlatformAdmin,
     comingSoon,
+    openGroups,
+    onToggleGroup: toggleGroup,
     onAddonsChange: handleAddonsChange
   };
 
@@ -295,12 +380,10 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen bg-slate-50">
-      {/* Desktop sidebar */}
       <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200/80 bg-slate-900 text-white md:flex">
         <SidebarPanel {...sidebarProps} />
       </aside>
 
-      {/* Mobile drawer */}
       {navOpen ? (
         <button
           type="button"

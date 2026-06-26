@@ -201,7 +201,7 @@ export default function StokOutletPageClient({ role }: { role: MembershipRole })
   if (!outletOptions.length) {
     return (
       <main className="mx-auto max-w-5xl px-6 py-8">
-        <PageHeader title="Stok Outlet" description="Opname & penyesuaian stok per gudang outlet" />
+        <PageHeader title="Stock Opname" description="Opname & penyesuaian stok per gudang outlet" />
         <Card className="p-6 text-sm text-slate-600">
           Belum ada outlet aktif. Buat di Master → Outlet / Cabang.
         </Card>
@@ -213,7 +213,7 @@ export default function StokOutletPageClient({ role }: { role: MembershipRole })
     return (
       <main className="mx-auto max-w-lg px-6 py-12">
         <PageHeader
-          title="Stok Outlet"
+          title="Stock Opname"
           description="Pilih outlet untuk opname / penyesuaian stok gudang."
         />
         {error && (
@@ -246,7 +246,7 @@ export default function StokOutletPageClient({ role }: { role: MembershipRole })
     <main className="mx-auto max-w-5xl px-6 py-8">
       <PageHeader
         badge={selectedOutlet}
-        title="Stok Outlet"
+        title="Stock Opname"
         description={
           warehouseName
             ? `Opname gudang ${warehouseName} — isi qty fisik, sistem hitung selisih otomatis.`

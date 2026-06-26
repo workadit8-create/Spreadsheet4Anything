@@ -2,10 +2,9 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { fetchOrgAddons, isAddonEnabled } from "@/lib/org/addons";
 import { requireUserOrg } from "@/lib/org/require-user-org";
-import { canManageOutletInventory } from "@/lib/outlets/membership-scope";
-import StokOutletPageClient from "./StokOutletPageClient";
+import { InventoryPlaceholderPage } from "@/components/inventory/InventoryPlaceholderPage";
 
-export default async function StokOutletPage() {
+export default async function PembelianInventoryPage() {
   const supabase = await createClient();
   let auth;
   try {
@@ -14,14 +13,16 @@ export default async function StokOutletPage() {
     redirect("/login");
   }
 
-  if (!canManageOutletInventory(auth.role)) {
-    redirect("/dashboard");
-  }
-
   const addons = await fetchOrgAddons(supabase, auth.org.id);
-  if (!isAddonEnabled(addons, "inventory")) {
+  if (!isAddonEnabled(addons, "pembelian")) {
     redirect("/dashboard");
   }
 
-  return <StokOutletPageClient role={auth.role} />;
+  return (
+    <InventoryPlaceholderPage
+      badge="Pembelian · Inventory"
+      title="Purchase Order"
+      description="PO dengan baris produk master — stok masuk otomatis saat posting. Menggantikan input manual di modul Expense."
+    />
+  );
 }

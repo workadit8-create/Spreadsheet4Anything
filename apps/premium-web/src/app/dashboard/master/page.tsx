@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { fetchOrgAddons, isAddonEnabled } from "@/lib/org/addons";
 import { requireUserOrg } from "@/lib/org/require-user-org";
@@ -16,9 +17,11 @@ export default async function MasterDataPage() {
   const addons = await fetchOrgAddons(supabase, auth.org.id);
 
   return (
-    <MasterDataClient
-      role={auth.role}
-      outletAddonEnabled={isAddonEnabled(addons, "outlet")}
-    />
+    <Suspense fallback={<main className="mx-auto max-w-5xl px-6 py-8 text-sm text-slate-500">Memuat master data…</main>}>
+      <MasterDataClient
+        role={auth.role}
+        outletAddonEnabled={isAddonEnabled(addons, "outlet")}
+      />
+    </Suspense>
   );
 }

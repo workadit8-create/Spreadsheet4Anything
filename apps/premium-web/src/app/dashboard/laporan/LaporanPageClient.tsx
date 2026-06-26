@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
@@ -501,6 +502,9 @@ function DaftarAsetView({
 }
 
 export default function LaporanPageClient({ outletAddonEnabled }: { outletAddonEnabled: boolean }) {
+  const searchParams = useSearchParams();
+  const tabFromUrl = searchParams.get("tab");
+
   const tabs = useMemo(
     () => ALL_TABS.filter((t) => t.id !== "outlet-lr" || outletAddonEnabled),
     [outletAddonEnabled]
@@ -537,6 +541,12 @@ export default function LaporanPageClient({ outletAddonEnabled }: { outletAddonE
   const [printingDaftarAset, setPrintingDaftarAset] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (tabFromUrl && tabs.some((t) => t.id === tabFromUrl)) {
+      setTab(tabFromUrl as ReportTab);
+    }
+  }, [tabFromUrl, tabs]);
 
   useEffect(() => {
     if (tab === "outlet-lr" && !outletAddonEnabled) {

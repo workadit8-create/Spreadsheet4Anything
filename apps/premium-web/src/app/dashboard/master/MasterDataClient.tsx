@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { MasterCrudPanel } from "@/components/master/MasterCrudPanel";
 import { BusinessProfilePanel } from "@/components/master/BusinessProfilePanel";
 import { OutletsMasterPanel } from "@/components/master/OutletsMasterPanel";
@@ -40,13 +41,29 @@ export default function MasterDataClient({
   role: MembershipRole;
   outletAddonEnabled: boolean;
 }) {
+  const searchParams = useSearchParams();
+  const tabFromUrl = searchParams.get("tab");
+
   const visibleTabs = useMemo(() => {
     const allowed = new Set(masterTabsForRole(role));
     return TABS.filter((t) => allowed.has(t.id) && (t.id !== "outlets" || outletAddonEnabled));
   }, [role, outletAddonEnabled]);
 
-  const [tab, setTab] = useState<MasterTabId>(visibleTabs[0]?.id ?? "customers");
+  const initialTab = useMemo(() => {
+    if (tabFromUrl && visibleTabs.some((t) => t.id === tabFromUrl)) {
+      return tabFromUrl as MasterTabId;
+    }
+    return visibleTabs[0]?.id ?? "customers";
+  }, [tabFromUrl, visibleTabs]);
+
+  const [tab, setTab] = useState<MasterTabId>(initialTab);
   const canEditProfile = OWNER_ONLY_ROLES.includes(role);
+
+  useEffect(() => {
+    if (tabFromUrl && visibleTabs.some((t) => t.id === tabFromUrl)) {
+      setTab(tabFromUrl as MasterTabId);
+    }
+  }, [tabFromUrl, visibleTabs]);
 
   useEffect(() => {
     if (!visibleTabs.some((t) => t.id === tab)) {
