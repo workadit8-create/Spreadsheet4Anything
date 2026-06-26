@@ -22,6 +22,8 @@ type LineState = {
   unit_cost: string;
   diskon: string;
   unit_code: string;
+  capitalize_as_asset: boolean;
+  useful_life_months: string;
 };
 
 function formatRp(n: number) {
@@ -40,8 +42,20 @@ function emptyLine(): LineState {
     qty: "1",
     unit_cost: "",
     diskon: "0",
-    unit_code: "PCS"
+    unit_code: "PCS",
+    capitalize_as_asset: false,
+    useful_life_months: "48"
   };
+}
+
+function categoryIsFixedAsset(
+  categoryId: string,
+  categories: Category[],
+  fixedAssetCoaAccounts: string[]
+): boolean {
+  const cat = categories.find((c) => c.id === categoryId);
+  if (!cat) return false;
+  return fixedAssetCoaAccounts.includes(cat.coa_account);
 }
 
 export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
@@ -71,6 +85,7 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
     ratePercent: number;
     priceIncludesTax: boolean;
   } | null>(null);
+  const [fixedAssetCoaAccounts, setFixedAssetCoaAccounts] = useState<string[]>([]);
 
   const selectedSupplier = suppliers.find((s) => s.id === supplierId);
   const supplierPkp = selectedSupplier?.pkp === true;
@@ -114,6 +129,7 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
       setCategories(data.purchaseCategories || []);
       setKasBank(data.kasBank || []);
       setProjectOptions(data.projectAddon?.options || []);
+      setFixedAssetCoaAccounts(data.fixedAssetCoaAccounts || []);
       setPurchasePpnAvailable(data.purchasePpn?.available === true);
       setPurchasePpnSettings(
         data.purchasePpn?.available
@@ -146,7 +162,20 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
   }, [load]);
 
   function updateLine(key: string, patch: Partial<LineState>) {
-    setLines((prev) => prev.map((line) => (line.key === key ? { ...line, ...patch } : line)));
+    setLines((prev) =>
+      prev.map((line) => {
+        if (line.key !== key) return line;
+        const next = { ...line, ...patch };
+        if (patch.purchase_category_id != null) {
+          next.capitalize_as_asset = categoryIsFixedAsset(
+            patch.purchase_category_id,
+            categories,
+            fixedAssetCoaAccounts
+          );
+        }
+        return next;
+      })
+    );
   }
 
   function addLine() {
@@ -189,7 +218,9 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
             qty: String(l.qty),
             unit_cost: String(l.unitCost),
             diskon: String(l.diskon || 0),
-            unit_code: l.unitCode || "PCS"
+            unit_code: l.unitCode || "PCS",
+            capitalize_as_asset: false,
+            useful_life_months: "48"
           })
         )
       );
@@ -237,7 +268,9 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
             qty: Number(l.qty) || 1,
             unit_cost: Number(l.unit_cost) || 0,
             diskon: Number(l.diskon) || 0,
-            unit_code: l.unit_code || "PCS"
+            unit_code: l.unit_code || "PCS",
+            capitalize_as_asset: l.capitalize_as_asset,
+            useful_life_months: Number(l.useful_life_months) || 48
           }))
         })
       });
@@ -329,6 +362,7 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
               <tr>
                 <th className="px-3 py-2">Barang / jasa</th>
                 <th className="px-3 py-2 w-48">Kategori</th>
+                <th className="px-3 py-2 w-36">Aset</th>
                 <th className="px-3 py-2 w-20">Qty</th>
                 <th className="px-3 py-2 w-32">Harga</th>
                 <th className="px-3 py-2 w-28">Diskon</th>
@@ -356,6 +390,36 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
                         <option key={c.id} value={c.id}>{c.label}</option>
                       ))}
                     </Select>
+                  </td>
+                  <td className="px-3 py-2 align-top">
+                    <label className="flex items-start gap-2 text-xs text-slate-600">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5"
+                        checked={line.capitalize_as_asset}
+                        onChange={(e) =>
+                          updateLine(line.key, { capitalize_as_asset: e.target.checked })
+                        }
+                      />
+                      <span>
+                        Aset tetap
+                        {line.capitalize_as_asset ? (
+                          <span className="mt-1 block">
+                            <Input
+                              type="number"
+                              min={1}
+                              className="mt-1 w-20"
+                              value={line.useful_life_months}
+                              onChange={(ev) =>
+                                updateLine(line.key, { useful_life_months: ev.target.value })
+                              }
+                              title="Umur ekonomis (bulan)"
+                            />
+                            <span className="text-[10px] text-slate-400">bulan</span>
+                          </span>
+                        ) : null}
+                      </span>
+                    </label>
                   </td>
                   <td className="px-3 py-2">
                     <Input
@@ -405,6 +469,10 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
             </tbody>
           </table>
         </div>
+        <p className="mt-2 text-xs text-slate-500">
+          Baris bertanda <strong>Aset tetap</strong> otomatis masuk daftar Aset Tetap saat PO di-post
+          (jurnal ke akun Peralatan, bukan Beban).
+        </p>
       </div>
 
       <div className="rounded-lg bg-slate-50 p-4 space-y-2">

@@ -11,6 +11,7 @@ import {
 import { TAX_INPUT_ACCOUNT, TAX_OUTPUT_ACCOUNT } from "@/lib/tax/compute";
 import { postCashTransferJournal, type CashTransferRow } from "./mutasi";
 import { postJournalEntry } from "./journal-supabase";
+import { createFixedAssetsFromPostedPurchaseOrder } from "@/lib/assets/from-purchase-order";
 import type {
   SalesLineMetadata,
   SalesOrderMetadata,
@@ -129,7 +130,24 @@ function asPurchaseLineMeta(raw: unknown): PurchaseLineMetadata {
     taxAmount: m.taxAmount != null ? Number(m.taxAmount) : undefined,
     taxRate: m.taxRate != null ? Number(m.taxRate) : undefined,
     taxType: m.taxType ? String(m.taxType) : undefined,
-    taxable: m.taxable === true
+    taxable: m.taxable === true,
+    fixedAsset:
+      (m.fixedAsset as Record<string, unknown> | undefined)?.enabled === true
+        ? {
+            enabled: true,
+            usefulLifeMonths:
+              (m.fixedAsset as Record<string, unknown>).usefulLifeMonths != null
+                ? Number((m.fixedAsset as Record<string, unknown>).usefulLifeMonths)
+                : undefined,
+            salvageValue:
+              (m.fixedAsset as Record<string, unknown>).salvageValue != null
+                ? Number((m.fixedAsset as Record<string, unknown>).salvageValue)
+                : undefined,
+            category: (m.fixedAsset as Record<string, unknown>).category
+              ? String((m.fixedAsset as Record<string, unknown>).category)
+              : undefined
+          }
+        : undefined
   };
 }
 
@@ -632,6 +650,21 @@ export async function processPendingPostingJobs(
           (lines || []) as PurchaseLineRow[]
         );
 
+        let assetCreated = 0;
+        try {
+          const assetResult = await createFixedAssetsFromPostedPurchaseOrder(
+            supabase,
+            job.organization_id,
+            order as PurchaseOrderRow,
+            (lines || []) as PurchaseLineRow[]
+          );
+          assetCreated = assetResult.created;
+        } catch (assetErr) {
+          throw new Error(
+            assetErr instanceof Error ? assetErr.message : "Gagal buat aset dari PO"
+          );
+        }
+
         await supabase
           .from("posting_jobs")
           .update({
@@ -652,8 +685,12 @@ export async function processPendingPostingJobs(
           job.id,
           "INFO",
           skippedCount > 0 && postedCount === 0
-            ? "Jurnal sudah ada di Supabase (idempotent skip)"
-            : `Jurnal Supabase OK (${postedCount} entri, ${skippedCount} skip)`
+            ? assetCreated > 0
+              ? `Jurnal sudah ada (skip); ${assetCreated} aset dibuat`
+              : "Jurnal sudah ada di Supabase (idempotent skip)"
+            : assetCreated > 0
+              ? `Jurnal Supabase OK (${postedCount} entri); ${assetCreated} aset dibuat`
+              : `Jurnal Supabase OK (${postedCount} entri, ${skippedCount} skip)`
         );
 
         results.push({

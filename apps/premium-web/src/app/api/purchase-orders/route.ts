@@ -23,6 +23,10 @@ import { wibDateIsoFromInput } from "@/lib/date/wib";
 import { fetchOrgTaxSettings, getPurchaseTaxConfig } from "@/lib/org/tax-settings";
 import { supplierPkpFromMetadata } from "@/lib/suppliers/pkp";
 import { computeLineTax, summarizeLineTax } from "@/lib/tax/compute";
+import {
+  isFixedAssetCoaName,
+  resolvePurchaseAssetCoa
+} from "@/lib/assets/coa-defaults";
 
 type LineInput = {
   description: string;
@@ -31,6 +35,8 @@ type LineInput = {
   unit_cost?: number;
   diskon?: number;
   unit_code?: string;
+  capitalize_as_asset?: boolean;
+  useful_life_months?: number;
 };
 
 type CreateBody = {
@@ -207,6 +213,21 @@ export async function POST(request: Request) {
     const taxSettings = await fetchOrgTaxSettings(supabase, org.id);
     const purchaseTaxConfig = getPurchaseTaxConfig(taxSettings, supplierPkp);
 
+    const { data: coaRows } = await supabase
+      .from("coa_accounts")
+      .select("name, metadata")
+      .eq("organization_id", org.id)
+      .eq("active", true);
+
+    const coaSubByName = new Map<string, string>();
+    const fixedAssetCoaAccounts: string[] = [];
+    for (const row of coaRows || []) {
+      const name = String(row.name || "");
+      const sub = String((row.metadata as Record<string, unknown> | null)?.sub_category || "");
+      coaSubByName.set(name, sub);
+      if (isFixedAssetCoaName(name, coaSubByName)) fixedAssetCoaAccounts.push(name);
+    }
+
     const resolvedLines: Array<{
       description: string;
       purchase_category_id: string;
@@ -222,6 +243,8 @@ export async function POST(request: Request) {
       taxRate: number;
       taxType: string | null;
       taxable: boolean;
+      capitalizeAsAsset: boolean;
+      usefulLifeMonths: number;
     }> = [];
 
     const lineTaxResults: ReturnType<typeof computeLineTax>[] = [];
@@ -251,6 +274,14 @@ export async function POST(request: Request) {
       );
       lineTaxResults.push(lineTax);
 
+      const capitalizeAsAsset =
+        line.capitalize_as_asset === true ||
+        isFixedAssetCoaName(cat.coa_account, coaSubByName);
+      const akunPembelian = capitalizeAsAsset
+        ? resolvePurchaseAssetCoa(cat.coa_account, coaSubByName, fixedAssetCoaAccounts)
+        : cat.coa_account;
+      const usefulLifeMonths = Math.max(1, Number(line.useful_life_months) || 48);
+
       resolvedLines.push({
         description,
         purchase_category_id: cat.id,
@@ -259,13 +290,15 @@ export async function POST(request: Request) {
         line_total: lineTax.gross,
         sort_order: index,
         unitCode: String(line.unit_code || "PCS"),
-        akunPembelian: cat.coa_account,
+        akunPembelian,
         diskon,
         dpp: lineTax.dpp,
         taxAmount: lineTax.taxAmount,
         taxRate: lineTax.taxRate,
         taxType: lineTax.taxType,
-        taxable: lineTax.taxable
+        taxable: lineTax.taxable,
+        capitalizeAsAsset,
+        usefulLifeMonths
       });
     }
 
@@ -354,7 +387,13 @@ export async function POST(request: Request) {
         taxAmount: line.taxAmount,
         taxRate: line.taxRate,
         taxType: line.taxType || undefined,
-        taxable: line.taxable
+        taxable: line.taxable,
+        fixedAsset: line.capitalizeAsAsset
+          ? {
+              enabled: true,
+              usefulLifeMonths: line.usefulLifeMonths
+            }
+          : undefined
       };
       return {
         purchase_order_id: order.id,

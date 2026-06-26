@@ -4,6 +4,7 @@ import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { fetchProjectBootstrap } from "@/lib/proyek/bootstrap-options";
 import { fetchOrgTaxSettings } from "@/lib/org/tax-settings";
 import { supplierPkpFromMetadata } from "@/lib/suppliers/pkp";
+import { isFixedAssetCoaName } from "@/lib/assets/coa-defaults";
 
 export async function GET() {
   const supabase = await createClient();
@@ -15,7 +16,7 @@ export async function GET() {
   }
   const { org } = auth;
 
-  const [suppliersRes, categoriesRes, kasRes, projectAddon, taxSettings] = await Promise.all([
+  const [suppliersRes, categoriesRes, kasRes, coaRes, projectAddon, taxSettings] = await Promise.all([
     supabase
       .from("suppliers")
       .select("id, code, name, metadata")
@@ -34,6 +35,11 @@ export async function GET() {
       .eq("organization_id", org.id)
       .eq("active", true)
       .order("name"),
+    supabase
+      .from("coa_accounts")
+      .select("name, metadata")
+      .eq("organization_id", org.id)
+      .eq("active", true),
     fetchProjectBootstrap(supabase, org.id),
     fetchOrgTaxSettings(supabase, org.id)
   ]);
@@ -41,6 +47,18 @@ export async function GET() {
   if (suppliersRes.error) return NextResponse.json({ error: suppliersRes.error.message }, { status: 500 });
   if (categoriesRes.error) return NextResponse.json({ error: categoriesRes.error.message }, { status: 500 });
   if (kasRes.error) return NextResponse.json({ error: kasRes.error.message }, { status: 500 });
+  if (coaRes.error) return NextResponse.json({ error: coaRes.error.message }, { status: 500 });
+
+  const coaSubByName = new Map<string, string>();
+  for (const row of coaRes.data || []) {
+    coaSubByName.set(
+      String(row.name || ""),
+      String((row.metadata as Record<string, unknown> | null)?.sub_category || "")
+    );
+  }
+  const fixedAssetCoaAccounts = (coaRes.data || [])
+    .map((row) => String(row.name || ""))
+    .filter((name) => isFixedAssetCoaName(name, coaSubByName));
 
   const purchasePpnAvailable = taxSettings.ppn.pkpEnabled;
 
@@ -57,6 +75,7 @@ export async function GET() {
       coa_account: c.coa_account
     })),
     kasBank: kasRes.data || [],
+    fixedAssetCoaAccounts,
     projectAddon,
     purchasePpn: purchasePpnAvailable
       ? {

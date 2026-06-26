@@ -88,6 +88,12 @@ export type PurchaseLineMetadata = {
   taxRate?: number;
   taxType?: string;
   taxable?: boolean;
+  fixedAsset?: {
+    enabled: boolean;
+    usefulLifeMonths?: number;
+    salvageValue?: number;
+    category?: string;
+  };
 };
 
 export type PurchaseOrderRow = {
