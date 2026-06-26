@@ -245,7 +245,8 @@ export default function AkunPageClient({
       <Card className="p-5">
         <h2 className="text-sm font-semibold text-slate-800">Telegram</h2>
         <p className="mt-1 text-xs text-slate-500">
-          Owner: ringkasan transaksi harian. Tim: reminder tugas proyek (add-on aktif).
+          Owner: ringkasan harian jam 20:00 WIB + perintah <span className="font-mono">/ringkasan</span>{" "}
+          di bot. Tim: reminder tugas proyek (add-on aktif).
         </p>
 
         {tgLoading ? (
@@ -275,7 +276,7 @@ export default function AkunPageClient({
                     disabled={tgSaving}
                     onChange={(e) => void saveTelegramPrefs({ dailyDigestEnabled: e.target.checked })}
                   />
-                  Ringkasan harian (owner)
+                  Ringkasan harian otomatis (owner)
                 </label>
                 <div>
                   <Label className="text-xs">Jam kirim digest</Label>

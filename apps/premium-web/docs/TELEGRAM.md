@@ -6,7 +6,7 @@ Notifikasi via bot Telegram (platform-wide).
 
 | Penerima | Isi | Default jam (WIB) |
 |----------|-----|-------------------|
-| **Owner** | Ringkasan harian: penjualan, pembelian, piutang, utang | 20:00 |
+| **Owner** | Ringkasan harian + `/ringkasan` on-demand: posisi (kas/bank, piutang, utang), omset & laba bulan ini, pergerakan hari ini | 20:00 |
 | **Tim** (add-on `project`) | Reminder tugas proyek jatuh tempo hari ini | 08:00 |
 
 Angka digest = **CONFIRMED + POSTED** (operasional), exclude VOID.
@@ -53,8 +53,18 @@ curl "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"
 
 1. Buka **Akun** → **Hubungkan Telegram**
 2. Buka link → tekan **Start** di bot
-3. Owner: aktifkan ringkasan harian + uji coba digest
+3. Owner: aktifkan ringkasan harian + uji coba digest; atau ketik `/ringkasan` di bot kapan saja
 4. Staff/akuntan (dengan add-on proyek): aktifkan reminder proyek
+
+## Perintah bot
+
+| Perintah | Role | Isi |
+|----------|------|-----|
+| `/ringkasan` | Owner | Sama dengan digest harian (posisi + bulan ini + hari ini) |
+| `/help` | Semua | Panduan singkat |
+| `/start` | Semua | Pairing atau bantuan |
+
+Cooldown `/ringkasan`: ~1 menit per chat.
 
 ## Migrasi
 
@@ -62,7 +72,7 @@ curl "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"
 
 ## Kode
 
-- `src/lib/telegram/` — bot, digest, reminders, cron
+- `src/lib/telegram/` — bot, digest, owner-ringkasan, reminders, cron
 - `GET/POST /api/telegram/settings`
 - `POST /api/telegram/webhook`
 - `GET/POST /api/cron/telegram` (Bearer `CRON_SECRET`)

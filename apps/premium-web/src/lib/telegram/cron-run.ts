@@ -3,9 +3,9 @@ import { fetchOrgAddons, isAddonEnabled } from "@/lib/org/addons";
 import { normalizeMembershipRole, type MembershipRole } from "@/lib/org/roles";
 import { sendTelegramMessage } from "@/lib/telegram/bot";
 import {
-  fetchDailyDigestStats,
-  formatDailyDigestMessage
-} from "@/lib/telegram/daily-digest";
+  fetchOwnerRingkasan,
+  formatOwnerRingkasanMessage
+} from "@/lib/telegram/owner-ringkasan";
 import {
   fetchProjectReminderTasks,
   formatProjectRemindersMessage
@@ -105,8 +105,8 @@ export async function runTelegramCron(
       row.last_digest_sent_on !== dateWib
     ) {
       try {
-        const stats = await fetchDailyDigestStats(supabase, row.organization_id, dateWib);
-        const text = formatDailyDigestMessage(orgLabel, stats);
+        const ringkasan = await fetchOwnerRingkasan(supabase, row.organization_id, dateWib);
+        const text = formatOwnerRingkasanMessage(orgLabel, ringkasan);
         const sent = await sendTelegramMessage(chatId, text);
         if (!sent.ok) {
           result.errors.push(`digest ${row.id}: ${sent.error}`);
@@ -177,8 +177,8 @@ export async function sendTestDailyDigest(
   orgName: string,
   chatId: number
 ): Promise<{ ok: boolean; error?: string }> {
-  const stats = await fetchDailyDigestStats(supabase, organizationId);
-  const text = formatDailyDigestMessage(orgName, stats);
+  const ringkasan = await fetchOwnerRingkasan(supabase, organizationId);
+  const text = formatOwnerRingkasanMessage(orgName, ringkasan);
   const sent = await sendTelegramMessage(chatId, text);
   if (!sent.ok) return { ok: false, error: sent.error };
   return { ok: true };

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTelegramMessage } from "@/lib/telegram/bot";
+import { handleRingkasanCommand } from "@/lib/telegram/ringkasan-command";
 
 type TelegramUpdate = {
   message?: {
@@ -35,10 +36,23 @@ export async function POST(request: Request) {
   const username = message.from?.username || message.from?.first_name || "";
   const text = message.text.trim();
 
+  if (text === "/ringkasan") {
+    try {
+      const admin = createAdminClient();
+      await handleRingkasanCommand(admin, chatId);
+    } catch (err) {
+      await sendTelegramMessage(
+        chatId,
+        `❌ Server error: ${err instanceof Error ? err.message : "unknown"}`
+      );
+    }
+    return NextResponse.json({ ok: true });
+  }
+
   if (text === "/help" || text === "/start") {
     await sendTelegramMessage(
       chatId,
-      "Halo! Untuk menghubungkan akun Premium Web, buka halaman <b>Akun</b> di dashboard → <b>Hubungkan Telegram</b>, lalu buka link pairing."
+      "Halo! Hubungkan akun di halaman <b>Akun</b> → <b>Hubungkan Telegram</b>.\n\nOwner: <b>/ringkasan</b> — posisi keuangan &amp; transaksi hari ini.\nRingkasan harian otomatis jam 20:00 WIB (jika diaktifkan)."
     );
     return NextResponse.json({ ok: true });
   }
@@ -68,7 +82,7 @@ export async function POST(request: Request) {
 
       await sendTelegramMessage(
         chatId,
-        "✅ <b>Telegram terhubung</b> ke Premium Web.\n\nOwner: ringkasan harian otomatis.\nTim: reminder proyek (jika add-on aktif).\n\nAtur preferensi di halaman Akun."
+        "✅ <b>Telegram terhubung</b> ke Premium Web.\n\nOwner: <b>/ringkasan</b> kapan saja + digest otomatis jam 20:00 WIB.\nTim: reminder proyek (jika add-on aktif).\n\nAtur preferensi di halaman Akun."
       );
     } catch (err) {
       await sendTelegramMessage(

@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { addDaysIso, formatWibDateLabel, wibTodayIso } from "@/lib/date/wib";
-import { escapeTelegramHtml, formatIdr } from "@/lib/telegram/bot";
+import { addDaysIso, wibTodayIso } from "@/lib/date/wib";
 
 export type DailyDigestStats = {
   date: string;
@@ -115,37 +114,4 @@ export async function fetchDailyDigestStats(
     hutangNewCount,
     hutangNewTotal
   };
-}
-
-export function formatDailyDigestMessage(orgName: string, stats: DailyDigestStats): string {
-  const dateLabel = formatWibDateLabel(stats.date);
-  const name = escapeTelegramHtml(orgName);
-
-  const lines = [
-    `📊 <b>${name}</b> — ${escapeTelegramHtml(dateLabel)}`,
-    "",
-    "<b>Penjualan</b>",
-    `  • ${stats.salesCount} invoice · ${formatIdr(stats.salesTotal)}`,
-    stats.salesUnposted > 0
-      ? `  <i>(${stats.salesUnposted} belum post jurnal)</i>`
-      : null,
-    "",
-    "<b>Pembelian</b>",
-    `  • ${stats.purchaseCount} PO · ${formatIdr(stats.purchaseTotal)}`,
-    stats.purchaseUnposted > 0
-      ? `  <i>(${stats.purchaseUnposted} belum post jurnal)</i>`
-      : null,
-    "",
-    "<b>Piutang</b>",
-    `  • Pelunasan masuk: ${stats.piutangPaymentCount} · ${formatIdr(stats.piutangPaymentTotal)}`,
-    `  • Tagihan baru: ${stats.piutangNewCount} · ${formatIdr(stats.piutangNewTotal)}`,
-    "",
-    "<b>Utang</b>",
-    `  • Pelunasan keluar: ${stats.hutangPaymentCount} · ${formatIdr(stats.hutangPaymentTotal)}`,
-    `  • Tagihan baru: ${stats.hutangNewCount} · ${formatIdr(stats.hutangNewTotal)}`,
-    "",
-    "<i>Angka operasional (confirmed/posted). Void tidak termasuk.</i>"
-  ];
-
-  return lines.filter((l) => l !== null).join("\n");
 }
