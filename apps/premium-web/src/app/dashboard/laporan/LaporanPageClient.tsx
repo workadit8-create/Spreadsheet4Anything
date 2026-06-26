@@ -13,7 +13,7 @@ import {
 } from "@/lib/laporan/daftar-aset-print";
 import type { PrintCompanyHeader } from "@/lib/org/print-company-header";
 
-type ReportTab = "buku-besar" | "laba-rugi" | "neraca" | "arus-kas" | "daftar-aset";
+type ReportTab = "buku-besar" | "laba-rugi" | "neraca" | "arus-kas" | "daftar-aset" | "stok-minus";
 
 type CoaOption = { code: string; name: string };
 
@@ -116,7 +116,8 @@ const TABS: { id: ReportTab; label: string }[] = [
   { id: "laba-rugi", label: "Laba Rugi" },
   { id: "neraca", label: "Neraca" },
   { id: "arus-kas", label: "Arus Kas" },
-  { id: "daftar-aset", label: "Daftar Aset" }
+  { id: "daftar-aset", label: "Daftar Aset" },
+  { id: "stok-minus", label: "Stok Minus" }
 ];
 
 function defaultDateRange() {
@@ -510,6 +511,15 @@ export default function LaporanPageClient() {
   const [neraca, setNeraca] = useState<NeracaReport | null>(null);
   const [arusKas, setArusKas] = useState<ArusKasReport | null>(null);
   const [daftarAset, setDaftarAset] = useState<AssetRegisterReport | null>(null);
+  const [stokMinus, setStokMinus] = useState<{
+    rows: Array<{
+      productId: string;
+      productName: string;
+      sku: string | null;
+      warehouseName: string;
+      qty: number;
+    }>;
+  } | null>(null);
   const [assetStatus, setAssetStatus] = useState<"all" | "active" | "disposed">("active");
   const [printCompany, setPrintCompany] = useState<PrintCompanyHeader | null>(null);
   const [printingDaftarAset, setPrintingDaftarAset] = useState(false);
@@ -520,6 +530,14 @@ export default function LaporanPageClient() {
     setLoading(true);
     setError(null);
     try {
+      if (tab === "stok-minus") {
+        const res = await fetch("/api/laporan/stok-minus");
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Gagal memuat laporan");
+        setStokMinus(json);
+        return;
+      }
+
       const params = new URLSearchParams({ type: tab, start, end });
       if (tab === "buku-besar" && account) params.set("account", account);
       if (tab === "daftar-aset") params.set("asset_status", assetStatus);
@@ -593,7 +611,7 @@ export default function LaporanPageClient() {
       <PageHeader
         badge="Laporan"
         title="Laporan akuntansi"
-        description="Buku besar, laba rugi, neraca, arus kas, dan daftar aset tetap"
+        description="Buku besar, laba rugi, neraca, arus kas, daftar aset, dan stok minus (POS)"
       >
         <div className="flex gap-3">
           <Link href="/dashboard/jurnal" className="text-sm text-brand-600 hover:text-brand-700">
@@ -624,6 +642,8 @@ export default function LaporanPageClient() {
         </div>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {tab !== "stok-minus" ? (
+            <>
           <div>
             <Label>Dari tanggal</Label>
             <Input
@@ -642,6 +662,12 @@ export default function LaporanPageClient() {
               onChange={(e) => setEnd(e.target.value)}
             />
           </div>
+            </>
+          ) : (
+            <div className="sm:col-span-2 text-sm text-slate-600">
+              Snapshot saldo stok saat ini — barang dengan qty &lt; 0 setelah penjualan POS / sync.
+            </div>
+          )}
           {tab === "buku-besar" && (
             <div>
               <Label>Akun (opsional)</Label>
@@ -692,6 +718,10 @@ export default function LaporanPageClient() {
 
       <Card>
         <div className="mb-4 text-sm text-slate-500">
+          {tab === "stok-minus" ? (
+            <span>Periksa harian setelah shift — koreksi via opname atau penyesuaian stok.</span>
+          ) : (
+            <>
           Periode: <strong className="text-slate-700">{start}</strong> s/d{" "}
           <strong className="text-slate-700">{end}</strong>
           {tab === "daftar-aset" ? (
@@ -699,6 +729,8 @@ export default function LaporanPageClient() {
               (daftar aset = snapshot per <strong>tanggal akhir</strong>)
             </span>
           ) : null}
+            </>
+          )}
         </div>
 
         {loading ? (
@@ -717,6 +749,34 @@ export default function LaporanPageClient() {
             onPrint={printDaftarAset}
             printing={printingDaftarAset}
           />
+        ) : tab === "stok-minus" && stokMinus ? (
+          stokMinus.rows.length ? (
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="text-left text-xs font-medium text-slate-500">
+                  <th className="px-3 py-2">Produk</th>
+                  <th className="px-3 py-2">Gudang</th>
+                  <th className="px-3 py-2 text-right">Saldo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stokMinus.rows.map((row) => (
+                  <tr key={`${row.productId}-${row.warehouseName}`} className="border-t border-slate-100">
+                    <td className="px-3 py-2">
+                      <div className="font-medium text-red-700">{row.productName}</div>
+                      {row.sku ? <div className="text-xs text-slate-500">{row.sku}</div> : null}
+                    </td>
+                    <td className="px-3 py-2 text-slate-600">{row.warehouseName}</td>
+                    <td className="px-3 py-2 text-right font-semibold tabular-nums text-red-700">
+                      {row.qty}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="text-sm text-emerald-700">Tidak ada stok minus saat ini.</p>
+          )
         ) : (
           <p className="text-sm text-slate-500">Tidak ada data.</p>
         )}

@@ -54,6 +54,13 @@ const NAV: NavItem[] = [
     icon: "◇",
     addon: "project"
   },
+  {
+    key: "pos",
+    href: "/dashboard/pos",
+    label: "Kasir",
+    icon: "◇",
+    addon: "pos"
+  },
   { key: "tim", href: "/dashboard/tim", label: "Tim & Akses", icon: "◇" },
   { key: "audit-log", href: "/dashboard/audit-log", label: "Log Audit", icon: "◇" },
   { key: "akun", href: "/dashboard/akun", label: "Akun", icon: "◇" }
@@ -67,7 +74,7 @@ function comingSoonLabels(addons: OrgAddonsMap): string[] {
     }
   }
   if (!addons.pos && !addons.pos_gramasi) {
-    labels.push("POS / Stok");
+    labels.push("CRM");
   }
   return [...new Set(labels)];
 }
@@ -260,6 +267,7 @@ export function AppShell({
     return true;
   });
   const comingSoon = isPlatformAdmin ? comingSoonLabels(addonMap) : [];
+  const isPosFullscreen = pathname === "/dashboard/pos" || pathname.startsWith("/dashboard/pos/");
 
   const sidebarProps = {
     pathname,
@@ -273,6 +281,10 @@ export function AppShell({
     comingSoon,
     onAddonsChange: handleAddonsChange
   };
+
+  if (isPosFullscreen) {
+    return <div className="min-h-screen">{children}</div>;
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50">

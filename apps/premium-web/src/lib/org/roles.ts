@@ -21,6 +21,7 @@ export const NAV_KEYS = [
   "tax",
   "aset",
   "proyek",
+  "pos",
   "tim",
   "audit-log",
   "akun"
@@ -45,6 +46,7 @@ export const ROLE_MENU_KEYS: Record<MembershipRole, readonly NavKey[] | null> = 
     "tax",
     "aset",
     "proyek",
+    "pos",
     "akun"
   ],
   akuntan: [
@@ -62,7 +64,7 @@ export const ROLE_MENU_KEYS: Record<MembershipRole, readonly NavKey[] | null> = 
     "audit-log",
     "akun"
   ],
-  cashier: ["dashboard", "penjualan", "akun"]
+  cashier: ["dashboard", "pos", "akun"]
 };
 
 export const ROLE_LABELS: Record<MembershipRole, string> = {
@@ -102,6 +104,7 @@ const PATH_NAV_KEY: Array<{ prefix: string; key: NavKey }> = [
   { prefix: "/dashboard/kas-bank", key: "kas-bank" },
   { prefix: "/dashboard/master", key: "master" },
   { prefix: "/dashboard/proyek", key: "proyek" },
+  { prefix: "/dashboard/pos", key: "pos" },
   { prefix: "/dashboard/tim", key: "tim" },
   { prefix: "/dashboard/audit-log", key: "audit-log" },
   { prefix: "/dashboard/akun", key: "akun" },
@@ -198,5 +201,6 @@ export function masterTabsForRole(role: MembershipRole): MasterTabId[] {
 
 export function addonNavKey(addon: AddonKey): NavKey | null {
   if (addon === "project") return "proyek";
+  if (addon === "pos") return "pos";
   return null;
 }

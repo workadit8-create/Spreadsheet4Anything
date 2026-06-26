@@ -18,8 +18,9 @@ export const ADDON_CATALOG: Record<
     navHref: "/dashboard/proyek"
   },
   pos: {
-    label: "POS",
-    description: "Point of sale & kasir."
+    label: "Kasir (POS)",
+    description: "Point of sale cloud — retail, F&B, jasa. Offline + sync.",
+    navHref: "/dashboard/pos"
   },
   pos_gramasi: {
     label: "POS Gramasi",
