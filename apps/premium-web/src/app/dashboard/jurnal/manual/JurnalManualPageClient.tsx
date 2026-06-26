@@ -179,7 +179,7 @@ export default function JurnalManualPageClient() {
       <Card className="mb-6 border-amber-200 bg-amber-50/80">
         <h2 className="mb-2 text-sm font-semibold text-amber-900">Kenapa ini penting?</h2>
         <p className="text-sm text-amber-800/90">
-          COA kosong + tanpa transaksi → neraca 0 (technically balance). Begitu ada penjualan/pembelian,
+          COA kosong + tanpa transaksi → neraca 0 (technically balance). Begitu ada penjualan/expense,
           hanya sisi operasional yang bergerak — <strong>Modal Pemilik</strong> tidak otomatis terisi.
           Input <strong>jurnal saldo awal</strong> (kas, bank, piutang, utang, aset) dengan lawan{" "}
           <strong>Modal Pemilik</strong> / <strong>Laba Ditahan</strong> supaya neraca mencerminkan posisi

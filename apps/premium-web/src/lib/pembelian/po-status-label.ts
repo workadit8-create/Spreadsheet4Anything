@@ -13,6 +13,6 @@ export function confirmPostPoJournal(poNo: string, sisaTagihan?: number): boolea
       ? `\n\nSisa hutang Rp ${sisaTagihan.toLocaleString("id-ID")} tetap perlu dibayar lewat pelunasan.`
       : "";
   return window.confirm(
-    `Posting jurnal pembelian untuk ${poNo}?${sisaText}\n\nPosting = catat transaksi ke buku besar, bukan pelunasan hutang.\n\nLanjutkan?`
+    `Posting jurnal expense untuk ${poNo}?${sisaText}\n\nPosting = catat transaksi ke buku besar, bukan pelunasan hutang.\n\nLanjutkan?`
   );
 }

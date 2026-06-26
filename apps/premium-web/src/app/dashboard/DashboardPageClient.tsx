@@ -62,9 +62,9 @@ function statusClass(status: string) {
 
 const QUICK_LINKS: Array<{ href: string; label: string; key: NavKey }> = [
   { href: "/dashboard/penjualan", label: "Penjualan", key: "penjualan" },
-  { href: "/dashboard/pembelian", label: "Pembelian", key: "pembelian" },
+  { href: "/dashboard/pembelian", label: "Expense", key: "pembelian" },
   { href: "/dashboard/quotation", label: "Quotation", key: "quotation" },
-  { href: "/dashboard/purchase-request", label: "Purchase Request", key: "purchase-request" },
+  { href: "/dashboard/purchase-request", label: "PRE", key: "purchase-request" },
   { href: "/dashboard/piutang", label: "Piutang", key: "piutang" },
   { href: "/dashboard/hutang", label: "Hutang", key: "hutang" },
   { href: "/dashboard/jurnal", label: "Jurnal", key: "jurnal" },
@@ -144,7 +144,7 @@ export default function DashboardPageClient({
 
           <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard label="Penjualan bulan ini" value={formatRp(summary.penjualanBulanIni)} />
-            <StatCard label="Pembelian bulan ini" value={formatRp(summary.pembelianBulanIni)} />
+            <StatCard label="Expense bulan ini" value={formatRp(summary.pembelianBulanIni)} />
             <StatCard label="Piutang outstanding" value={formatRp(summary.totalPiutang)} tone="warning" />
             <StatCard label="Hutang outstanding" value={formatRp(summary.totalHutang)} tone="warning" />
           </div>
@@ -159,7 +159,7 @@ export default function DashboardPageClient({
               tone={summary.pendingPost.invoices > 0 ? "warning" : undefined}
             />
             <StatCard
-              label="PO belum posting"
+              label="Expense belum posting"
               value={summary.pendingPost.purchaseOrders}
               tone={summary.pendingPost.purchaseOrders > 0 ? "warning" : undefined}
             />
@@ -189,7 +189,7 @@ export default function DashboardPageClient({
                     href="/dashboard/pembelian/riwayat"
                     className="rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-amber-900 ring-1 ring-amber-200 hover:bg-amber-50"
                   >
-                    {summary.pendingPost.purchaseOrders} PO →
+                    {summary.pendingPost.purchaseOrders} expense →
                   </Link>
                 )}
                 {summary.pendingPost.invoices > 0 && !isNavKeyAllowed(role, "penjualan-riwayat") && (
@@ -199,7 +199,7 @@ export default function DashboardPageClient({
                 )}
                 {summary.pendingPost.purchaseOrders > 0 && !isNavKeyAllowed(role, "pembelian-riwayat") && (
                   <span className="text-sm text-amber-800">
-                    {summary.pendingPost.purchaseOrders} PO menunggu posting
+                    {summary.pendingPost.purchaseOrders} expense menunggu posting
                   </span>
                 )}
               </div>
@@ -279,7 +279,7 @@ export default function DashboardPageClient({
 
             <Card>
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-base font-semibold text-slate-900">PO terbaru</h2>
+                <h2 className="text-base font-semibold text-slate-900">Expense terbaru</h2>
                 {isNavKeyAllowed(role, "pembelian-riwayat") && (
                 <Link href="/dashboard/pembelian/riwayat" className="text-xs font-medium text-brand-600">
                   Semua →
@@ -287,7 +287,7 @@ export default function DashboardPageClient({
                 )}
               </div>
               {!summary.recentPurchases.length ? (
-                <p className="text-sm text-slate-500">Belum ada pembelian.</p>
+                <p className="text-sm text-slate-500">Belum ada expense.</p>
               ) : (
                 <table className="w-full text-sm">
                   <tbody>

@@ -87,7 +87,7 @@ export function DashboardCharts({
   return (
     <div className="mb-8 grid gap-6 lg:grid-cols-3">
       <Card className="lg:col-span-2">
-        <h2 className="mb-1 text-base font-semibold text-slate-900">Tren penjualan vs pembelian</h2>
+        <h2 className="mb-1 text-base font-semibold text-slate-900">Tren penjualan vs expense</h2>
         <p className="mb-4 text-xs text-slate-500">6 bulan terakhir · transaksi POSTED</p>
         {!hasTrend ? (
           <p className="py-16 text-center text-sm text-slate-500">Belum ada data untuk grafik.</p>
@@ -107,7 +107,7 @@ export function DashboardCharts({
                 <Tooltip content={<TrendTooltip />} cursor={{ fill: "rgba(5, 150, 105, 0.06)" }} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar dataKey="sales" name="Penjualan" fill="#059669" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                <Bar dataKey="purchases" name="Pembelian" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                <Bar dataKey="purchases" name="Expense" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={40} />
               </BarChart>
             </ResponsiveContainer>
           </div>

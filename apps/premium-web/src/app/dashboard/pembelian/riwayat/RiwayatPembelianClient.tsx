@@ -149,7 +149,7 @@ export default function RiwayatPembelianClient({ role }: { role: MembershipRole 
       const res = await fetch(`/api/purchase-orders/${id}/post`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setMessage(data.message || `PO ${poNo} diposting`);
+      setMessage(data.message || `Expense ${poNo} diposting`);
       await load();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Gagal posting");
@@ -159,7 +159,7 @@ export default function RiwayatPembelianClient({ role }: { role: MembershipRole 
   }
 
   async function voidOrder(id: string, poNo: string) {
-    const reason = window.prompt(`Alasan batal PO ${poNo}?`, "Input salah");
+    const reason = window.prompt(`Alasan batal expense ${poNo}?`, "Input salah");
     if (reason === null) return;
     setActingId(id);
     try {
@@ -170,7 +170,7 @@ export default function RiwayatPembelianClient({ role }: { role: MembershipRole 
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setMessage(data.message || "PO dibatalkan");
+      setMessage(data.message || "Expense dibatalkan");
       await load();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Gagal void");
@@ -180,13 +180,13 @@ export default function RiwayatPembelianClient({ role }: { role: MembershipRole 
   }
 
   async function deleteOrder(id: string, poNo: string) {
-    if (!window.confirm(`Hapus PO ${poNo}? (belum posting)`)) return;
+    if (!window.confirm(`Hapus expense ${poNo}? (belum posting)`)) return;
     setActingId(id);
     try {
       const res = await fetch(`/api/purchase-orders/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setMessage(data.message || "PO dihapus");
+      setMessage(data.message || "Expense dihapus");
       await load();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Gagal hapus");
@@ -248,14 +248,14 @@ export default function RiwayatPembelianClient({ role }: { role: MembershipRole 
       );
       openPoPrintWindow(html);
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Gagal cetak PO");
+      setMessage(err instanceof Error ? err.message : "Gagal cetak expense");
     }
   }
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-8">
-      <PageHeader badge="Pembelian" title="Riwayat PO" description="Filter, detail, cetak, export, post jurnal, void">
-        <Link href="/dashboard/pembelian" className="text-sm text-slate-500 hover:text-slate-700">← Pembelian</Link>
+      <PageHeader badge="Expense" title="Riwayat Expense" description="Filter, detail, cetak, export, post jurnal, void">
+        <Link href="/dashboard/pembelian" className="text-sm text-slate-500 hover:text-slate-700">← Expense</Link>
       </PageHeader>
 
       <PostingRoleBanner canPost={canPost} />
@@ -322,7 +322,7 @@ export default function RiwayatPembelianClient({ role }: { role: MembershipRole 
               <thead>
                 <tr className="text-left text-xs font-medium text-slate-500">
                   <th className="border-b px-2 py-2">Tanggal</th>
-                  <th className="border-b px-2 py-2">No PO</th>
+                  <th className="border-b px-2 py-2">No. Expense</th>
                   <th className="border-b px-2 py-2">Supplier</th>
                   <th className="border-b px-2 py-2">Total</th>
                   <th className="border-b px-2 py-2">Sisa hutang</th>
@@ -381,7 +381,7 @@ export default function RiwayatPembelianClient({ role }: { role: MembershipRole 
 
             {detailTab === "detail" ? (
               <>
-            <h3 className="text-lg font-semibold">Detail PO: {detailOrder.poNo}</h3>
+            <h3 className="text-lg font-semibold">Detail expense: {detailOrder.poNo}</h3>
             <p className="text-sm text-slate-500">{detailOrder.supplierName} · {detailOrder.orderDate}</p>
             {detailLoading ? (
               <p className="py-8 text-center text-sm text-slate-500">Memuat...</p>
@@ -429,7 +429,7 @@ export default function RiwayatPembelianClient({ role }: { role: MembershipRole 
                 </table>
                 <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
                   <Button type="button" onClick={printDetail} disabled={!detailLines.length}>
-                    Cetak PO
+                    Cetak expense
                   </Button>
                   <Button type="button" variant="ghost" onClick={() => setDetailOpen(false)}>Tutup</Button>
                 </div>
@@ -439,7 +439,7 @@ export default function RiwayatPembelianClient({ role }: { role: MembershipRole 
             ) : (
               <>
                 <h3 className="text-lg font-semibold">
-                  Jurnal PO: <span className="text-brand-600">{detailOrder.poNo}</span>
+                  Jurnal expense: <span className="text-brand-600">{detailOrder.poNo}</span>
                 </h3>
                 <p className="mb-3 text-sm text-slate-500">{detailOrder.orderDate}</p>
                 <TransactionJournalView

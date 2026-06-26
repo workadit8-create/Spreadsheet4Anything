@@ -380,7 +380,7 @@ export default function KasBankPageClient({ role }: { role: MembershipRole }) {
       <PageHeader
         badge="Kas & Bank"
         title="Mutasi dana"
-        description="Saldo & riwayat dari mutasi (manual + otomatis dari pembelian/penjualan/pelunasan). Post jurnal MUTASI_DANA hanya untuk mutasi manual."
+        description="Saldo & riwayat dari mutasi (manual + otomatis dari expense/penjualan/pelunasan). Post jurnal MUTASI_DANA hanya untuk mutasi manual."
       >
         <Link href="/dashboard/master" className="text-sm text-slate-500 hover:text-slate-700">
           Master Kas & Bank →
@@ -825,7 +825,7 @@ export default function KasBankPageClient({ role }: { role: MembershipRole }) {
                   )}
                   {mutasiDetail.linked && (
                     <div className="sm:col-span-2 rounded-lg bg-sky-50 px-3 py-2 text-sky-800">
-                      Mutasi otomatis dari transaksi penjualan/pembelian/pelunasan.
+                      Mutasi otomatis dari transaksi penjualan/expense/pelunasan.
                     </div>
                   )}
                 </dl>

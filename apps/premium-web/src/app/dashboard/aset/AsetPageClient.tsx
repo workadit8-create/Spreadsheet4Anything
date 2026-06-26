@@ -381,7 +381,7 @@ export default function AsetPageClient({ role }: { role: MembershipRole }) {
           <h2 className="mb-3 text-sm font-semibold">Aset baru / saldo awal</h2>
           <p className="mb-4 text-xs text-zinc-500">
             Untuk aset lama yang sudah ada di neraca, cukup daftarkan tanpa jurnal perolehan.
-            Opsional tautkan ke PO jika dibeli lewat modul pembelian.
+            Opsional tautkan ke expense jika dibeli lewat modul Expense.
           </p>
           <form onSubmit={submitAsset} className="grid gap-3 sm:grid-cols-2">
             <div>
@@ -453,7 +453,7 @@ export default function AsetPageClient({ role }: { role: MembershipRole }) {
               />
             </div>
             <div>
-              <Label>PO terkait (opsional)</Label>
+              <Label>Expense terkait (opsional)</Label>
               <select
                 className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
                 value={form.purchaseOrderId}

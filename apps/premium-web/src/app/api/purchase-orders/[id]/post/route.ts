@@ -65,7 +65,7 @@ export async function POST(
     return NextResponse.json({
       ok: true,
       poNo: order.po_no,
-      message: `PO ${order.po_no} → jurnal POSTED (aset tetap dibuat otomatis jika ada baris aset)`
+      message: `Expense ${order.po_no} → jurnal POSTED (aset tetap dibuat otomatis jika ada baris aset)`
     });
   } catch (err) {
     return NextResponse.json(

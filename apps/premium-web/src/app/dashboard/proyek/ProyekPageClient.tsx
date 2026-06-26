@@ -714,7 +714,7 @@ export default function ProyekPageClient() {
                   </ul>
                 </div>
                 <div>
-                  <p className="mb-2 text-sm font-medium text-red-700">Pembelian (PO)</p>
+                  <p className="mb-2 text-sm font-medium text-red-700">Expense</p>
                   <ul className="space-y-1 text-xs text-slate-600">
                     {lrDetail.pembelian.map((r, i) => (
                       <li key={i}>

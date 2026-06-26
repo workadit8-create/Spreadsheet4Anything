@@ -149,7 +149,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Supplier wajib" }, { status: 400 });
     }
     if (!Array.isArray(body.lines) || !body.lines.length) {
-      return NextResponse.json({ error: "Minimal satu baris pembelian" }, { status: 400 });
+      return NextResponse.json({ error: "Minimal satu baris expense" }, { status: 400 });
     }
 
     const purchaseRequestId = String(body.purchase_request_id || "").trim() || null;
@@ -160,7 +160,7 @@ export async function POST(request: Request) {
         await assertPurchaseRequestConvertible(supabase, purchaseRequestId, org.id);
       } catch (err) {
         return NextResponse.json(
-          { error: err instanceof Error ? err.message : "Purchase Request tidak valid" },
+          { error: err instanceof Error ? err.message : "PRE tidak valid" },
           { status: 400 }
         );
       }
@@ -273,7 +273,7 @@ export async function POST(request: Request) {
 
       const cat = catMap.get(line.purchase_category_id);
       if (!cat) {
-        return NextResponse.json({ error: "Kategori pembelian tidak ditemukan" }, { status: 400 });
+        return NextResponse.json({ error: "Kategori expense tidak ditemukan" }, { status: 400 });
       }
 
       const qty = Number(line.qty) || 1;
@@ -321,7 +321,7 @@ export async function POST(request: Request) {
     const subtotal = taxSummary.subtotalDpp;
     const grandTotal = taxSummary.grandTotal;
     if (grandTotal <= 0) {
-      return NextResponse.json({ error: "Total pembelian harus > 0" }, { status: 400 });
+      return NextResponse.json({ error: "Total expense harus > 0" }, { status: 400 });
     }
 
     const totalBayar = Math.min(grandTotal, Math.max(0, Number(body.bayar ?? grandTotal)));
@@ -478,11 +478,11 @@ export async function POST(request: Request) {
     return NextResponse.json({
       order,
       transactionId: headerTransactionId,
-      message: "Pembelian disimpan (CONFIRMED). Posting ke jurnal dari riwayat PO."
+      message: "Expense disimpan (CONFIRMED). Posting ke jurnal dari riwayat Expense."
     });
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Gagal buat pembelian" },
+      { error: err instanceof Error ? err.message : "Gagal buat expense" },
       { status: 400 }
     );
   }

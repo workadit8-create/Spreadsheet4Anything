@@ -749,7 +749,7 @@ export default function LaporanPageClient({ outletAddonEnabled }: { outletAddonE
             <span>Periksa harian setelah shift — koreksi via opname atau penyesuaian stok.</span>
           ) : tab === "outlet-lr" ? (
             <>
-              <span>L/R segment dari penjualan, pembelian, dan baris jurnal manual (beban/pendapatan) bertag outlet.</span>
+              <span>L/R segment dari penjualan, expense, dan baris jurnal manual (beban/pendapatan) bertag outlet.</span>
               <span className="ml-2">
                 Periode: <strong className="text-slate-700">{start}</strong> s/d{" "}
                 <strong className="text-slate-700">{end}</strong>
@@ -817,7 +817,7 @@ export default function LaporanPageClient({ outletAddonEnabled }: { outletAddonE
             {(outletLr.untaggedSales > 0 || outletLr.untaggedPurchases > 0) && (
               <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
                 Ada transaksi tanpa tag outlet ({outletLr.untaggedSales} penjualan,{" "}
-                {outletLr.untaggedPurchases} pembelian) — masuk bucket Umum/Pusat.
+                {outletLr.untaggedPurchases} expense) — masuk bucket Umum/Pusat.
               </p>
             )}
             <div>

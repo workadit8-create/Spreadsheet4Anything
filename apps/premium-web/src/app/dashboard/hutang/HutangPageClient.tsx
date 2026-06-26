@@ -146,7 +146,7 @@ export default function HutangPageClient({ role }: { role: MembershipRole }) {
 
   function openPay(row: HutangItem) {
     if (row.status !== "POSTED") {
-      setListMessage(`PO ${row.poNo} belum diposting — klik Post jurnal dulu.`);
+      setListMessage(`Expense ${row.poNo} belum diposting — klik Post jurnal dulu.`);
       return;
     }
     setPayTarget(row);
@@ -164,7 +164,7 @@ export default function HutangPageClient({ role }: { role: MembershipRole }) {
       const res = await fetch(`/api/purchase-orders/${row.purchaseOrderId}/post`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setListMessage(data.message || `PO ${row.poNo} diposting — sekarang bisa dibayar`);
+      setListMessage(data.message || `Expense ${row.poNo} diposting — sekarang bisa dibayar`);
       await load();
     } catch (e) {
       setListMessage(e instanceof Error ? e.message : "Gagal posting");
@@ -294,8 +294,8 @@ export default function HutangPageClient({ role }: { role: MembershipRole }) {
         title="Daftar hutang"
         description={
           canPost
-            ? "PO kredit / kurang bayar. Post jurnal = catat ke buku besar. Pelunasan (Bayar) dilakukan setelah jurnal pembelian diposting."
-            : "PO kredit / kurang bayar. Catat pelunasan di sini; posting jurnal dilakukan akuntan atau owner."
+            ? "Expense kredit / kurang bayar. Post jurnal = catat ke buku besar. Pelunasan (Bayar) dilakukan setelah jurnal expense diposting."
+            : "Expense kredit / kurang bayar. Catat pelunasan di sini; posting jurnal dilakukan akuntan atau owner."
         }
       />
 
@@ -359,7 +359,7 @@ export default function HutangPageClient({ role }: { role: MembershipRole }) {
         ) : !items.length ? (
           <p className="text-sm text-slate-500">
             Tidak ada hutang outstanding{allOutstanding ? "" : " di rentang tanggal ini"}.
-            PO kredit muncul di sini setelah disimpan; pelunasan setelah status POSTED.
+            Expense kredit muncul di sini setelah disimpan; pelunasan setelah status POSTED.
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -367,7 +367,7 @@ export default function HutangPageClient({ role }: { role: MembershipRole }) {
               <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Tanggal</th>
-                  <th className="px-4 py-3">PO</th>
+                  <th className="px-4 py-3">Expense</th>
                   <th className="px-4 py-3">Supplier</th>
                   <th className="px-4 py-3">Total</th>
                   <th className="px-4 py-3">Sisa</th>
@@ -441,7 +441,7 @@ export default function HutangPageClient({ role }: { role: MembershipRole }) {
               <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Tanggal</th>
-                  <th className="px-4 py-3">PO</th>
+                  <th className="px-4 py-3">Expense</th>
                   <th className="px-4 py-3">Supplier</th>
                   <th className="px-4 py-3">Nominal</th>
                   <th className="px-4 py-3">Status</th>
@@ -526,7 +526,7 @@ export default function HutangPageClient({ role }: { role: MembershipRole }) {
           >
             <h3 className="text-lg font-semibold text-slate-900">Pelunasan hutang</h3>
             <p className="mt-1 text-sm text-slate-500">
-              PO <strong>{payTarget.poNo}</strong> · {payTarget.supplierName || "—"}
+              Expense <strong>{payTarget.poNo}</strong> · {payTarget.supplierName || "—"}
             </p>
             <p className="mt-2 text-sm font-semibold text-red-700">
               Sisa: {formatRp(payTarget.sisaTagihan)}

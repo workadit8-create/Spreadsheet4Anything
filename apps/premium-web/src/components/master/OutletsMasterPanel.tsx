@@ -86,7 +86,7 @@ export function OutletsMasterPanel() {
       <h2 className="mb-4 text-base font-semibold text-slate-900">Outlet / cabang toko</h2>
       <p className="mb-4 text-sm text-slate-600">
         Satu PT bisa punya banyak outlet (mart, cafe, fashion). Dipakai untuk tag POS, penjualan,
-        pembelian, dan jurnal manual — laporan L/R per outlet.
+        expense, dan jurnal manual — laporan L/R per outlet.
       </p>
 
       <form onSubmit={(e) => void handleSubmit(e)} className="mb-6 grid gap-3 sm:grid-cols-2">

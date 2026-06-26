@@ -6,7 +6,7 @@ export { rowsToCsv };
 export function buildProdukExportRows(lines: ExportPurchaseLine[]): Record<string, string | number>[] {
   return lines.map((l) => ({
     Tanggal: l.orderDate,
-    "No PO": l.poNo,
+    "No. Expense": l.poNo,
     Supplier: l.supplierName,
     Status: l.orderStatus,
     Barang: l.description,
@@ -59,14 +59,14 @@ export function buildSupplierExportRows(lines: ExportPurchaseLine[]): Record<str
       "Jumlah PO": s.poIds.size,
       "Jumlah Baris": s.lineCount,
       "Total Qty": s.qty,
-      "Total Pembelian": s.total
+      "Total Expense": s.total
     }));
 }
 
 export const EXPORT_HEADERS = {
   produk: [
     "Tanggal",
-    "No PO",
+    "No. Expense",
     "Supplier",
     "Status",
     "Barang",
@@ -81,5 +81,5 @@ export const EXPORT_HEADERS = {
     "Sisa Baris",
     "Metode"
   ],
-  supplier: ["Supplier", "Jumlah PO", "Jumlah Baris", "Total Qty", "Total Pembelian"]
+  supplier: ["Supplier", "Jumlah Expense", "Jumlah Baris", "Total Qty", "Total Expense"]
 } as const;

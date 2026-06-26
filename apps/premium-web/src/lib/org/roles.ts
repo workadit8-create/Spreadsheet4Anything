@@ -197,7 +197,7 @@ export const MASTER_TAB_LABELS: Record<MasterTabId, string> = {
   coa: "COA",
   "kas-bank": "Kas & Bank",
   suppliers: "Supplier",
-  "purchase-categories": "Kategori Pembelian",
+  "purchase-categories": "Kategori Expense",
   outlets: "Outlet / Cabang"
 };
 

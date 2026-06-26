@@ -3,8 +3,8 @@ import type { AuditAction } from "@/lib/audit/log";
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   "sales_order.post": "Post invoice penjualan",
   "sales_order.void": "Batal invoice penjualan",
-  "purchase_order.post": "Post pembelian (PO)",
-  "purchase_order.void": "Batal pembelian (PO)",
+  "purchase_order.post": "Post expense",
+  "purchase_order.void": "Batal expense",
   "piutang_payment.post": "Post pelunasan piutang",
   "piutang_payment.void": "Batal pelunasan piutang",
   "hutang_payment.post": "Post pelunasan hutang",

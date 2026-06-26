@@ -138,7 +138,7 @@ export async function POST(request: Request) {
 
       const cat = catMap.get(line.purchase_category_id);
       if (!cat) {
-        return NextResponse.json({ error: "Kategori pembelian tidak ditemukan" }, { status: 400 });
+        return NextResponse.json({ error: "Kategori expense tidak ditemukan" }, { status: 400 });
       }
 
       const qty = Number(line.qty) || 1;
@@ -218,11 +218,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       purchaseRequest: header,
-      message: `Purchase Request ${prNo} disimpan (AKTIF). Konversi ke PO dari menu Pembelian.`
+      message: `PRE ${prNo} disimpan (AKTIF). Konversi ke Expense dari menu Expense.`
     });
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Gagal buat purchase request" },
+      { error: err instanceof Error ? err.message : "Gagal buat PRE" },
       { status: 400 }
     );
   }

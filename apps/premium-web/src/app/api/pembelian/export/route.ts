@@ -59,7 +59,7 @@ export async function GET(request: Request) {
     }
 
     const csv = rowsToCsv([...headers], rows);
-    const filename = `Pembelian_${label}_${start}_sampai_${end}.csv`;
+    const filename = `Expense_${label}_${start}_sampai_${end}.csv`;
 
     return new NextResponse(csv, {
       headers: {

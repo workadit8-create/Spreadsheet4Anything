@@ -285,7 +285,7 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      setMessage(data.message || `PO ${data.order?.po_no} disimpan`);
+      setMessage(data.message || `Expense ${data.order?.po_no} disimpan`);
       setLines([{ ...emptyLine(), purchase_category_id: categories[0]?.id || "" }]);
       setBayar("");
       setPurchaseRequestId("");
@@ -307,21 +307,21 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
 
       {activePrs.length > 0 && (
         <div className="rounded-lg border border-brand-100 bg-brand-50/50 p-4">
-          <Label>Muat dari Purchase Request (opsional)</Label>
+          <Label>Muat dari PRE (opsional)</Label>
           <Select
             value={purchaseRequestId}
             onChange={(e) => loadFromPurchaseRequest(e.target.value)}
             disabled={loadingPr}
             className="mt-1"
           >
-            <option value="">— PO baru tanpa PR —</option>
+            <option value="">— Expense baru tanpa PRE —</option>
             {activePrs.map((pr) => (
               <option key={pr.id} value={pr.id}>
                 {pr.prNo} — {pr.supplierName || "Tanpa supplier"} ({formatRp(pr.total)})
               </option>
             ))}
           </Select>
-          {loadingPr && <p className="mt-1 text-xs text-slate-500">Memuat PR...</p>}
+          {loadingPr && <p className="mt-1 text-xs text-slate-500">Memuat PRE...</p>}
         </div>
       )}
 
@@ -346,7 +346,7 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
               {!purchasePpnAvailable
                 ? "PPN masukan belum aktif — centang Usaha sudah PKP di menu Pajak (bagian PPN)."
                 : supplierPkp
-                  ? "Supplier PKP — PPN masukan dihitung di PO ini."
+                  ? "Supplier PKP — PPN masukan dihitung di expense ini."
                   : "Supplier non-PKP (mis. pasar) — tanpa PPN masukan."}
             </p>
           ) : null}
@@ -486,7 +486,7 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
           </table>
         </div>
         <p className="mt-2 text-xs text-slate-500">
-          Baris bertanda <strong>Aset tetap</strong> otomatis masuk daftar Aset Tetap saat PO di-post
+          Baris bertanda <strong>Aset tetap</strong> otomatis masuk daftar Aset Tetap saat expense di-post
           (jurnal ke akun Peralatan, bukan Beban).
         </p>
       </div>
@@ -541,10 +541,10 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
       </div>
 
       <Button type="submit" disabled={saving || !suppliers.length || !categories.length}>
-        {saving ? "Menyimpan..." : "Simpan pembelian"}
+        {saving ? "Menyimpan..." : "Simpan expense"}
       </Button>
       {!categories.length && (
-        <p className="text-xs text-amber-600">Tambah Kategori Pembelian di Master Data terlebih dahulu.</p>
+        <p className="text-xs text-amber-600">Tambah Kategori Expense di Master Data terlebih dahulu.</p>
       )}
     </form>
   );

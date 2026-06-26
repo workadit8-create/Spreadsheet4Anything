@@ -26,7 +26,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     .maybeSingle();
 
   if (headerErr) return NextResponse.json({ error: headerErr.message }, { status: 500 });
-  if (!header) return NextResponse.json({ error: "Purchase Request tidak ditemukan" }, { status: 404 });
+  if (!header) return NextResponse.json({ error: "PRE tidak ditemukan" }, { status: 404 });
 
   const { data: lines, error: lineErr } = await supabase
     .from("purchase_request_lines")

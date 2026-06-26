@@ -282,7 +282,7 @@ export default function MasterDataClient({
         )}
         {tab === "purchase-categories" && (
           <MasterCrudPanel
-            title="Kategori Pembelian"
+            title="Kategori Expense"
             apiPath="/api/master/purchase-categories"
             fields={[
               { key: "category", label: "Kategori", type: "text", required: true },

@@ -57,10 +57,10 @@ export async function assertPurchaseRequestConvertible(
     .maybeSingle();
 
   if (error) throw new Error(error.message);
-  if (!pr) throw new Error("Purchase Request tidak ditemukan");
+  if (!pr) throw new Error("PRE tidak ditemukan");
   if (pr.status === "CONVERTED") {
     throw new Error(
-      `Purchase Request sudah dikonversi ke PO ${pr.converted_po_no || ""}`.trim()
+      `PRE sudah dikonversi ke Expense ${pr.converted_po_no || ""}`.trim()
     );
   }
 }

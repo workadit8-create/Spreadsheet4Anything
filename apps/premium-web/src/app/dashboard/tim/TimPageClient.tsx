@@ -383,7 +383,7 @@ export default function TimPageClient() {
         <p className="font-semibold text-slate-700">Ringkasan peran</p>
         <ul className="mt-2 list-inside list-disc space-y-1">
           <li>
-            <strong>Staff</strong> — penjualan, pembelian, piutang/hutang, kas
+            <strong>Staff</strong> — penjualan, expense, piutang/hutang, kas
           </li>
           <li>
             <strong>Akuntan</strong> — jurnal, posting, laporan, COA

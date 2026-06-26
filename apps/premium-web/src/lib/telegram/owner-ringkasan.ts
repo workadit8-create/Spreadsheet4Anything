@@ -247,8 +247,8 @@ export function formatOwnerRingkasanMessage(orgName: string, ringkasan: OwnerRin
   }
   lines.push(
     "",
-    "<b>Pembelian</b>",
-    `  • ${stats.purchaseCount} PO · ${formatIdr(stats.purchaseTotal)}`
+    "<b>Expense</b>",
+    `  • ${stats.purchaseCount} transaksi · ${formatIdr(stats.purchaseTotal)}`
   );
   if (stats.purchaseUnposted > 0) {
     lines.push(`  <i>(${stats.purchaseUnposted} belum post jurnal)</i>`);

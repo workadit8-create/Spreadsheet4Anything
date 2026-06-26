@@ -43,7 +43,7 @@ export default function JurnalPageClient({ entries }: Props) {
       <PageHeader
         badge="Jurnal umum"
         title="Jurnal Supabase"
-        description="Penjualan, pembelian, pelunasan, mutasi kas/bank, dan jurnal manual"
+        description="Penjualan, expense, pelunasan, mutasi kas/bank, dan jurnal manual"
       >
         <div className="flex gap-3">
           <Link href="/dashboard/jurnal/manual" className="text-sm text-brand-600 hover:text-brand-700">
@@ -65,7 +65,7 @@ export default function JurnalPageClient({ entries }: Props) {
 
       {!entries.length ? (
         <Card>
-          <p className="text-sm text-slate-500">Belum ada jurnal. Posting transaksi (penjualan, pembelian, pelunasan, mutasi).</p>
+          <p className="text-sm text-slate-500">Belum ada jurnal. Posting transaksi (penjualan, expense, pelunasan, mutasi).</p>
         </Card>
       ) : (
         <div className="space-y-4">

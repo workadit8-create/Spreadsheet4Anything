@@ -177,7 +177,7 @@ export default function TaxPageClient({ role }: { role: MembershipRole }) {
             <Card className="p-5">
               <p className="text-sm font-semibold text-slate-800">Status PKP usaha</p>
               <p className="mt-1 text-sm text-slate-600">
-                Terpisah dari jenis pajak penjualan (PPN/PB). Wajib untuk PPN masukan di pembelian
+                Terpisah dari jenis pajak penjualan (PPN/PB). Wajib untuk PPN masukan di expense
                 dari supplier PKP.
               </p>
               {canEdit ? (
@@ -193,8 +193,8 @@ export default function TaxPageClient({ role }: { role: MembershipRole }) {
                     <span className="font-medium">Usaha sudah PKP</span>
                     <span className="mt-0.5 block text-xs text-slate-500">
                       {tax.activeType === "ppn"
-                        ? "Aktifkan opsi kena PPN di master produk dan PPN masukan di pembelian."
-                        : "Mode penjualan PB — PKP tetap mengaktifkan PPN masukan di pembelian supplier PKP."}
+                        ? "Aktifkan opsi kena PPN di master produk dan PPN masukan di expense."
+                        : "Mode penjualan PB — PKP tetap mengaktifkan PPN masukan di expense supplier PKP."}
                     </span>
                   </span>
                 </label>
@@ -297,7 +297,7 @@ export default function TaxPageClient({ role }: { role: MembershipRole }) {
               <li>Ringkasan pajak keluaran / masukan per periode</li>
             </ul>
             <p className="mt-3 text-xs text-amber-800/80">
-              Invoice sudah menghitung PPN/PB otomatis. Pembelian: PPN masukan hanya untuk supplier
+              Invoice sudah menghitung PPN/PB otomatis. Expense: PPN masukan hanya untuk supplier
               PKP di Master → Supplier.
             </p>
           </Card>

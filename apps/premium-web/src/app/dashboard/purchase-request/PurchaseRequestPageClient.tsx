@@ -186,7 +186,7 @@ export default function PurchaseRequestPageClient() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      setMessage(data.message || `PR ${data.purchaseRequest.pr_no} disimpan.`);
+      setMessage(data.message || `PRE ${data.purchaseRequest.pr_no} disimpan.`);
       const catId = categories[0]?.id || "";
       setLines([emptyLine(catId)]);
       setSupplierId("");
@@ -202,12 +202,12 @@ export default function PurchaseRequestPageClient() {
   return (
     <main className="mx-auto max-w-5xl px-6 py-8">
       <PageHeader
-        badge="Pembelian · Purchase Request"
-        title="Purchase Request"
-        description="Permintaan pembelian internal — belum jurnal. Konversi ke PO dari menu Pembelian."
+        badge="Expense · PRE"
+        title="Purchase Request Expense"
+        description="Permintaan pengeluaran internal — belum jurnal. Konversi ke Expense dari menu Expense."
       >
         <Link href="/dashboard/pembelian" className="text-sm font-medium text-brand-600 hover:text-brand-700">
-          Buat PO →
+          Buat Expense →
         </Link>
       </PageHeader>
 
@@ -223,14 +223,14 @@ export default function PurchaseRequestPageClient() {
                 : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
             }`}
           >
-            {t === "buat" ? "Buat PR" : "Riwayat"}
+            {t === "buat" ? "Buat PRE" : "Riwayat"}
           </button>
         ))}
       </div>
 
       {tab === "buat" ? (
         <Card>
-          <h2 className="mb-4 text-base font-semibold text-slate-900">Purchase Request baru</h2>
+          <h2 className="mb-4 text-base font-semibold text-slate-900">PRE baru</h2>
           {loading ? (
             <p className="text-sm text-slate-500">Memuat data...</p>
           ) : (
@@ -376,10 +376,10 @@ export default function PurchaseRequestPageClient() {
               {message && <p className="text-sm text-emerald-600">{message}</p>}
 
               <Button type="submit" disabled={saving || !categories.length}>
-                {saving ? "Menyimpan..." : "Simpan PR"}
+                {saving ? "Menyimpan..." : "Simpan PRE"}
               </Button>
               {!categories.length && (
-                <p className="text-xs text-slate-500">Tambah kategori pembelian di Master Data.</p>
+                <p className="text-xs text-slate-500">Tambah kategori expense di Master Data.</p>
               )}
             </form>
           )}
@@ -403,18 +403,18 @@ export default function PurchaseRequestPageClient() {
           {histLoading ? (
             <p className="text-sm text-slate-500">Memuat riwayat...</p>
           ) : !history.length ? (
-            <p className="text-sm text-slate-500">Belum ada purchase request.</p>
+            <p className="text-sm text-slate-500">Belum ada PRE.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="border-b text-left text-xs font-semibold uppercase text-slate-500">
                   <tr>
-                    <th className="py-2 pr-3">No PR</th>
+                    <th className="py-2 pr-3">No. PRE</th>
                     <th className="py-2 pr-3">Tanggal</th>
                     <th className="py-2 pr-3">Supplier</th>
                     <th className="py-2 pr-3">Total estimasi</th>
                     <th className="py-2 pr-3">Status</th>
-                    <th className="py-2">PO</th>
+                    <th className="py-2">Expense</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
