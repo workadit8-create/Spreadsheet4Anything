@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { PRODUCT_KIND_LABELS } from "@/lib/products/inventory-policy";
@@ -35,12 +35,14 @@ type ProductTaxApiConfig = {
   activeType: string;
 };
 
+const DEFAULT_ACTIVE_FORM: Row = { active: true };
+
 export function MasterCrudPanel({
   title,
   apiPath,
   fields,
   columns,
-  defaultForm = { active: true },
+  defaultForm,
   productTaxFromApi = false
 }: {
   title: string;
@@ -51,13 +53,18 @@ export function MasterCrudPanel({
   /** Baca konfig pajak produk dari GET (Master → Produk) */
   productTaxFromApi?: boolean;
 }) {
+  const fieldsRef = useRef(fields);
+  fieldsRef.current = fields;
+  const defaultFormRef = useRef(defaultForm ?? DEFAULT_ACTIVE_FORM);
+  defaultFormRef.current = defaultForm ?? DEFAULT_ACTIVE_FORM;
+
   const [items, setItems] = useState<Row[]>([]);
   const [extras, setExtras] = useState<Record<string, Row[]>>({});
   const [productTax, setProductTax] = useState<ProductTaxApiConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<Row>(defaultForm);
+  const [form, setForm] = useState<Row>(() => defaultFormRef.current);
 
   const taxProductFields = useMemo<FieldDef[]>(() => {
     if (!productTax?.productTaxEnabled) return [];
@@ -101,7 +108,7 @@ export function MasterCrudPanel({
       extraKeys.forEach((k) => {
         if (data[k]) setExtras((prev) => ({ ...prev, [k]: data[k] }));
       });
-      const needsCoa = fields.some((f) => f.optionsKey === "coa_accounts");
+      const needsCoa = fieldsRef.current.some((f) => f.optionsKey === "coa_accounts");
       if (needsCoa && !data.coa_accounts) {
         const coaRes = await fetch("/api/master/coa");
         const coaData = await coaRes.json();
@@ -118,32 +125,44 @@ export function MasterCrudPanel({
     } finally {
       setLoading(false);
     }
-  }, [apiPath, fields, productTaxFromApi]);
+  }, [apiPath, productTaxFromApi]);
 
-  const activeFields =
-    productTax?.productTaxEnabled && taxProductFields.length
-      ? [...fields, ...taxProductFields]
-      : fields;
-  const activeColumns =
-    productTax?.productTaxEnabled && taxProductColumns.length
-      ? [...columns, ...taxProductColumns]
-      : columns;
-  const activeDefaultForm =
-    productTax?.productTaxEnabled && taxProductFields.length
-      ? { ...defaultForm, active: true, tax_taxable: true }
-      : defaultForm;
+  const activeFields = useMemo(
+    () =>
+      productTax?.productTaxEnabled && taxProductFields.length
+        ? [...fields, ...taxProductFields]
+        : fields,
+    [fields, productTax?.productTaxEnabled, taxProductFields]
+  );
+  const activeColumns = useMemo(
+    () =>
+      productTax?.productTaxEnabled && taxProductColumns.length
+        ? [...columns, ...taxProductColumns]
+        : columns,
+    [columns, productTax?.productTaxEnabled, taxProductColumns]
+  );
+  const activeDefaultForm = useMemo(
+    () =>
+      productTax?.productTaxEnabled && taxProductFields.length
+        ? { ...defaultFormRef.current, active: true, tax_taxable: true }
+        : defaultFormRef.current,
+    [productTax?.productTaxEnabled, taxProductFields.length]
+  );
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
+  const productTaxFormInitRef = useRef(false);
   useEffect(() => {
     if (!productTax?.productTaxEnabled || !taxProductFields.length) return;
+    if (productTaxFormInitRef.current) return;
+    productTaxFormInitRef.current = true;
     setForm((prev) => {
       if (prev.id != null && prev.id !== "") return prev;
-      return { ...defaultForm, active: true, tax_taxable: true };
+      return { ...defaultFormRef.current, active: true, tax_taxable: true };
     });
-  }, [productTax?.productTaxEnabled, taxProductFields.length, defaultForm]);
+  }, [productTax?.productTaxEnabled, taxProductFields.length]);
 
   function getCell(row: Row, col: ColumnDef) {
     if (col.metaKey) {
