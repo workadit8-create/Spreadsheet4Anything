@@ -300,11 +300,13 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
               </option>
             ))}
           </Select>
-          {purchasePpnAvailable && supplierId ? (
+          {supplierId ? (
             <p className="mt-1 text-xs text-slate-500">
-              {supplierPkp
-                ? "Supplier PKP — PPN masukan dihitung di PO ini."
-                : "Supplier non-PKP (mis. pasar) — tanpa PPN masukan."}
+              {!purchasePpnAvailable
+                ? "PPN masukan belum aktif — centang Usaha sudah PKP di menu Pajak (bagian PPN)."
+                : supplierPkp
+                  ? "Supplier PKP — PPN masukan dihitung di PO ini."
+                  : "Supplier non-PKP (mis. pasar) — tanpa PPN masukan."}
             </p>
           ) : null}
         </div>

@@ -115,16 +115,12 @@ export function isProductTaxEnabled(settings: TaxSettings): boolean {
   return false;
 }
 
-/** PPN masukan pembelian — hanya jika kita PKP dan supplier PKP (bukan PB, bukan pasar) */
+/** PPN masukan pembelian — usaha PKP + supplier PKP (mode penjualan PB/PPN tidak memblokir) */
 export function isPurchasePpnEnabled(
   settings: TaxSettings,
   supplierPkp: boolean
 ): boolean {
-  return (
-    supplierPkp &&
-    settings.activeType === "ppn" &&
-    settings.ppn.pkpEnabled
-  );
+  return supplierPkp && settings.ppn.pkpEnabled;
 }
 
 export function getPurchaseTaxConfig(

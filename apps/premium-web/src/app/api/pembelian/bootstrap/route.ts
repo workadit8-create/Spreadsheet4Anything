@@ -42,8 +42,7 @@ export async function GET() {
   if (categoriesRes.error) return NextResponse.json({ error: categoriesRes.error.message }, { status: 500 });
   if (kasRes.error) return NextResponse.json({ error: kasRes.error.message }, { status: 500 });
 
-  const purchasePpnAvailable =
-    taxSettings.activeType === "ppn" && taxSettings.ppn.pkpEnabled;
+  const purchasePpnAvailable = taxSettings.ppn.pkpEnabled;
 
   return NextResponse.json({
     suppliers: (suppliersRes.data || []).map((s) => ({

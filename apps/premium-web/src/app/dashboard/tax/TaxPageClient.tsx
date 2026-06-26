@@ -173,9 +173,42 @@ export default function TaxPageClient({ role }: { role: MembershipRole }) {
             ) : null}
           </Card>
 
+          {tax.activeType !== "none" ? (
+            <Card className="p-5">
+              <p className="text-sm font-semibold text-slate-800">Status PKP usaha</p>
+              <p className="mt-1 text-sm text-slate-600">
+                Terpisah dari jenis pajak penjualan (PPN/PB). Wajib untuk PPN masukan di pembelian
+                dari supplier PKP.
+              </p>
+              {canEdit ? (
+                <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-slate-100 bg-slate-50/80 p-3">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={tax.ppn.pkpEnabled}
+                    disabled={saving}
+                    onChange={(e) => void save({ ppn: { pkpEnabled: e.target.checked } })}
+                  />
+                  <span className="text-sm text-slate-700">
+                    <span className="font-medium">Usaha sudah PKP</span>
+                    <span className="mt-0.5 block text-xs text-slate-500">
+                      {tax.activeType === "ppn"
+                        ? "Aktifkan opsi kena PPN di master produk dan PPN masukan di pembelian."
+                        : "Mode penjualan PB — PKP tetap mengaktifkan PPN masukan di pembelian supplier PKP."}
+                    </span>
+                  </span>
+                </label>
+              ) : (
+                <p className="mt-3 text-sm font-medium text-slate-800">
+                  {tax.ppn.pkpEnabled ? "PKP aktif" : "Belum PKP"}
+                </p>
+              )}
+            </Card>
+          ) : null}
+
           {tax.activeType === "ppn" ? (
             <Card className="p-5">
-              <p className="text-sm font-semibold text-slate-800">Pengaturan PPN</p>
+              <p className="text-sm font-semibold text-slate-800">Pengaturan PPN penjualan</p>
               <dl className="mt-3 space-y-2 text-sm">
                 <div className="flex justify-between gap-4">
                   <dt className="text-slate-500">Tarif PPN</dt>
@@ -184,41 +217,23 @@ export default function TaxPageClient({ role }: { role: MembershipRole }) {
               </dl>
 
               {canEdit ? (
-                <>
-                  <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-slate-100 bg-slate-50/80 p-3">
-                    <input
-                      type="checkbox"
-                      className="mt-0.5"
-                      checked={tax.ppn.pkpEnabled}
-                      disabled={saving}
-                      onChange={(e) => void save({ ppn: { pkpEnabled: e.target.checked } })}
-                    />
-                    <span className="text-sm text-slate-700">
-                      <span className="font-medium">Usaha sudah PKP</span>
-                      <span className="mt-0.5 block text-xs text-slate-500">
-                        Centang setelah terdaftar PKP. Master produk menampilkan opsi kena PPN.
-                      </span>
+                <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-slate-100 bg-slate-50/80 p-3">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={tax.ppn.priceIncludesTax}
+                    disabled={saving || !tax.ppn.pkpEnabled}
+                    onChange={(e) =>
+                      void save({ ppn: { priceIncludesTax: e.target.checked } })
+                    }
+                  />
+                  <span className="text-sm text-slate-700">
+                    <span className="font-medium">Harga produk sudah termasuk PPN</span>
+                    <span className="mt-0.5 block text-xs text-slate-500">
+                      Jika tidak dicentang, harga = DPP + PPN.
                     </span>
-                  </label>
-
-                  <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-lg border border-slate-100 bg-slate-50/80 p-3">
-                    <input
-                      type="checkbox"
-                      className="mt-0.5"
-                      checked={tax.ppn.priceIncludesTax}
-                      disabled={saving || !tax.ppn.pkpEnabled}
-                      onChange={(e) =>
-                        void save({ ppn: { priceIncludesTax: e.target.checked } })
-                      }
-                    />
-                    <span className="text-sm text-slate-700">
-                      <span className="font-medium">Harga produk sudah termasuk PPN</span>
-                      <span className="mt-0.5 block text-xs text-slate-500">
-                        Jika tidak dicentang, harga = DPP + PPN.
-                      </span>
-                    </span>
-                  </label>
-                </>
+                  </span>
+                </label>
               ) : null}
             </Card>
           ) : null}
