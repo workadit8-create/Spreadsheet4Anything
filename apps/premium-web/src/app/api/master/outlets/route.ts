@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireAddon } from "@/lib/org/addons";
 import { requireUserOrg, requireMasterEntityRole, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { normalizeOutletCode } from "@/lib/outlets/helpers";
 
@@ -10,6 +11,15 @@ export async function GET() {
     auth = await requireUserOrg(supabase);
   } catch (e) {
     return toOrgAuthResponse(e);
+  }
+
+  try {
+    await requireAddon(supabase, auth.org.id, "outlet");
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Add-on Multi Outlet tidak aktif" },
+      { status: 403 }
+    );
   }
 
   const { data, error } = await supabase
@@ -37,6 +47,7 @@ export async function POST(request: Request) {
   try {
     auth = await requireUserOrg(supabase);
     requireMasterEntityRole(auth.role, "outlet");
+    await requireAddon(supabase, auth.org.id, "outlet");
   } catch (e) {
     return toOrgAuthResponse(e);
   }

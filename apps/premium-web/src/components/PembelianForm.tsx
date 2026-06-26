@@ -83,6 +83,7 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
   const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);
   const [projectCode, setProjectCode] = useState("");
   const [outletOptions, setOutletOptions] = useState<OutletOption[]>([]);
+  const [outletAddonEnabled, setOutletAddonEnabled] = useState(false);
   const [outletCode, setOutletCode] = useState("");
   const [purchasePpnAvailable, setPurchasePpnAvailable] = useState(false);
   const [purchasePpnSettings, setPurchasePpnSettings] = useState<{
@@ -133,6 +134,7 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
       setCategories(data.purchaseCategories || []);
       setKasBank(data.kasBank || []);
       setProjectOptions(data.projectAddon?.options || []);
+      setOutletAddonEnabled(data.outletAddon?.enabled === true);
       setOutletOptions(data.outletAddon?.options || []);
       setFixedAssetCoaAccounts(data.fixedAssetCoaAccounts || []);
       setPurchasePpnAvailable(data.purchasePpn?.available === true);
@@ -358,6 +360,7 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
       />
 
       <OutletSelect
+        enabled={outletAddonEnabled}
         options={outletOptions}
         value={outletCode}
         onChange={setOutletCode}

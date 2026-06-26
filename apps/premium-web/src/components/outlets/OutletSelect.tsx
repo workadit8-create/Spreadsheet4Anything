@@ -5,6 +5,7 @@ import type { OutletOption } from "@/lib/outlets/bootstrap-options";
 import { OUTLET_PUSAT_CODE } from "@/lib/outlets/constants";
 
 export function OutletSelect({
+  enabled = true,
   options,
   value,
   onChange,
@@ -13,6 +14,7 @@ export function OutletSelect({
   allowPusat = true,
   label = "Outlet"
 }: {
+  enabled?: boolean;
   options: OutletOption[];
   value: string;
   onChange: (outletCode: string) => void;
@@ -21,7 +23,7 @@ export function OutletSelect({
   allowPusat?: boolean;
   label?: string;
 }) {
-  if (!options.length && !allowPusat) return null;
+  if (!enabled) return null;
 
   return (
     <div className={className}>

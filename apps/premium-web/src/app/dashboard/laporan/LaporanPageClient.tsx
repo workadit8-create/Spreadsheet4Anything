@@ -111,7 +111,7 @@ type AssetRegisterReport = {
   };
 };
 
-const TABS: { id: ReportTab; label: string }[] = [
+const ALL_TABS: { id: ReportTab; label: string }[] = [
   { id: "buku-besar", label: "Buku Besar" },
   { id: "laba-rugi", label: "Laba Rugi" },
   { id: "neraca", label: "Neraca" },
@@ -500,7 +500,11 @@ function DaftarAsetView({
   );
 }
 
-export default function LaporanPageClient() {
+export default function LaporanPageClient({ outletAddonEnabled }: { outletAddonEnabled: boolean }) {
+  const tabs = useMemo(
+    () => ALL_TABS.filter((t) => t.id !== "outlet-lr" || outletAddonEnabled),
+    [outletAddonEnabled]
+  );
   const defaults = useMemo(() => defaultDateRange(), []);
   const [tab, setTab] = useState<ReportTab>("buku-besar");
   const [start, setStart] = useState(defaults.start);
@@ -533,6 +537,12 @@ export default function LaporanPageClient() {
   const [printingDaftarAset, setPrintingDaftarAset] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (tab === "outlet-lr" && !outletAddonEnabled) {
+      setTab("buku-besar");
+    }
+  }, [tab, outletAddonEnabled]);
 
   const loadReport = useCallback(async () => {
     setLoading(true);
@@ -642,7 +652,7 @@ export default function LaporanPageClient() {
 
       <Card className="mb-6">
         <div className="flex flex-wrap gap-2 border-b border-slate-100 pb-4">
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <button
               key={t.id}
               type="button"

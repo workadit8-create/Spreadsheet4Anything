@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchOrgAddons, isAddonEnabled } from "@/lib/org/addons";
 import { OUTLET_PUSAT_CODE, OUTLET_PUSAT_LABEL } from "@/lib/outlets/constants";
 
 export type OutletOption = {
@@ -10,6 +11,15 @@ export type OutletOption = {
 };
 
 export async function fetchOutletBootstrap(supabase: SupabaseClient, orgId: string) {
+  const addons = await fetchOrgAddons(supabase, orgId);
+  if (!isAddonEnabled(addons, "outlet")) {
+    return {
+      enabled: false,
+      options: [],
+      pusat: { outletCode: OUTLET_PUSAT_CODE, label: OUTLET_PUSAT_LABEL }
+    };
+  }
+
   const { data, error } = await supabase
     .from("outlets")
     .select("outlet_code, name, business_sector, warehouse_id, sort_order")
@@ -29,7 +39,7 @@ export async function fetchOutletBootstrap(supabase: SupabaseClient, orgId: stri
   }));
 
   return {
-    enabled: options.length > 0,
+    enabled: true,
     options,
     pusat: { outletCode: OUTLET_PUSAT_CODE, label: OUTLET_PUSAT_LABEL }
   };

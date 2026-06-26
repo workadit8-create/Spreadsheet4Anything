@@ -33,11 +33,17 @@ const TABS = (Object.keys(MASTER_TAB_LABELS) as MasterTabId[]).map((id) => ({
   label: MASTER_TAB_LABELS[id]
 }));
 
-export default function MasterDataClient({ role }: { role: MembershipRole }) {
+export default function MasterDataClient({
+  role,
+  outletAddonEnabled
+}: {
+  role: MembershipRole;
+  outletAddonEnabled: boolean;
+}) {
   const visibleTabs = useMemo(() => {
     const allowed = new Set(masterTabsForRole(role));
-    return TABS.filter((t) => allowed.has(t.id));
-  }, [role]);
+    return TABS.filter((t) => allowed.has(t.id) && (t.id !== "outlets" || outletAddonEnabled));
+  }, [role, outletAddonEnabled]);
 
   const [tab, setTab] = useState<MasterTabId>(visibleTabs[0]?.id ?? "customers");
   const canEditProfile = OWNER_ONLY_ROLES.includes(role);

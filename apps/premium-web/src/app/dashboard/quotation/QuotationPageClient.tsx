@@ -68,6 +68,7 @@ export default function QuotationPageClient() {
   const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);
   const [projectCode, setProjectCode] = useState("");
   const [outletOptions, setOutletOptions] = useState<OutletOption[]>([]);
+  const [outletAddonEnabled, setOutletAddonEnabled] = useState(false);
   const [outletCode, setOutletCode] = useState("");
   const [lines, setLines] = useState<LineState[]>([emptyLine()]);
 
@@ -96,6 +97,7 @@ export default function QuotationPageClient() {
       setCustomers(data.customers || []);
       setProducts(data.products || []);
       setProjectOptions(data.projectAddon?.options || []);
+      setOutletAddonEnabled(data.outletAddon?.enabled === true);
       setOutletOptions(data.outletAddon?.options || []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal memuat");
@@ -256,6 +258,7 @@ export default function QuotationPageClient() {
                 onChange={setProjectCode}
               />
               <OutletSelect
+                enabled={outletAddonEnabled}
                 options={outletOptions}
                 value={outletCode}
                 onChange={setOutletCode}

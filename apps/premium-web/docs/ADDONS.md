@@ -7,7 +7,8 @@ Setiap client punya baris di `tenant_addons`. Menu & API modul add-on hanya munc
 | Key | Modul | Status |
 |-----|--------|--------|
 | `project` | Manajemen Proyek | Pilot — hybrid-lab (fase 2: CRUD, checklist, L/R) |
-| `pos` | POS | Belum |
+| `pos` | POS (Kasir) | Pilot — hybrid-lab, tirta-catering |
+| `outlet` | Multi Outlet | Pilot — hybrid-lab (L/R per outlet, tag transaksi) |
 | `pos_gramasi` | POS Gramasi | Belum |
 | `crm` | CRM | Belum |
 

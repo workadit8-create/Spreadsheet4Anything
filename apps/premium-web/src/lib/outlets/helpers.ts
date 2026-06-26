@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchOrgAddons, isAddonEnabled } from "@/lib/org/addons";
 import { OUTLET_PUSAT_CODE } from "@/lib/outlets/constants";
 
 export function normalizeOutletCode(value: string | null | undefined): string {
@@ -17,6 +18,9 @@ export async function resolveOutletCodeForSave(
   organizationId: string,
   rawCode: string | null | undefined
 ): Promise<string | null> {
+  const addons = await fetchOrgAddons(supabase, organizationId);
+  if (!isAddonEnabled(addons, "outlet")) return null;
+
   const code = String(rawCode || "").trim();
   if (!code) return null;
 

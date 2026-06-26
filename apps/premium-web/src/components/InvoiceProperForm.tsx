@@ -71,6 +71,7 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
   const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);
   const [projectCode, setProjectCode] = useState("");
   const [outletOptions, setOutletOptions] = useState<OutletOption[]>([]);
+  const [outletAddonEnabled, setOutletAddonEnabled] = useState(false);
   const [outletCode, setOutletCode] = useState("");
   const [taxConfig, setTaxConfig] = useState<ActiveTaxConfig | null>(null);
 
@@ -121,6 +122,7 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
       setProducts(data.products || []);
       setKasBank(data.kasBank || []);
       setProjectOptions(data.projectAddon?.options || []);
+      setOutletAddonEnabled(data.outletAddon?.enabled === true);
       setOutletOptions(data.outletAddon?.options || []);
       setTaxConfig(data.tax?.active ? data.tax : null);
       if (data.kasBank?.length) {
@@ -327,6 +329,7 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
       />
 
       <OutletSelect
+        enabled={outletAddonEnabled}
         className="sm:col-span-2"
         options={outletOptions}
         value={outletCode}

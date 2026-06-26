@@ -1,4 +1,4 @@
-export const ADDON_KEYS = ["project", "pos", "pos_gramasi", "crm"] as const;
+export const ADDON_KEYS = ["project", "pos", "outlet", "pos_gramasi", "crm"] as const;
 export type AddonKey = (typeof ADDON_KEYS)[number];
 
 export type AddonInfo = {
@@ -22,6 +22,10 @@ export const ADDON_CATALOG: Record<
     description: "Point of sale cloud — retail, F&B, jasa. Offline + sync.",
     navHref: "/dashboard/pos"
   },
+  outlet: {
+    label: "Multi Outlet",
+    description: "Beberapa toko/cabang per PT — L/R per outlet, tag transaksi, stok per gudang outlet."
+  },
   pos_gramasi: {
     label: "POS Gramasi",
     description: "POS dengan timbangan / gramasi."
@@ -38,6 +42,7 @@ export function emptyAddonsMap(): OrgAddonsMap {
   return {
     project: false,
     pos: false,
+    outlet: false,
     pos_gramasi: false,
     crm: false
   };

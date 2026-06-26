@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requirePostingRole, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { AUDIT_ACTIONS, auditFromContext, writeAuditLog } from "@/lib/audit/log";
 import { fetchOutletBootstrap } from "@/lib/outlets/bootstrap-options";
+import { fetchOrgAddons, isAddonEnabled } from "@/lib/org/addons";
 import { ensureDefaultCoa } from "@/lib/coa/seed-default-coa";
 import {
   buildManualJournalLines,
@@ -83,10 +84,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
 
+  const addons = await fetchOrgAddons(supabase, org.id);
+  const outletOn = isAddonEnabled(addons, "outlet");
+  const journalInputLines = outletOn
+    ? lines
+    : lines.map((line) => ({ ...line, outletCode: null }));
+
   try {
     await ensureDefaultCoa(supabase, org.id);
 
-    const journalLines = buildManualJournalLines(entryDate, lines, keterangan);
+    const journalLines = buildManualJournalLines(entryDate, journalInputLines, keterangan);
     const transactionId = generateManualTransactionId();
 
     const result = await postJournalEntry(

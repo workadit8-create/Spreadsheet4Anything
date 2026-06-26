@@ -67,6 +67,7 @@ export default function JurnalManualPageClient() {
   const [lines, setLines] = useState<LineDraft[]>([EMPTY_LINE(), EMPTY_LINE()]);
   const [coa, setCoa] = useState<CoaItem[]>([]);
   const [outletOptions, setOutletOptions] = useState<OutletOption[]>([]);
+  const [outletAddonEnabled, setOutletAddonEnabled] = useState(false);
   const [history, setHistory] = useState<ManualEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -91,6 +92,7 @@ export default function JurnalManualPageClient() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal memuat");
       setCoa(data.coa || []);
+      setOutletAddonEnabled(data.outletAddon?.enabled === true);
       setOutletOptions(data.outletAddon?.options || []);
       setHistory(data.entries || []);
     } catch (e) {
@@ -219,7 +221,7 @@ export default function JurnalManualPageClient() {
                 <th className="px-2 py-2 text-right">Debit</th>
                 <th className="px-2 py-2 text-right">Kredit</th>
                 <th className="px-2 py-2">Keterangan baris</th>
-                {outletOptions.length ? <th className="px-2 py-2">Outlet</th> : null}
+                {outletAddonEnabled ? <th className="px-2 py-2">Outlet</th> : null}
                 <th className="px-2 py-2" />
               </tr>
             </thead>
@@ -264,7 +266,7 @@ export default function JurnalManualPageClient() {
                       placeholder={keterangan}
                     />
                   </td>
-                  {outletOptions.length ? (
+                  {outletAddonEnabled ? (
                     <td className="px-2 py-1.5">
                       <Select
                         value={line.outletCode}
@@ -297,7 +299,7 @@ export default function JurnalManualPageClient() {
                 <td className="px-2 py-2">Total</td>
                 <td className="px-2 py-2 text-right tabular-nums">{formatMoney(totals.debit)}</td>
                 <td className="px-2 py-2 text-right tabular-nums">{formatMoney(totals.credit)}</td>
-                <td colSpan={outletOptions.length ? 3 : 2} className="px-2 py-2">
+                <td colSpan={outletAddonEnabled ? 3 : 2} className="px-2 py-2">
                   <span className={totals.balanced ? "text-emerald-600" : "text-red-600"}>
                     {totals.balanced ? "Balance ✓" : "Belum balance"}
                   </span>

@@ -82,6 +82,7 @@ export default function PurchaseRequestPageClient() {
   const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);
   const [projectCode, setProjectCode] = useState("");
   const [outletOptions, setOutletOptions] = useState<OutletOption[]>([]);
+  const [outletAddonEnabled, setOutletAddonEnabled] = useState(false);
   const [outletCode, setOutletCode] = useState("");
   const [lines, setLines] = useState<LineState[]>([emptyLine()]);
 
@@ -109,6 +110,7 @@ export default function PurchaseRequestPageClient() {
       setSuppliers(data.suppliers || []);
       setCategories(data.purchaseCategories || []);
       setProjectOptions(data.projectAddon?.options || []);
+      setOutletAddonEnabled(data.outletAddon?.enabled === true);
       setOutletOptions(data.outletAddon?.options || []);
       const catId = data.purchaseCategories?.[0]?.id || "";
       setLines((prev) =>
@@ -262,6 +264,7 @@ export default function PurchaseRequestPageClient() {
                 onChange={setProjectCode}
               />
               <OutletSelect
+                enabled={outletAddonEnabled}
                 options={outletOptions}
                 value={outletCode}
                 onChange={setOutletCode}
