@@ -13,7 +13,7 @@ import {
 } from "@/lib/laporan/daftar-aset-print";
 import type { PrintCompanyHeader } from "@/lib/org/print-company-header";
 
-type ReportTab = "buku-besar" | "laba-rugi" | "neraca" | "arus-kas" | "daftar-aset" | "stok-minus";
+type ReportTab = "buku-besar" | "laba-rugi" | "neraca" | "arus-kas" | "daftar-aset" | "stok-minus" | "outlet-lr";
 
 type CoaOption = { code: string; name: string };
 
@@ -117,7 +117,8 @@ const TABS: { id: ReportTab; label: string }[] = [
   { id: "neraca", label: "Neraca" },
   { id: "arus-kas", label: "Arus Kas" },
   { id: "daftar-aset", label: "Daftar Aset" },
-  { id: "stok-minus", label: "Stok Minus" }
+  { id: "stok-minus", label: "Stok Minus" },
+  { id: "outlet-lr", label: "L/R Outlet" }
 ];
 
 function defaultDateRange() {
@@ -520,6 +521,13 @@ export default function LaporanPageClient() {
       qty: number;
     }>;
   } | null>(null);
+  const [outletLr, setOutletLr] = useState<{
+    outlets: Array<{ outletCode: string; name: string; pendapatan: number; beban: number; margin: number }>;
+    pusat: { name: string; pendapatan: number; beban: number; margin: number };
+    konsolidasi: { pendapatan: number; beban: number; margin: number };
+    untaggedSales: number;
+    untaggedPurchases: number;
+  } | null>(null);
   const [assetStatus, setAssetStatus] = useState<"all" | "active" | "disposed">("active");
   const [printCompany, setPrintCompany] = useState<PrintCompanyHeader | null>(null);
   const [printingDaftarAset, setPrintingDaftarAset] = useState(false);
@@ -535,6 +543,15 @@ export default function LaporanPageClient() {
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || "Gagal memuat laporan");
         setStokMinus(json);
+        return;
+      }
+
+      if (tab === "outlet-lr") {
+        const params = new URLSearchParams({ start, end });
+        const res = await fetch(`/api/laporan/outlet-lr?${params}`);
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Gagal memuat laporan");
+        setOutletLr(json);
         return;
       }
 
@@ -720,6 +737,14 @@ export default function LaporanPageClient() {
         <div className="mb-4 text-sm text-slate-500">
           {tab === "stok-minus" ? (
             <span>Periksa harian setelah shift — koreksi via opname atau penyesuaian stok.</span>
+          ) : tab === "outlet-lr" ? (
+            <>
+              <span>L/R segment dari penjualan, pembelian, dan baris jurnal manual (beban/pendapatan) bertag outlet.</span>
+              <span className="ml-2">
+                Periode: <strong className="text-slate-700">{start}</strong> s/d{" "}
+                <strong className="text-slate-700">{end}</strong>
+              </span>
+            </>
           ) : (
             <>
           Periode: <strong className="text-slate-700">{start}</strong> s/d{" "}
@@ -777,6 +802,75 @@ export default function LaporanPageClient() {
           ) : (
             <p className="text-sm text-emerald-700">Tidak ada stok minus saat ini.</p>
           )
+        ) : tab === "outlet-lr" && outletLr ? (
+          <div className="space-y-6">
+            {(outletLr.untaggedSales > 0 || outletLr.untaggedPurchases > 0) && (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                Ada transaksi tanpa tag outlet ({outletLr.untaggedSales} penjualan,{" "}
+                {outletLr.untaggedPurchases} pembelian) — masuk bucket Umum/Pusat.
+              </p>
+            )}
+            <div>
+              <h3 className="mb-2 font-semibold text-slate-800">Per outlet</h3>
+              {outletLr.outlets.length ? (
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-slate-500">
+                      <th className="px-3 py-2">Outlet</th>
+                      <th className="px-3 py-2 text-right">Pendapatan</th>
+                      <th className="px-3 py-2 text-right">Beban</th>
+                      <th className="px-3 py-2 text-right">Margin</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {outletLr.outlets.map((row) => (
+                      <tr key={row.outletCode} className="border-t border-slate-100">
+                        <td className="px-3 py-2">
+                          <div className="font-medium">{row.name}</div>
+                          <div className="text-xs text-slate-500">{row.outletCode}</div>
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums">{formatRp(row.pendapatan)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{formatRp(row.beban)}</td>
+                        <td className="px-3 py-2 text-right font-semibold tabular-nums">{formatRp(row.margin)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-sm text-slate-500">Belum ada data outlet pada periode ini.</p>
+              )}
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <h3 className="mb-2 font-semibold text-slate-800">Umum / Pusat</h3>
+              <div className="flex justify-between text-sm">
+                <span>Pendapatan</span>
+                <span className="tabular-nums">{formatRp(outletLr.pusat.pendapatan)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Beban</span>
+                <span className="tabular-nums">{formatRp(outletLr.pusat.beban)}</span>
+              </div>
+              <div className="mt-2 flex justify-between border-t border-slate-200 pt-2 font-semibold">
+                <span>Margin</span>
+                <span className="tabular-nums">{formatRp(outletLr.pusat.margin)}</span>
+              </div>
+            </div>
+            <div className="rounded-lg border-2 border-brand-200 bg-brand-50 p-4">
+              <h3 className="mb-2 font-bold text-brand-900">Konsolidasi PT</h3>
+              <div className="flex justify-between text-sm">
+                <span>Total pendapatan</span>
+                <span className="tabular-nums">{formatRp(outletLr.konsolidasi.pendapatan)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Total beban</span>
+                <span className="tabular-nums">{formatRp(outletLr.konsolidasi.beban)}</span>
+              </div>
+              <div className="mt-2 flex justify-between border-t border-brand-200 pt-2 text-base font-bold text-brand-900">
+                <span>Laba bersih segment</span>
+                <span className="tabular-nums">{formatRp(outletLr.konsolidasi.margin)}</span>
+              </div>
+            </div>
+          </div>
         ) : (
           <p className="text-sm text-slate-500">Tidak ada data.</p>
         )}

@@ -6,6 +6,7 @@ export type JournalLineDraft = {
   debit: number;
   credit: number;
   keterangan: string;
+  outletCode?: string | null;
 };
 
 export type PemasukanJournalInput = {

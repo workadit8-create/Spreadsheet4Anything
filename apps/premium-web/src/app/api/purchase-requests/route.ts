@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { generatePrNo } from "@/lib/posting/ids";
 import { computePurchaseLineTotal } from "@/lib/posting/purchase-lines";
+import { resolveOutletCodeForSave } from "@/lib/outlets/helpers";
 
 type LineInput = {
   description: string;
@@ -19,6 +20,7 @@ type CreateBody = {
   request_date?: string;
   keterangan?: string;
   project_code?: string;
+  outlet_code?: string;
   lines: LineInput[];
 };
 
@@ -164,6 +166,16 @@ export async function POST(request: Request) {
     const requestDate = wibDateIsoFromInput(body.request_date);
     const prNo = generatePrNo();
 
+    let outletCode: string | null = null;
+    try {
+      outletCode = await resolveOutletCodeForSave(supabase, org.id, body.outlet_code);
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Outlet tidak valid" },
+        { status: 400 }
+      );
+    }
+
     const { data: header, error: headerErr } = await supabase
       .from("purchase_requests")
       .insert({
@@ -174,6 +186,7 @@ export async function POST(request: Request) {
         status: "AKTIF",
         keterangan: String(body.keterangan || "").trim() || null,
         project_code: String(body.project_code || "").trim() || null,
+        outlet_code: outletCode,
         total,
         metadata: supplierName ? { supplierName } : {}
       })

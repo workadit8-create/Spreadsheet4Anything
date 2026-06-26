@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { MasterCrudPanel } from "@/components/master/MasterCrudPanel";
 import { BusinessProfilePanel } from "@/components/master/BusinessProfilePanel";
+import { OutletsMasterPanel } from "@/components/master/OutletsMasterPanel";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PRODUCT_KIND_LABELS } from "@/lib/products/inventory-policy";
@@ -291,11 +292,11 @@ export default function MasterDataClient({ role }: { role: MembershipRole }) {
             ]}
           />
         )}
+        {tab === "outlets" && <OutletsMasterPanel />}
       </Card>
 
       <p className="mt-4 text-xs text-slate-400">
-        Pondasi POS/stok: warehouses, stock_levels, product_recipes sudah di schema. UI POS menyusul —
-        deduct stok hanya untuk produk dengan <code className="text-[11px]">effective_tracks_stock = true</code>.
+        Multi-outlet: kelola di tab Outlet. POS memilih outlet saat buka kasir. Laporan L/R per outlet di menu Laporan.
       </p>
     </main>
   );

@@ -25,6 +25,7 @@ import {
   summarizeLineTax
 } from "@/lib/tax/compute";
 import { ensureWalkInCustomer } from "@/lib/pos/walk-in-customer";
+import { resolveOutletCodeForSave } from "@/lib/outlets/helpers";
 
 export type PosCheckoutLineInput = {
   product_id: string;
@@ -42,6 +43,7 @@ export type PosCheckoutInput = {
   order_date?: string;
   local_id?: string;
   device_label?: string;
+  outlet_code?: string;
   warehouse_id?: string;
   customer_id?: string;
 };
@@ -92,6 +94,13 @@ export async function processPosCheckout(
     throw new Error("Keranjang kosong");
   }
 
+  let outletCode: string | null = null;
+  try {
+    outletCode = await resolveOutletCodeForSave(supabase, organizationId, body.outlet_code);
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : "Outlet tidak valid");
+  }
+
   const customerId = body.customer_id
     ? String(body.customer_id).trim()
     : await ensureWalkInCustomer(supabase, organizationId);
@@ -108,6 +117,15 @@ export async function processPosCheckout(
   }
 
   let warehouseId = String(body.warehouse_id || "").trim();
+  if (!warehouseId && outletCode) {
+    const { data: outletRow } = await supabase
+      .from("outlets")
+      .select("warehouse_id")
+      .eq("organization_id", organizationId)
+      .eq("outlet_code", outletCode)
+      .maybeSingle();
+    warehouseId = outletRow?.warehouse_id || "";
+  }
   if (!warehouseId) {
     const { data: warehouse } = await supabase
       .from("warehouses")
@@ -238,6 +256,7 @@ export async function processPosCheckout(
     posLocalId: localId || undefined,
     posDeviceLabel: body.device_label || undefined,
     posPaymentMethod: paymentMethod,
+    outletCode: outletCode || undefined,
     subtotalDpp: subtotal,
     taxTotal: taxSummary.taxTotal,
     taxType: taxConfig?.taxType
@@ -255,6 +274,7 @@ export async function processPosCheckout(
       order_date: orderDate,
       subtotal,
       total: grandTotal,
+      outlet_code: outletCode,
       metadata
     })
     .select("id, order_no, total")

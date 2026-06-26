@@ -19,6 +19,7 @@ import {
 } from "@/lib/posting/linked-mutasi";
 import { assertPurchaseRequestConvertible, markPurchaseRequestConverted } from "@/lib/pre-docs/convert";
 import { resolveProjectCodeForSave } from "@/lib/proyek/helpers";
+import { resolveOutletCodeForSave } from "@/lib/outlets/helpers";
 import { wibDateIsoFromInput } from "@/lib/date/wib";
 import { fetchOrgTaxSettings, getPurchaseTaxConfig } from "@/lib/org/tax-settings";
 import { supplierPkpFromMetadata } from "@/lib/suppliers/pkp";
@@ -46,6 +47,7 @@ type CreateBody = {
   rekening?: string;
   purchase_request_id?: string;
   project_code?: string;
+  outlet_code?: string;
   lines: LineInput[];
 };
 
@@ -152,6 +154,7 @@ export async function POST(request: Request) {
 
     const purchaseRequestId = String(body.purchase_request_id || "").trim() || null;
     let prProjectCode: string | null = null;
+    let prOutletCode: string | null = null;
     if (purchaseRequestId) {
       try {
         await assertPurchaseRequestConvertible(supabase, purchaseRequestId, org.id);
@@ -163,11 +166,12 @@ export async function POST(request: Request) {
       }
       const { data: pr } = await supabase
         .from("purchase_requests")
-        .select("project_code")
+        .select("project_code, outlet_code")
         .eq("id", purchaseRequestId)
         .eq("organization_id", org.id)
         .maybeSingle();
       prProjectCode = pr?.project_code || null;
+      prOutletCode = pr?.outlet_code || null;
     }
 
     let projectCode: string | null;
@@ -181,6 +185,17 @@ export async function POST(request: Request) {
     } catch (err) {
       return NextResponse.json(
         { error: err instanceof Error ? err.message : "Proyek tidak valid" },
+        { status: 400 }
+      );
+    }
+
+    let outletCode: string | null;
+    try {
+      const rawOutlet = body.outlet_code || prOutletCode;
+      outletCode = await resolveOutletCodeForSave(supabase, org.id, rawOutlet);
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Outlet tidak valid" },
         { status: 400 }
       );
     }
@@ -362,6 +377,7 @@ export async function POST(request: Request) {
         order_date: orderDate,
         total: grandTotal,
         project_code: projectCode,
+        outlet_code: outletCode,
         metadata
       })
       .select("id, po_no, total, status")

@@ -15,6 +15,9 @@ import {
   type PosPendingSale
 } from "@/lib/pos/offline-store";
 import { openPosReceiptPrint } from "@/lib/pos/receipt-print";
+import type { OutletOption } from "@/lib/outlets/bootstrap-options";
+
+const POS_OUTLET_STORAGE_KEY = "premium-pos-outlet";
 
 type CartLine = {
   product_id: string;
@@ -28,6 +31,7 @@ type CartLine = {
 
 type Bootstrap = PosCatalogSnapshot & {
   kasBank: Array<{ id: string; name: string; bankDisplay: string }>;
+  outlets?: { enabled: boolean; options: OutletOption[] };
 };
 
 function formatRp(n: number): string {
@@ -72,6 +76,9 @@ export default function PosPageClient({ userEmail }: { userEmail: string }) {
   const [weightProductId, setWeightProductId] = useState<string | null>(null);
   const [weightInput, setWeightInput] = useState("1");
   const [lastReceipt, setLastReceipt] = useState<PosPendingSale["receipt"] | null>(null);
+  const [outletOptions, setOutletOptions] = useState<OutletOption[]>([]);
+  const [selectedOutlet, setSelectedOutlet] = useState("");
+  const [outletsRequired, setOutletsRequired] = useState(false);
 
   const isFnb = catalog?.businessSectors?.includes("fnb") ?? false;
   const showGramasi = catalog?.businessSectors?.includes("retail") ?? false;
@@ -89,11 +96,13 @@ export default function PosPageClient({ userEmail }: { userEmail: string }) {
     await refreshPending();
   }, [refreshPending]);
 
-  const loadBootstrap = useCallback(async () => {
+  const loadBootstrap = useCallback(async (outletCode?: string) => {
     setLoading(true);
     setError("");
+    const code = outletCode ?? selectedOutlet;
     try {
-      const res = await fetch("/api/pos/bootstrap");
+      const q = code ? `?outlet_code=${encodeURIComponent(code)}` : "";
+      const res = await fetch(`/api/pos/bootstrap${q}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal memuat kasir");
       const snapshot: Bootstrap = {
@@ -108,8 +117,19 @@ export default function PosPageClient({ userEmail }: { userEmail: string }) {
         products: data.products || [],
         kasBank: data.kasBank || [],
         tax: data.tax || { active: false },
-        syncedAt: data.syncedAt
+        syncedAt: data.syncedAt,
+        outlets: data.outlets
       };
+      if (data.outlets?.enabled && data.outlets.options?.length) {
+        setOutletOptions(data.outlets.options);
+        setOutletsRequired(true);
+        if (!code) {
+          setLoading(false);
+          return;
+        }
+      } else {
+        setOutletsRequired(false);
+      }
       await applyBootstrap(snapshot);
     } catch (e) {
       const cached = await loadPosCatalog(orgId || "default");
@@ -122,7 +142,13 @@ export default function PosPageClient({ userEmail }: { userEmail: string }) {
     } finally {
       setLoading(false);
     }
-  }, [applyBootstrap, orgId]);
+  }, [applyBootstrap, orgId, selectedOutlet]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = localStorage.getItem(POS_OUTLET_STORAGE_KEY) || "";
+    if (saved) setSelectedOutlet(saved);
+  }, []);
 
   useEffect(() => {
     setOnline(typeof navigator !== "undefined" ? navigator.onLine : true);
@@ -291,7 +317,8 @@ export default function PosPageClient({ userEmail }: { userEmail: string }) {
       bayar: paymentMethod === "cash" ? Number(bayarInput) || cartTotal : cartTotal,
       rekening,
       payment_method: paymentMethod,
-      warehouse_id: catalog.warehouseId || undefined
+      warehouse_id: catalog.warehouseId || undefined,
+      outlet_code: selectedOutlet || undefined
     };
 
     const receipt = {
@@ -369,10 +396,41 @@ export default function PosPageClient({ userEmail }: { userEmail: string }) {
     }
   };
 
-  if (loading && !catalog) {
+  if (loading && !catalog && !outletsRequired) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100 text-slate-600">
         Memuat kasir…
+      </div>
+    );
+  }
+
+  if (outletsRequired && !selectedOutlet) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-100 p-6">
+        <h1 className="text-xl font-semibold text-slate-900">Pilih outlet kasir</h1>
+        <p className="max-w-sm text-center text-sm text-slate-600">
+          Setiap toko punya kasir & stok sendiri. Pilih outlet sebelum mulai shift.
+        </p>
+        <div className="grid w-full max-w-md gap-2">
+          {outletOptions.map((o) => (
+            <button
+              key={o.outletCode}
+              type="button"
+              onClick={() => {
+                setSelectedOutlet(o.outletCode);
+                localStorage.setItem(POS_OUTLET_STORAGE_KEY, o.outletCode);
+                void loadBootstrap(o.outletCode);
+              }}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm hover:border-brand-400"
+            >
+              <div className="font-semibold text-slate-900">{o.name}</div>
+              <div className="text-xs text-slate-500">{o.outletCode}</div>
+            </button>
+          ))}
+        </div>
+        <Link href="/dashboard" className="text-sm text-brand-600">
+          ← Dashboard
+        </Link>
       </div>
     );
   }
@@ -413,7 +471,22 @@ export default function PosPageClient({ userEmail }: { userEmail: string }) {
         ) : null}
         <span className="text-slate-500">
           Stok: {formatSyncTime(catalog.syncedAt)}
+          {selectedOutlet ? ` · ${selectedOutlet}` : ""}
         </span>
+        {selectedOutlet ? (
+          <button
+            type="button"
+            className="text-xs text-brand-600 hover:underline"
+            onClick={() => {
+              setSelectedOutlet("");
+              setCatalog(null);
+              localStorage.removeItem(POS_OUTLET_STORAGE_KEY);
+              void loadBootstrap();
+            }}
+          >
+            Ganti outlet
+          </button>
+        ) : null}
         <span className="ml-auto truncate text-slate-600">{catalog.orgName}</span>
         <Link href="/dashboard" className="text-brand-600 hover:underline">
           Keluar

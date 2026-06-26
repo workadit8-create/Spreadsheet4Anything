@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { ProjectSelect } from "@/components/proyek/ProjectSelect";
+import { OutletSelect } from "@/components/outlets/OutletSelect";
 import type { ProjectOption } from "@/lib/proyek/bootstrap-options";
+import type { OutletOption } from "@/lib/outlets/bootstrap-options";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { computeLineTotal } from "@/lib/posting/invoice-lines";
 import { wibMonthStartIso, wibTodayIso } from "@/lib/date/wib";
@@ -65,6 +67,8 @@ export default function QuotationPageClient() {
   const [keterangan, setKeterangan] = useState("");
   const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);
   const [projectCode, setProjectCode] = useState("");
+  const [outletOptions, setOutletOptions] = useState<OutletOption[]>([]);
+  const [outletCode, setOutletCode] = useState("");
   const [lines, setLines] = useState<LineState[]>([emptyLine()]);
 
   const defaults = useMemo(() => defaultDateRange(), []);
@@ -92,6 +96,7 @@ export default function QuotationPageClient() {
       setCustomers(data.customers || []);
       setProducts(data.products || []);
       setProjectOptions(data.projectAddon?.options || []);
+      setOutletOptions(data.outletAddon?.options || []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal memuat");
     } finally {
@@ -162,6 +167,7 @@ export default function QuotationPageClient() {
           quotation_date: quotationDate,
           keterangan,
           project_code: projectCode || undefined,
+          outlet_code: outletCode || undefined,
           lines: validLines.map((l) => ({
             product_id: l.product_id,
             qty: Number(l.qty),
@@ -248,6 +254,11 @@ export default function QuotationPageClient() {
                 options={projectOptions}
                 value={projectCode}
                 onChange={setProjectCode}
+              />
+              <OutletSelect
+                options={outletOptions}
+                value={outletCode}
+                onChange={setOutletCode}
               />
               <div>
                 <Label>Keterangan (opsional)</Label>

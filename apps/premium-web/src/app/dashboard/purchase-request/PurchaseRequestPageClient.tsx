@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { ProjectSelect } from "@/components/proyek/ProjectSelect";
+import { OutletSelect } from "@/components/outlets/OutletSelect";
 import type { ProjectOption } from "@/lib/proyek/bootstrap-options";
+import type { OutletOption } from "@/lib/outlets/bootstrap-options";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { computePurchaseLineTotal } from "@/lib/posting/purchase-lines";
 import { wibMonthStartIso, wibTodayIso } from "@/lib/date/wib";
@@ -79,6 +81,8 @@ export default function PurchaseRequestPageClient() {
   const [keterangan, setKeterangan] = useState("");
   const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);
   const [projectCode, setProjectCode] = useState("");
+  const [outletOptions, setOutletOptions] = useState<OutletOption[]>([]);
+  const [outletCode, setOutletCode] = useState("");
   const [lines, setLines] = useState<LineState[]>([emptyLine()]);
 
   const defaults = useMemo(() => defaultDateRange(), []);
@@ -105,6 +109,7 @@ export default function PurchaseRequestPageClient() {
       setSuppliers(data.suppliers || []);
       setCategories(data.purchaseCategories || []);
       setProjectOptions(data.projectAddon?.options || []);
+      setOutletOptions(data.outletAddon?.options || []);
       const catId = data.purchaseCategories?.[0]?.id || "";
       setLines((prev) =>
         prev.map((l) => (l.purchase_category_id ? l : { ...l, purchase_category_id: catId }))
@@ -165,6 +170,7 @@ export default function PurchaseRequestPageClient() {
           request_date: requestDate,
           keterangan,
           project_code: projectCode || undefined,
+          outlet_code: outletCode || undefined,
           lines: validLines.map((l) => ({
             description: l.description.trim(),
             purchase_category_id: l.purchase_category_id,
@@ -254,6 +260,11 @@ export default function PurchaseRequestPageClient() {
                 options={projectOptions}
                 value={projectCode}
                 onChange={setProjectCode}
+              />
+              <OutletSelect
+                options={outletOptions}
+                value={outletCode}
+                onChange={setOutletCode}
               />
               <div>
                 <Label>Keterangan (opsional)</Label>

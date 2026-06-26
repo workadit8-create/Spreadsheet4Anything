@@ -143,7 +143,8 @@ export type MasterEntityKey =
   | "supplier"
   | "kasBank"
   | "purchaseCategory"
-  | "coa";
+  | "coa"
+  | "outlet";
 
 export const MASTER_ENTITY_ROLES: Record<MasterEntityKey, MembershipRole[]> = {
   customer: ["owner", "staff", "akuntan"],
@@ -151,7 +152,8 @@ export const MASTER_ENTITY_ROLES: Record<MasterEntityKey, MembershipRole[]> = {
   supplier: ["owner", "staff", "akuntan"],
   kasBank: ["owner"],
   purchaseCategory: ["owner", "akuntan"],
-  coa: ["owner", "akuntan"]
+  coa: ["owner", "akuntan"],
+  outlet: ["owner", "staff", "akuntan"]
 };
 
 export function canEditMasterEntity(role: MembershipRole, entity: MasterEntityKey): boolean {
@@ -166,7 +168,8 @@ export type MasterTabId =
   | "coa"
   | "kas-bank"
   | "suppliers"
-  | "purchase-categories";
+  | "purchase-categories"
+  | "outlets";
 
 export const MASTER_TAB_ENTITY: Record<MasterTabId, MasterEntityKey> = {
   customers: "customer",
@@ -176,7 +179,8 @@ export const MASTER_TAB_ENTITY: Record<MasterTabId, MasterEntityKey> = {
   coa: "coa",
   "kas-bank": "kasBank",
   suppliers: "supplier",
-  "purchase-categories": "purchaseCategory"
+  "purchase-categories": "purchaseCategory",
+  outlets: "outlet"
 };
 
 export const MASTER_TAB_LABELS: Record<MasterTabId, string> = {
@@ -187,7 +191,8 @@ export const MASTER_TAB_LABELS: Record<MasterTabId, string> = {
   coa: "COA",
   "kas-bank": "Kas & Bank",
   suppliers: "Supplier",
-  "purchase-categories": "Kategori Pembelian"
+  "purchase-categories": "Kategori Pembelian",
+  outlets: "Outlet / Cabang"
 };
 
 export function canAccessMasterTab(role: MembershipRole, tabId: MasterTabId): boolean {

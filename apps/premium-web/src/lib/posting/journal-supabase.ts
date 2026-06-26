@@ -104,6 +104,7 @@ export async function postJournalEntry(
     debit: line.debit,
     credit: line.credit,
     keterangan: line.keterangan,
+    outlet_code: line.outletCode || null,
     sort_order: index
   }));
 

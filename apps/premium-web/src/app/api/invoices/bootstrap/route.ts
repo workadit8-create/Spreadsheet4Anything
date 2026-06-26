@@ -6,6 +6,7 @@ import { fetchOrgTaxSettings } from "@/lib/org/tax-settings";
 import { productTaxableFromMetadata } from "@/lib/products/ppn";
 import { getActiveTaxConfig, taxTypeLabel } from "@/lib/tax/compute";
 import { fetchProjectBootstrap } from "@/lib/proyek/bootstrap-options";
+import { fetchOutletBootstrap } from "@/lib/outlets/bootstrap-options";
 
 export async function GET() {
   const supabase = await createClient();
@@ -17,7 +18,7 @@ export async function GET() {
   }
   const { org } = auth;
 
-  const [customersRes, productsRes, kasRes, projectAddon, taxSettings] = await Promise.all([
+  const [customersRes, productsRes, kasRes, projectAddon, outletAddon, taxSettings] = await Promise.all([
     supabase
       .from("customers")
       .select("id, code, name")
@@ -37,6 +38,7 @@ export async function GET() {
       .eq("active", true)
       .order("name"),
     fetchProjectBootstrap(supabase, org.id),
+    fetchOutletBootstrap(supabase, org.id),
     fetchOrgTaxSettings(supabase, org.id)
   ]);
 
@@ -72,6 +74,7 @@ export async function GET() {
     products,
     kasBank,
     projectAddon,
+    outletAddon,
     tax: taxConfig
       ? {
           active: true,

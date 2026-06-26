@@ -4,7 +4,7 @@ import { requireAddon } from "@/lib/org/addons";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { fetchPosBootstrap } from "@/lib/pos/bootstrap";
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = await createClient();
   let auth;
   try {
@@ -22,8 +22,11 @@ export async function GET() {
     );
   }
 
+  const url = new URL(request.url);
+  const outletCode = url.searchParams.get("outlet_code") || "";
+
   try {
-    const data = await fetchPosBootstrap(supabase, auth.org.id);
+    const data = await fetchPosBootstrap(supabase, auth.org.id, outletCode || undefined);
     return NextResponse.json(data);
   } catch (err) {
     return NextResponse.json(

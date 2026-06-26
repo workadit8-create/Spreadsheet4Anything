@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { fetchProjectBootstrap } from "@/lib/proyek/bootstrap-options";
+import { fetchOutletBootstrap } from "@/lib/outlets/bootstrap-options";
 import { fetchOrgTaxSettings } from "@/lib/org/tax-settings";
 import { supplierPkpFromMetadata } from "@/lib/suppliers/pkp";
 import { isFixedAssetCoaName } from "@/lib/assets/coa-defaults";
@@ -16,7 +17,7 @@ export async function GET() {
   }
   const { org } = auth;
 
-  const [suppliersRes, categoriesRes, kasRes, coaRes, projectAddon, taxSettings] = await Promise.all([
+  const [suppliersRes, categoriesRes, kasRes, coaRes, projectAddon, outletAddon, taxSettings] = await Promise.all([
     supabase
       .from("suppliers")
       .select("id, code, name, metadata")
@@ -41,6 +42,7 @@ export async function GET() {
       .eq("organization_id", org.id)
       .eq("active", true),
     fetchProjectBootstrap(supabase, org.id),
+    fetchOutletBootstrap(supabase, org.id),
     fetchOrgTaxSettings(supabase, org.id)
   ]);
 
@@ -77,6 +79,7 @@ export async function GET() {
     kasBank: kasRes.data || [],
     fixedAssetCoaAccounts,
     projectAddon,
+    outletAddon,
     purchasePpn: purchasePpnAvailable
       ? {
           available: true,

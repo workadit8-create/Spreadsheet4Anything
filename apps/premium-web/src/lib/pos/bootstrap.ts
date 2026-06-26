@@ -4,6 +4,7 @@ import { fetchOrgTaxSettings } from "@/lib/org/tax-settings";
 import { productTaxableFromMetadata } from "@/lib/products/ppn";
 import { getActiveTaxConfig, taxTypeLabel } from "@/lib/tax/compute";
 import { ensureWalkInCustomer } from "@/lib/pos/walk-in-customer";
+import { fetchOutletBootstrap } from "@/lib/outlets/bootstrap-options";
 
 export type PosBootstrapProduct = {
   id: string;
@@ -20,18 +21,40 @@ export type PosBootstrapProduct = {
   tax_taxable: boolean;
 };
 
-export async function fetchPosBootstrap(supabase: SupabaseClient, organizationId: string) {
-  const { data: warehouse } = await supabase
-    .from("warehouses")
-    .select("id, code, name")
-    .eq("organization_id", organizationId)
-    .order("is_default", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+export async function fetchPosBootstrap(
+  supabase: SupabaseClient,
+  organizationId: string,
+  outletCodeFilter?: string
+) {
+  let warehouseFilterId: string | null = null;
+  if (outletCodeFilter) {
+    const { data: outletRow } = await supabase
+      .from("outlets")
+      .select("warehouse_id")
+      .eq("organization_id", organizationId)
+      .eq("outlet_code", outletCodeFilter.trim().toUpperCase())
+      .eq("active", true)
+      .maybeSingle();
+    warehouseFilterId = outletRow?.warehouse_id || null;
+  }
+
+  const { data: warehouse } = warehouseFilterId
+    ? await supabase
+        .from("warehouses")
+        .select("id, code, name")
+        .eq("id", warehouseFilterId)
+        .maybeSingle()
+    : await supabase
+        .from("warehouses")
+        .select("id, code, name")
+        .eq("organization_id", organizationId)
+        .order("is_default", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
   const warehouseId = warehouse?.id || null;
 
-  const [walkInCustomerId, customersRes, productsRes, categoriesRes, kasRes, taxSettings, orgRes] =
+  const [walkInCustomerId, customersRes, productsRes, categoriesRes, kasRes, taxSettings, orgRes, outletBootstrap] =
     await Promise.all([
       ensureWalkInCustomer(supabase, organizationId),
       supabase
@@ -65,7 +88,8 @@ export async function fetchPosBootstrap(supabase: SupabaseClient, organizationId
         .from("organizations")
         .select("name, business_sectors")
         .eq("id", organizationId)
-        .single()
+        .single(),
+      fetchOutletBootstrap(supabase, organizationId)
     ]);
 
   let stockMap = new Map<string, number>();
@@ -125,6 +149,7 @@ export async function fetchPosBootstrap(supabase: SupabaseClient, organizationId
     products,
     kasBank,
     defaultKasRekening: defaultKas?.name || "",
+    outlets: outletBootstrap,
     tax: taxConfig
       ? {
           active: true,

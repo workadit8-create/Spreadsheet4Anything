@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { ProjectSelect } from "@/components/proyek/ProjectSelect";
+import { OutletSelect } from "@/components/outlets/OutletSelect";
 import type { ProjectOption } from "@/lib/proyek/bootstrap-options";
+import type { OutletOption } from "@/lib/outlets/bootstrap-options";
 import { computePurchaseLineTotal } from "@/lib/posting/purchase-lines";
 import { computeLineTax, summarizeLineTax } from "@/lib/tax/compute";
 import { wibTodayIso } from "@/lib/date/wib";
@@ -80,6 +82,8 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
   const [loadingPr, setLoadingPr] = useState(false);
   const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);
   const [projectCode, setProjectCode] = useState("");
+  const [outletOptions, setOutletOptions] = useState<OutletOption[]>([]);
+  const [outletCode, setOutletCode] = useState("");
   const [purchasePpnAvailable, setPurchasePpnAvailable] = useState(false);
   const [purchasePpnSettings, setPurchasePpnSettings] = useState<{
     ratePercent: number;
@@ -129,6 +133,7 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
       setCategories(data.purchaseCategories || []);
       setKasBank(data.kasBank || []);
       setProjectOptions(data.projectAddon?.options || []);
+      setOutletOptions(data.outletAddon?.options || []);
       setFixedAssetCoaAccounts(data.fixedAssetCoaAccounts || []);
       setPurchasePpnAvailable(data.purchasePpn?.available === true);
       setPurchasePpnSettings(
@@ -262,6 +267,7 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
           rekening: bayarNum > 0 ? rekening : "",
           purchase_request_id: purchaseRequestId || undefined,
           project_code: projectCode || undefined,
+          outlet_code: outletCode || undefined,
           lines: lines.map((l) => ({
             description: l.description.trim(),
             purchase_category_id: l.purchase_category_id,
@@ -349,6 +355,13 @@ export function PembelianForm({ onCreated }: { onCreated?: () => void }) {
         options={projectOptions}
         value={projectCode}
         onChange={setProjectCode}
+      />
+
+      <OutletSelect
+        options={outletOptions}
+        value={outletCode}
+        onChange={setOutletCode}
+        className="mt-4"
       />
 
       <div>

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { OUTLET_PUSAT_CODE } from "@/lib/outlets/constants";
+import type { OutletOption } from "@/lib/outlets/bootstrap-options";
 import { wibTodayIso } from "@/lib/date/wib";
 
 type CoaItem = { id: string; code: string; name: string; account_type: string };
@@ -15,6 +17,7 @@ type LineDraft = {
   debit: string;
   credit: string;
   keterangan: string;
+  outletCode: string;
 };
 
 type ManualEntry = {
@@ -36,15 +39,16 @@ const EMPTY_LINE = (): LineDraft => ({
   accountName: "",
   debit: "",
   credit: "",
-  keterangan: ""
+  keterangan: "",
+  outletCode: ""
 });
 
 const SALDO_AWAL_TEMPLATE: LineDraft[] = [
-  { accountName: "Kas", debit: "0", credit: "", keterangan: "Saldo awal kas" },
-  { accountName: "Bank", debit: "0", credit: "", keterangan: "Saldo awal bank" },
-  { accountName: "Piutang Usaha", debit: "0", credit: "", keterangan: "Saldo awal piutang" },
-  { accountName: "Utang Usaha", debit: "", credit: "0", keterangan: "Saldo awal utang" },
-  { accountName: "Modal Pemilik", debit: "", credit: "0", keterangan: "Penyeimbang ekuitas" }
+  { accountName: "Kas", debit: "0", credit: "", keterangan: "Saldo awal kas", outletCode: "" },
+  { accountName: "Bank", debit: "0", credit: "", keterangan: "Saldo awal bank", outletCode: "" },
+  { accountName: "Piutang Usaha", debit: "0", credit: "", keterangan: "Saldo awal piutang", outletCode: "" },
+  { accountName: "Utang Usaha", debit: "", credit: "0", keterangan: "Saldo awal utang", outletCode: "" },
+  { accountName: "Modal Pemilik", debit: "", credit: "0", keterangan: "Penyeimbang ekuitas", outletCode: "" }
 ];
 
 function formatMoney(n: number) {
@@ -62,6 +66,7 @@ export default function JurnalManualPageClient() {
   const [keterangan, setKeterangan] = useState("Saldo awal / jurnal pembuka");
   const [lines, setLines] = useState<LineDraft[]>([EMPTY_LINE(), EMPTY_LINE()]);
   const [coa, setCoa] = useState<CoaItem[]>([]);
+  const [outletOptions, setOutletOptions] = useState<OutletOption[]>([]);
   const [history, setHistory] = useState<ManualEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -86,6 +91,7 @@ export default function JurnalManualPageClient() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal memuat");
       setCoa(data.coa || []);
+      setOutletOptions(data.outletAddon?.options || []);
       setHistory(data.entries || []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal memuat");
@@ -128,7 +134,8 @@ export default function JurnalManualPageClient() {
           accountName: l.accountName,
           debit: parseAmount(l.debit),
           credit: parseAmount(l.credit),
-          keterangan: l.keterangan || keterangan
+          keterangan: l.keterangan || keterangan,
+          outletCode: l.outletCode || undefined
         }))
       };
 
@@ -212,6 +219,7 @@ export default function JurnalManualPageClient() {
                 <th className="px-2 py-2 text-right">Debit</th>
                 <th className="px-2 py-2 text-right">Kredit</th>
                 <th className="px-2 py-2">Keterangan baris</th>
+                {outletOptions.length ? <th className="px-2 py-2">Outlet</th> : null}
                 <th className="px-2 py-2" />
               </tr>
             </thead>
@@ -256,6 +264,22 @@ export default function JurnalManualPageClient() {
                       placeholder={keterangan}
                     />
                   </td>
+                  {outletOptions.length ? (
+                    <td className="px-2 py-1.5">
+                      <Select
+                        value={line.outletCode}
+                        onChange={(e) => updateLine(i, { outletCode: e.target.value })}
+                      >
+                        <option value="">— pusat —</option>
+                        <option value={OUTLET_PUSAT_CODE}>PUSAT</option>
+                        {outletOptions.map((o) => (
+                          <option key={o.outletCode} value={o.outletCode}>
+                            {o.outletCode}
+                          </option>
+                        ))}
+                      </Select>
+                    </td>
+                  ) : null}
                   <td className="px-2 py-1.5">
                     <button
                       type="button"
@@ -273,7 +297,7 @@ export default function JurnalManualPageClient() {
                 <td className="px-2 py-2">Total</td>
                 <td className="px-2 py-2 text-right tabular-nums">{formatMoney(totals.debit)}</td>
                 <td className="px-2 py-2 text-right tabular-nums">{formatMoney(totals.credit)}</td>
-                <td colSpan={2} className="px-2 py-2">
+                <td colSpan={outletOptions.length ? 3 : 2} className="px-2 py-2">
                   <span className={totals.balanced ? "text-emerald-600" : "text-red-600"}>
                     {totals.balanced ? "Balance ✓" : "Belum balance"}
                   </span>

@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { ProjectSelect } from "@/components/proyek/ProjectSelect";
+import { OutletSelect } from "@/components/outlets/OutletSelect";
 import type { ProjectOption } from "@/lib/proyek/bootstrap-options";
+import type { OutletOption } from "@/lib/outlets/bootstrap-options";
 import { kasBankOptionLabel } from "@/lib/org/kas-bank-display";
 import { computeLineTotal } from "@/lib/posting/invoice-lines";
 import { computeLineTax, summarizeLineTax, type ActiveTaxConfig } from "@/lib/tax/compute";
@@ -68,6 +70,8 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
   const [loadingQuotation, setLoadingQuotation] = useState(false);
   const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);
   const [projectCode, setProjectCode] = useState("");
+  const [outletOptions, setOutletOptions] = useState<OutletOption[]>([]);
+  const [outletCode, setOutletCode] = useState("");
   const [taxConfig, setTaxConfig] = useState<ActiveTaxConfig | null>(null);
 
   const productMap = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
@@ -117,6 +121,7 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
       setProducts(data.products || []);
       setKasBank(data.kasBank || []);
       setProjectOptions(data.projectAddon?.options || []);
+      setOutletOptions(data.outletAddon?.options || []);
       setTaxConfig(data.tax?.active ? data.tax : null);
       if (data.kasBank?.length) {
         setRekeningPenerimaan(data.kasBank[0].name);
@@ -236,6 +241,7 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
           invoice_rekening_id: needsInvoiceRekening ? invoiceRekeningId : undefined,
           quotation_id: quotationId || undefined,
           project_code: projectCode || undefined,
+          outlet_code: outletCode || undefined,
           lines: validLines.map((l) => ({
             product_id: l.product_id,
             qty: Number(l.qty),
@@ -318,6 +324,13 @@ export function InvoiceProperForm({ onCreated }: { onCreated: () => void }) {
         options={projectOptions}
         value={projectCode}
         onChange={setProjectCode}
+      />
+
+      <OutletSelect
+        className="sm:col-span-2"
+        options={outletOptions}
+        value={outletCode}
+        onChange={setOutletCode}
       />
 
       <div>

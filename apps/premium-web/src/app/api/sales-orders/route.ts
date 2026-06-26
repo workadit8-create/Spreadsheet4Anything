@@ -19,6 +19,7 @@ import {
   resolveInvoiceBankInfo
 } from "@/lib/penjualan/invoice-rekening";
 import { resolveProjectCodeForSave } from "@/lib/proyek/helpers";
+import { resolveOutletCodeForSave } from "@/lib/outlets/helpers";
 import { assertQuotationConvertible, markQuotationConverted } from "@/lib/pre-docs/convert";
 import { wibDateIsoFromInput, wibTodayIso } from "@/lib/date/wib";
 import { fetchOrgTaxSettings } from "@/lib/org/tax-settings";
@@ -48,6 +49,7 @@ type CreateBody = {
   order_date?: string;
   quotation_id?: string;
   project_code?: string;
+  outlet_code?: string;
   lines?: LineInput[];
   invoice_rekening_id?: string;
 };
@@ -258,6 +260,16 @@ async function createProperInvoice(
     );
   }
 
+  let outletCode: string | null;
+  try {
+    outletCode = await resolveOutletCodeForSave(supabase, organizationId, body.outlet_code);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Outlet tidak valid" },
+      { status: 400 }
+    );
+  }
+
   const { data: customer, error: custErr } = await supabase
     .from("customers")
     .select("id, name")
@@ -439,6 +451,7 @@ async function createProperInvoice(
       subtotal,
       total: grandTotal,
       project_code: projectCode,
+      outlet_code: outletCode,
       metadata
     })
     .select("id, order_no, total, status")

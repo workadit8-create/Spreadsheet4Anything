@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requirePostingRole, requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { AUDIT_ACTIONS, auditFromContext, writeAuditLog } from "@/lib/audit/log";
+import { fetchOutletBootstrap } from "@/lib/outlets/bootstrap-options";
 import { ensureDefaultCoa } from "@/lib/coa/seed-default-coa";
 import {
   buildManualJournalLines,
@@ -23,29 +24,37 @@ export async function GET() {
 
   await ensureDefaultCoa(supabase, org.id);
 
-  const { data: coa, error: coaErr } = await supabase
-    .from("coa_accounts")
-    .select("id, code, name, account_type")
-    .eq("organization_id", org.id)
-    .eq("active", true)
-    .order("code");
+  const [coa, entries, outletBootstrap] = await Promise.all([
+    supabase
+      .from("coa_accounts")
+      .select("id, code, name, account_type")
+      .eq("organization_id", org.id)
+      .eq("active", true)
+      .order("code"),
+    supabase
+      .from("journal_entries")
+      .select(
+        "id, doc_no, entry_date, transaction_id, created_at, metadata, journal_lines(account_name, debit, credit, keterangan, sort_order, outlet_code)"
+      )
+      .eq("organization_id", org.id)
+      .eq("modul", "MANUAL")
+      .order("entry_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(30),
+    fetchOutletBootstrap(supabase, org.id)
+  ]);
+
+  const coaErr = coa.error;
+  const entErr = entries.error;
 
   if (coaErr) return NextResponse.json({ error: coaErr.message }, { status: 500 });
-
-  const { data: entries, error: entErr } = await supabase
-    .from("journal_entries")
-    .select(
-      "id, doc_no, entry_date, transaction_id, created_at, metadata, journal_lines(account_name, debit, credit, keterangan, sort_order)"
-    )
-    .eq("organization_id", org.id)
-    .eq("modul", "MANUAL")
-    .order("entry_date", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(30);
-
   if (entErr) return NextResponse.json({ error: entErr.message }, { status: 500 });
 
-  return NextResponse.json({ coa: coa || [], entries: entries || [] });
+  return NextResponse.json({
+    coa: coa.data || [],
+    entries: entries.data || [],
+    outletAddon: outletBootstrap
+  });
 }
 
 export async function POST(request: Request) {

@@ -5,6 +5,7 @@ export type ManualJournalLineInput = {
   debit: number;
   credit: number;
   keterangan?: string;
+  outletCode?: string | null;
 };
 
 export function validateManualJournalLines(lines: ManualJournalLineInput[]): {
@@ -64,6 +65,7 @@ export function buildManualJournalLines(
     accountName: String(line.accountName).trim(),
     debit: Number(line.debit) || 0,
     credit: Number(line.credit) || 0,
-    keterangan: String(line.keterangan || defaultKeterangan || "").trim()
+    keterangan: String(line.keterangan || defaultKeterangan || "").trim(),
+    outletCode: line.outletCode ? String(line.outletCode).trim().toUpperCase() : null
   }));
 }

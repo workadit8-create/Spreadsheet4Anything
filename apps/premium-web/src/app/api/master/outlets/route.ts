@@ -1,0 +1,78 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { requireUserOrg, requireMasterEntityRole, toOrgAuthResponse } from "@/lib/org/require-user-org";
+import { normalizeOutletCode } from "@/lib/outlets/helpers";
+
+export async function GET() {
+  const supabase = await createClient();
+  let auth;
+  try {
+    auth = await requireUserOrg(supabase);
+  } catch (e) {
+    return toOrgAuthResponse(e);
+  }
+
+  const { data, error } = await supabase
+    .from("outlets")
+    .select("id, outlet_code, name, business_sector, warehouse_id, active, sort_order, warehouses(code, name)")
+    .eq("organization_id", auth.org.id)
+    .order("sort_order")
+    .order("name");
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const { data: warehouses } = await supabase
+    .from("warehouses")
+    .select("id, code, name, is_default")
+    .eq("organization_id", auth.org.id)
+    .eq("active", true)
+    .order("name");
+
+  return NextResponse.json({ outlets: data || [], warehouses: warehouses || [] });
+}
+
+export async function POST(request: Request) {
+  const supabase = await createClient();
+  let auth;
+  try {
+    auth = await requireUserOrg(supabase);
+    requireMasterEntityRole(auth.role, "outlet");
+  } catch (e) {
+    return toOrgAuthResponse(e);
+  }
+
+  const body = await request.json();
+  const outletCode = normalizeOutletCode(body.outlet_code || body.outletCode);
+  const name = String(body.name || "").trim();
+  const businessSector = String(body.business_sector || body.businessSector || "retail");
+  const warehouseId = String(body.warehouse_id || body.warehouseId || "").trim() || null;
+  const sortOrder = Number(body.sort_order ?? body.sortOrder ?? 0);
+  const active = body.active !== false;
+
+  if (!outletCode || outletCode === "PUSAT") {
+    return NextResponse.json({ error: "Kode outlet tidak valid" }, { status: 400 });
+  }
+  if (!name) {
+    return NextResponse.json({ error: "Nama outlet wajib" }, { status: 400 });
+  }
+
+  const { data, error } = await supabase
+    .from("outlets")
+    .insert({
+      organization_id: auth.org.id,
+      outlet_code: outletCode,
+      name,
+      business_sector: businessSector,
+      warehouse_id: warehouseId,
+      sort_order: sortOrder,
+      active
+    })
+    .select("id, outlet_code, name")
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
+  return NextResponse.json({ outlet: data });
+}
