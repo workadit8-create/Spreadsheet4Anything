@@ -10,6 +10,21 @@ import { wibTodayIso } from "@/lib/date/wib";
 type Supplier = { id: string; name: string; pkp?: boolean };
 type Product = { id: string; sku: string | null; name: string; sellPrice: number };
 type KasBank = { id: string; name: string };
+type ReceivingWarehouse = {
+  id: string;
+  code: string;
+  name: string;
+  isDisplay: boolean;
+  warehouseRole: string;
+};
+
+function receivingWarehouseLabel(w: ReceivingWarehouse) {
+  const tags: string[] = [];
+  if (w.warehouseRole === "distribution") tags.push("distribusi");
+  if (w.isDisplay) tags.push("display");
+  const suffix = tags.length ? ` (${tags.join(" · ")})` : "";
+  return `${w.code} — ${w.name}${suffix}`;
+}
 
 type LineState = {
   key: string;
@@ -43,6 +58,9 @@ export function InventoryPembelianForm({ onCreated }: { onCreated?: () => void }
   const [kasBank, setKasBank] = useState<KasBank[]>([]);
   const [outlets, setOutlets] = useState<Array<{ code: string; label: string }>>([]);
   const [outletLocked, setOutletLocked] = useState(false);
+  const [multiWarehouse, setMultiWarehouse] = useState(false);
+  const [receivingWarehouses, setReceivingWarehouses] = useState<ReceivingWarehouse[]>([]);
+  const [warehouseId, setWarehouseId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +97,13 @@ export function InventoryPembelianForm({ onCreated }: { onCreated?: () => void }
       setKasBank(data.kasBank || []);
       setOutlets(data.outlets || []);
       setOutletLocked(Boolean(data.outletLocked));
+      setMultiWarehouse(Boolean(data.multiWarehouse));
+      const whOpts: ReceivingWarehouse[] = data.receivingWarehouses || [];
+      setReceivingWarehouses(whOpts);
+      setWarehouseId((prev) => {
+        if (prev && whOpts.some((w) => w.id === prev)) return prev;
+        return whOpts[0]?.id || "";
+      });
       if (data.outlets?.length === 1 && !outletCode) {
         setOutletCode(data.outlets[0].code);
       }
@@ -143,6 +168,9 @@ export function InventoryPembelianForm({ onCreated }: { onCreated?: () => void }
     try {
       if (!supplierId) throw new Error("Pilih supplier");
       if (outlets.length && !outletCode) throw new Error("Pilih outlet");
+      if (multiWarehouse && receivingWarehouses.length && !warehouseId) {
+        throw new Error("Pilih gudang penerima");
+      }
       const payloadLines = lines
         .filter((l) => l.product_id)
         .map((l) => ({
@@ -163,6 +191,7 @@ export function InventoryPembelianForm({ onCreated }: { onCreated?: () => void }
           supplier_id: supplierId,
           order_date: orderDate,
           outlet_code: outletCode || undefined,
+          warehouse_id: multiWarehouse && warehouseId ? warehouseId : undefined,
           bayar: bayarNum,
           rekening: bayarNum > 0 ? rekening : "",
           lines: payloadLines
@@ -209,11 +238,14 @@ export function InventoryPembelianForm({ onCreated }: { onCreated?: () => void }
         </div>
         {outlets.length ? (
           <div>
-            <Label>Outlet / Gudang</Label>
+            <Label>Outlet</Label>
             <Select
               value={outletCode}
               disabled={outletLocked}
-              onChange={(e) => setOutletCode(e.target.value)}
+              onChange={(e) => {
+                setOutletCode(e.target.value);
+                setWarehouseId("");
+              }}
               required
             >
               {!outletLocked ? <option value="">— Pilih —</option> : null}
@@ -223,6 +255,26 @@ export function InventoryPembelianForm({ onCreated }: { onCreated?: () => void }
                 </option>
               ))}
             </Select>
+          </div>
+        ) : null}
+        {multiWarehouse && receivingWarehouses.length ? (
+          <div>
+            <Label>Gudang penerima</Label>
+            <Select
+              value={warehouseId}
+              onChange={(e) => setWarehouseId(e.target.value)}
+              required
+            >
+              {receivingWarehouses.length > 1 ? <option value="">— Pilih —</option> : null}
+              {receivingWarehouses.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {receivingWarehouseLabel(w)}
+                </option>
+              ))}
+            </Select>
+            <p className="mt-1 text-xs text-slate-500">
+              Stok PO masuk gudang inbound/distribusi, bukan display.
+            </p>
           </div>
         ) : null}
       </div>

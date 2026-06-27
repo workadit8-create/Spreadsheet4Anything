@@ -7,6 +7,7 @@ import { fetchOrgTaxSettings } from "@/lib/org/tax-settings";
 import { supplierPkpFromMetadata } from "@/lib/suppliers/pkp";
 import { productMatchesOutlet } from "@/lib/inventory/product-outlet-scope";
 import { effectiveTracksStock } from "@/lib/products/inventory-policy";
+import { fetchReceivingWarehouseOptions } from "@/lib/inventory/warehouse-resolve";
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -54,6 +55,11 @@ export async function GET(request: Request) {
   if (productsRes.error) return NextResponse.json({ error: productsRes.error.message }, { status: 500 });
 
   const purchasePpnAvailable = taxSettings.ppn.pkpEnabled;
+  const multiWarehouse = isAddonEnabled(addons, "multi_warehouse");
+
+  const receivingWarehouses = outletCode
+    ? await fetchReceivingWarehouseOptions(supabase, org.id, outletCode)
+    : [];
 
   const products = (productsRes.data || [])
     .filter((p) => effectiveTracksStock(p.tracks_stock, p.category_tracks_stock))
@@ -79,6 +85,14 @@ export async function GET(request: Request) {
       label: o.label
     })),
     outletLocked: outletBootstrap.enabled && outletBootstrap.options.length <= 1,
+    multiWarehouse,
+    receivingWarehouses: receivingWarehouses.map((w) => ({
+      id: w.id,
+      code: w.code,
+      name: w.name,
+      isDisplay: w.isDisplay,
+      warehouseRole: w.warehouseRole
+    })),
     purchasePpn: purchasePpnAvailable
       ? {
           available: true,

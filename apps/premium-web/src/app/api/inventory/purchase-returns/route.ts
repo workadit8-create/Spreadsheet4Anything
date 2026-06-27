@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { fetchOrgAddons, isAddonEnabled } from "@/lib/org/addons";
 import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
-import { resolveWarehouseIdForSale } from "@/lib/inventory/sale-stock";
+import { resolveReceivingWarehouseId } from "@/lib/inventory/warehouse-resolve";
 import { resolveOutletCodeForSave } from "@/lib/outlets/helpers";
 import { wibDateIsoFromInput, wibTodayIso } from "@/lib/date/wib";
 import { isInventoryPurchaseOrder } from "@/lib/inventory/purchase-inventory";
@@ -41,6 +41,7 @@ type CreateBody = {
   supplier_id: string;
   return_date?: string;
   outlet_code?: string;
+  warehouse_id?: string;
   purchase_order_id?: string;
   refund_mode?: "KREDIT" | "TUNAI";
   rekening?: string;
@@ -138,9 +139,20 @@ export async function POST(request: Request) {
     );
   }
 
-  const warehouseId = await resolveWarehouseIdForSale(supabase, org.id, { outletCode });
+  let warehouseId: string | null;
+  try {
+    warehouseId = await resolveReceivingWarehouseId(supabase, org.id, {
+      outletCode,
+      explicitWarehouseId: body.warehouse_id
+    });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Gudang tidak valid" },
+      { status: 400 }
+    );
+  }
   if (!warehouseId) {
-    return NextResponse.json({ error: "Gudang outlet belum dikonfigurasi" }, { status: 400 });
+    return NextResponse.json({ error: "Gudang penerima belum dikonfigurasi" }, { status: 400 });
   }
 
   const { data: supplier, error: supErr } = await supabase

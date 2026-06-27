@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isInventoryStockEnabled, resolveWarehouseIdForSale } from "@/lib/inventory/sale-stock";
+import { isInventoryStockEnabled } from "@/lib/inventory/sale-stock";
+import { resolveReceivingWarehouseId } from "@/lib/inventory/warehouse-resolve";
 import {
   hasPurchaseStockInMovement,
   hasPurchaseStockVoidMovement,
@@ -51,12 +52,12 @@ export async function receivePurchaseStockForOrderIfEnabled(
 
   let warehouseId = params.order.warehouse_id ? String(params.order.warehouse_id) : null;
   if (!warehouseId) {
-    warehouseId = await resolveWarehouseIdForSale(supabase, params.organizationId, {
+    warehouseId = await resolveReceivingWarehouseId(supabase, params.organizationId, {
       outletCode: params.order.outlet_code
     });
   }
   if (!warehouseId) {
-    throw new Error("Gudang belum dikonfigurasi — tidak bisa terima stok pembelian");
+    throw new Error("Gudang penerima belum dikonfigurasi — tidak bisa terima stok pembelian");
   }
 
   const stockInputs = params.lines
@@ -137,12 +138,12 @@ export async function reversePurchaseStockForOrderIfEnabled(
 
   let warehouseId = params.order.warehouse_id ? String(params.order.warehouse_id) : null;
   if (!warehouseId) {
-    warehouseId = await resolveWarehouseIdForSale(supabase, params.organizationId, {
+    warehouseId = await resolveReceivingWarehouseId(supabase, params.organizationId, {
       outletCode: params.order.outlet_code
     });
   }
   if (!warehouseId) {
-    throw new Error("Gudang tidak ditemukan — tidak bisa balik stok pembelian");
+    throw new Error("Gudang penerima tidak ditemukan — tidak bisa balik stok pembelian");
   }
 
   const stockInputs = params.lines
