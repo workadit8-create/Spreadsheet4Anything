@@ -20,6 +20,7 @@ import {
 } from "@/lib/penjualan/invoice-rekening";
 import { resolveProjectCodeForSave } from "@/lib/proyek/helpers";
 import { resolveOutletCodeForSave } from "@/lib/outlets/helpers";
+import { resolveWarehouseIdForSale } from "@/lib/inventory/sale-stock";
 import { assertQuotationConvertible, markQuotationConverted } from "@/lib/pre-docs/convert";
 import { wibDateIsoFromInput, wibTodayIso } from "@/lib/date/wib";
 import { fetchOrgTaxSettings } from "@/lib/org/tax-settings";
@@ -144,13 +145,17 @@ async function createLabInvoice(
 
   const organizationId = await resolveUserOrgId(supabase, body.organizationId);
 
-  const { data: warehouse } = await supabase
-    .from("warehouses")
-    .select("id")
-    .eq("organization_id", organizationId)
-    .order("is_default", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  let outletCode: string | null = null;
+  try {
+    outletCode = await resolveOutletCodeForSave(supabase, organizationId, body.outlet_code);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Outlet tidak valid" },
+      { status: 400 }
+    );
+  }
+
+  const warehouseId = await resolveWarehouseIdForSale(supabase, organizationId, { outletCode });
 
   const orderNo = generateOrderNo();
   const transactionId = generateTransactionId();
@@ -171,7 +176,7 @@ async function createLabInvoice(
     .from("sales_orders")
     .insert({
       organization_id: organizationId,
-      warehouse_id: warehouse?.id ?? null,
+      warehouse_id: warehouseId,
       order_no: orderNo,
       source_system: "PREMIUM_WEB",
       status: "CONFIRMED",
@@ -408,13 +413,7 @@ async function createProperInvoice(
   const orderDate = wibDateIsoFromInput(body.order_date);
   const keterangan = buildKeteranganSummary(customer.name, resolvedLines.map((l) => l.description));
 
-  const { data: warehouse } = await supabase
-    .from("warehouses")
-    .select("id")
-    .eq("organization_id", organizationId)
-    .order("is_default", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const warehouseId = await resolveWarehouseIdForSale(supabase, organizationId, { outletCode });
 
   const orderNo = generateOrderNo();
   const headerTransactionId = generateTransactionId();
@@ -442,7 +441,7 @@ async function createProperInvoice(
     .from("sales_orders")
     .insert({
       organization_id: organizationId,
-      warehouse_id: warehouse?.id ?? null,
+      warehouse_id: warehouseId,
       customer_id: customer.id,
       order_no: orderNo,
       source_system: "PREMIUM_WEB",

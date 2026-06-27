@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { deductSaleStock } from "@/lib/inventory/deduct-sale-stock";
+import {
+  deductSaleStockForOrderIfEnabled,
+  isInventoryStockEnabled,
+  resolveWarehouseIdForSale
+} from "@/lib/inventory/sale-stock";
 import { wibDateIsoFromInput, wibTodayIso } from "@/lib/date/wib";
 import { fetchOrgTaxSettings } from "@/lib/org/tax-settings";
 import { productTaxableFromMetadata } from "@/lib/products/ppn";
@@ -119,27 +123,14 @@ export async function processPosCheckout(
     throw new Error("Customer tidak ditemukan");
   }
 
-  let warehouseId = String(body.warehouse_id || "").trim();
-  if (!warehouseId && outletCode) {
-    const { data: outletRow } = await supabase
-      .from("outlets")
-      .select("warehouse_id")
-      .eq("organization_id", organizationId)
-      .eq("outlet_code", outletCode)
-      .maybeSingle();
-    warehouseId = outletRow?.warehouse_id || "";
-  }
-  if (!warehouseId) {
-    const { data: warehouse } = await supabase
-      .from("warehouses")
-      .select("id")
-      .eq("organization_id", organizationId)
-      .order("is_default", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    warehouseId = warehouse?.id || "";
-  }
-  if (!warehouseId) {
+  const inventoryEnabled = await isInventoryStockEnabled(supabase, organizationId);
+
+  const warehouseId =
+    (await resolveWarehouseIdForSale(supabase, organizationId, {
+      outletCode,
+      explicitWarehouseId: body.warehouse_id
+    })) || "";
+  if (!warehouseId && inventoryEnabled) {
     throw new Error("Gudang default belum dikonfigurasi");
   }
 
@@ -269,7 +260,7 @@ export async function processPosCheckout(
     .from("sales_orders")
     .insert({
       organization_id: organizationId,
-      warehouse_id: warehouseId,
+      warehouse_id: warehouseId || null,
       customer_id: customer.id,
       order_no: orderNo,
       source_system: "POS",
@@ -345,17 +336,18 @@ export async function processPosCheckout(
     }
   }
 
-  const stockResult = await deductSaleStock(supabase, {
+  const stockResult = await deductSaleStockForOrderIfEnabled(supabase, {
     organizationId,
     warehouseId,
     salesOrderId: order.id,
     orderNo: order.order_no,
     lines: resolvedLines.map((l) => ({
-      productId: l.product_id,
-      qty: l.qty,
-      tracksStock: l.tracksStock
+      product_id: l.product_id,
+      qty: l.qty
     })),
-    createdBy: userId
+    createdBy: userId,
+    notes: "Penjualan POS",
+    skipIfExists: false
   });
 
   let posted = false;
@@ -384,7 +376,9 @@ export async function processPosCheckout(
     );
   }
 
-  const negMap = new Map(stockResult.negativeProducts.map((n) => [n.productId, n.qtyAfter]));
+  const negMap = new Map(
+    (stockResult?.negativeProducts || []).map((n) => [n.productId, n.qtyAfter])
+  );
   const negativeStock = resolvedLines
     .filter((l) => negMap.has(l.product_id))
     .map((l) => ({

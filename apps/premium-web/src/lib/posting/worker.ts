@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { wibDateIsoFromInput } from "@/lib/date/wib";
+import {
+  deductSaleStockForOrderIfEnabled,
+  resolveWarehouseIdForSale
+} from "@/lib/inventory/sale-stock";
 import { buildPemasukanPayload } from "./pemasukan";
 import { buildPelunasanPiutangPayload } from "./pelunasan-piutang";
 import {
@@ -547,6 +551,33 @@ export async function processPendingPostingJobs(
           meta,
           (lines || []) as SalesLineRow[]
         );
+
+        let warehouseId = order.warehouse_id ? String(order.warehouse_id) : null;
+        if (!warehouseId) {
+          warehouseId = await resolveWarehouseIdForSale(supabase, job.organization_id, {
+            outletCode: order.outlet_code
+          });
+        }
+
+        const stockLines = (lines || [])
+          .filter((l) => l.product_id)
+          .map((l) => ({
+            product_id: String(l.product_id),
+            qty: Number(l.qty) || 0
+          }));
+
+        const stockNotes =
+          order.source_system === "POS" ? "Penjualan POS" : "Penjualan invoice";
+
+        await deductSaleStockForOrderIfEnabled(supabase, {
+          organizationId: job.organization_id,
+          warehouseId,
+          salesOrderId: order.id,
+          orderNo: order.order_no,
+          lines: stockLines,
+          notes: stockNotes,
+          skipIfExists: true
+        });
 
         await supabase
           .from("posting_jobs")

@@ -22,6 +22,7 @@ export async function deductSaleStock(
     orderNo: string;
     lines: SaleStockLine[];
     createdBy?: string | null;
+    notes?: string;
   }
 ): Promise<DeductSaleStockResult> {
   const stockLines = params.lines.filter((l) => l.tracksStock && l.qty > 0);
@@ -53,7 +54,7 @@ export async function deductSaleStock(
       source_type: "SALES_ORDER",
       source_id: params.salesOrderId,
       reference_no: params.orderNo,
-      notes: "Penjualan POS",
+      notes: params.notes || "Penjualan",
       created_by: params.createdBy ?? null
     })
     .select("id")
