@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { DetailModalTabs, TransactionJournalView } from "@/components/jurnal/TransactionJournalView";
+import { wibMonthStartIso, wibTodayIso } from "@/lib/date/wib";
 
 type ListItem = {
   id: string;
@@ -39,6 +41,20 @@ type DetailData = {
   journalHint?: string;
 };
 
+type Supplier = { id: string; name: string };
+
+function defaultDateRange() {
+  return {
+    start: wibMonthStartIso(),
+    end: wibTodayIso()
+  };
+}
+
+function buildFilterParams(start: string, end: string, supplierId: string) {
+  const params = new URLSearchParams({ start, end });
+  if (supplierId) params.set("supplier_id", supplierId);
+  return params;
+}
 function formatRp(n: number) {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -92,6 +108,11 @@ function DocList({
 }
 
 export function ConsignmentHistoryClient() {
+  const defaults = useMemo(() => defaultDateRange(), []);
+  const [start, setStart] = useState(defaults.start);
+  const [end, setEnd] = useState(defaults.end);
+  const [supplierId, setSupplierId] = useState("");
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [receipts, setReceipts] = useState<ListItem[]>([]);
   const [settlements, setSettlements] = useState<ListItem[]>([]);
   const [returns, setReturns] = useState<ListItem[]>([]);
@@ -103,14 +124,28 @@ export function ConsignmentHistoryClient() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detail, setDetail] = useState<DetailData | null>(null);
 
+  const loadSuppliers = useCallback(async () => {
+    try {
+      const res = await fetch("/api/master/suppliers");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setSuppliers(
+        (data.items || data.suppliers || []).map((s: Supplier) => ({ id: s.id, name: s.name }))
+      );
+    } catch {
+      setSuppliers([]);
+    }
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      const qs = buildFilterParams(start, end, supplierId).toString();
       const [recRes, setRes, retRes] = await Promise.all([
-        fetch("/api/inventory/consignment/receipts"),
-        fetch("/api/inventory/consignment/settlements"),
-        fetch("/api/inventory/consignment/returns")
+        fetch(`/api/inventory/consignment/receipts?${qs}`),
+        fetch(`/api/inventory/consignment/settlements?${qs}`),
+        fetch(`/api/inventory/consignment/returns?${qs}`)
       ]);
       const recData = await recRes.json();
       const setData = await setRes.json();
@@ -155,7 +190,11 @@ export function ConsignmentHistoryClient() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [start, end, supplierId]);
+
+  useEffect(() => {
+    void loadSuppliers();
+  }, [loadSuppliers]);
 
   useEffect(() => {
     void load();
@@ -198,7 +237,35 @@ export function ConsignmentHistoryClient() {
         description="Penerimaan barang titip, pelunasan ke supplier, dan retur barang"
       />
       {error ? <p className="mb-4 text-sm text-red-600">{error}</p> : null}
-      {loading ? <p className="text-sm text-slate-500">Memuat…</p> : null}
+
+      <Card className="mb-6 p-4">
+        <div className="flex flex-wrap items-end gap-4">
+          <div>
+            <Label>Dari tanggal</Label>
+            <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+          </div>
+          <div>
+            <Label>Sampai tanggal</Label>
+            <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+          </div>
+          <div className="min-w-[200px]">
+            <Label>Supplier</Label>
+            <Select value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
+              <option value="">Semua supplier</option>
+              {suppliers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <Button type="button" onClick={() => void load()} disabled={loading}>
+            {loading ? "Memuat…" : "Cari data"}
+          </Button>
+        </div>
+      </Card>
+
+      {loading ? <p className="mb-4 text-sm text-slate-500">Memuat…</p> : null}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="p-4">

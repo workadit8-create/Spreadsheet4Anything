@@ -10,6 +10,7 @@ import { resolveWarehouseIdForSale } from "@/lib/inventory/sale-stock";
 import { generateConsignmentReturnNo } from "@/lib/posting/ids";
 import { resolveOutletCodeForSave } from "@/lib/outlets/helpers";
 import { wibDateIsoFromInput, wibTodayIso } from "@/lib/date/wib";
+import { parseConsignmentHistoryQuery } from "@/lib/inventory/consignment-history-query";
 
 type LineInput = {
   product_id: string;
@@ -24,7 +25,7 @@ type CreateBody = {
   lines: LineInput[];
 };
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = await createClient();
   let auth;
   try {
@@ -39,14 +40,24 @@ export async function GET() {
     return NextResponse.json({ error: "Add-on titip jual tidak aktif" }, { status: 403 });
   }
 
-  const { data, error } = await supabase
+  const { start, end, supplierId, limit } = parseConsignmentHistoryQuery(request.url);
+
+  let query = supabase
     .from("consignment_returns")
     .select(
       "id, return_no, return_date, status, notes, outlet_code, suppliers(name), consignment_return_lines(qty)"
     )
     .eq("organization_id", org.id)
+    .gte("return_date", start)
+    .lte("return_date", end)
     .order("return_date", { ascending: false })
-    .limit(50);
+    .limit(limit);
+
+  if (supplierId) {
+    query = query.eq("supplier_id", supplierId);
+  }
+
+  const { data, error } = await query;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

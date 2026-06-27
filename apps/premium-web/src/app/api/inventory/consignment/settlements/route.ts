@@ -17,6 +17,7 @@ import {
   resolveKasBankAccount
 } from "@/lib/posting/linked-mutasi";
 import { wibDateIsoFromInput, wibTodayIso } from "@/lib/date/wib";
+import { parseConsignmentHistoryQuery } from "@/lib/inventory/consignment-history-query";
 
 type CreateBody = {
   supplier_id: string;
@@ -43,6 +44,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const supplierId = String(url.searchParams.get("supplier_id") || "").trim();
+  const historyQuery = parseConsignmentHistoryQuery(request.url);
 
   let liabQuery = supabase
     .from("consignment_liabilities")
@@ -79,12 +81,20 @@ export async function GET(request: Request) {
     };
   });
 
-  const { data: settlements, error: setErr } = await supabase
+  let setQuery = supabase
     .from("consignment_settlements")
     .select("id, settlement_no, settlement_date, total, status, suppliers(name)")
     .eq("organization_id", org.id)
+    .gte("settlement_date", historyQuery.start)
+    .lte("settlement_date", historyQuery.end)
     .order("settlement_date", { ascending: false })
-    .limit(50);
+    .limit(historyQuery.limit);
+
+  if (historyQuery.supplierId) {
+    setQuery = setQuery.eq("supplier_id", historyQuery.supplierId);
+  }
+
+  const { data: settlements, error: setErr } = await setQuery;
 
   if (setErr) return NextResponse.json({ error: setErr.message }, { status: 500 });
 
