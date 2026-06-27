@@ -81,10 +81,11 @@ export function MasterTabPanel({ tab }: { tab: MasterTabId }) {
         title="Produk"
         apiPath="/api/master/products"
         productTaxFromApi
+        productInventoryFromApi
         fields={[
           { key: "sku", label: "Barcode / Kode", type: "text" },
           { key: "name", label: "Nama", type: "text", required: true },
-          { key: "sell_price", label: "Harga", type: "number", required: true },
+          { key: "sell_price", label: "Harga jual", type: "number", required: true },
           {
             key: "outlet",
             label: "Outlet",
@@ -100,13 +101,21 @@ export function MasterTabPanel({ tab }: { tab: MasterTabId }) {
           },
           {
             key: "stock_policy",
-            label: "Kebijakan stok",
+            label: "Kelola stok",
             type: "select",
             options: [
-              { value: "inherit", label: "Ikuti kategori" },
-              { value: "track", label: "Selalu kelola stok" },
-              { value: "no_track", label: "Tanpa stok" }
+              { value: "track", label: "Ya — kelola stok" },
+              { value: "no_track", label: "Tidak — tanpa stok" },
+              { value: "inherit", label: "Ikuti kategori" }
             ]
+          },
+          {
+            key: "hpp",
+            label: "HPP (harga pokok)",
+            type: "number",
+            metaKey: "hpp",
+            whenTrackStock: true,
+            placeholder: "Per satuan, statis"
           },
           { key: "unit_id", label: "Satuan", type: "select", optionsKey: "units" },
           {
@@ -125,7 +134,8 @@ export function MasterTabPanel({ tab }: { tab: MasterTabId }) {
           { key: "outlet_label", label: "Outlet" },
           { key: "category_name", label: "Kategori" },
           { key: "tracks_stock_label", label: "Stok" },
-          { key: "sell_price", label: "Harga" },
+          { key: "hpp", label: "HPP", format: "money" },
+          { key: "sell_price", label: "Harga jual", format: "money" },
           { key: "akunPendapatan", label: "Akun", metaKey: "akunPendapatan" },
           { key: "active", label: "Status" }
         ]}

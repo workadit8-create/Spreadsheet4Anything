@@ -11,6 +11,11 @@ import {
   mergeProductMetadata,
   productTaxableFromMetadata
 } from "@/lib/products/ppn";
+import {
+  parseHppInput,
+  productHppFromMetadata,
+  resolveFormTrackStock
+} from "@/lib/products/product-hpp";
 import { productOutletCode } from "@/lib/inventory/product-outlet-scope";
 import { fetchOrgAddons, isAddonEnabled } from "@/lib/org/addons";
 import { fetchOutletBootstrap } from "@/lib/outlets/bootstrap-options";
@@ -47,6 +52,7 @@ export async function GET() {
     .order("name");
 
   const addons = await fetchOrgAddons(supabase, org.id);
+  const inventoryEnabled = isAddonEnabled(addons, "inventory");
   let outlets: Array<{ code: string; name: string }> = [];
   if (isAddonEnabled(addons, "outlet")) {
     const outletBootstrap = await fetchOutletBootstrap(supabase, org.id);
@@ -97,7 +103,8 @@ export async function GET() {
       ),
       ppn_taxable: productTaxableFromMetadata(
         (p.metadata || {}) as Record<string, unknown>
-      )
+      ),
+      hpp: productHppFromMetadata(meta)
     };
   });
 
@@ -106,6 +113,7 @@ export async function GET() {
     units: units || [],
     categories: categories || [],
     outlets,
+    inventory: { enabled: inventoryEnabled },
     tax: {
       activeType: taxSettings.activeType,
       productTaxEnabled,
@@ -171,13 +179,35 @@ export async function POST(request: Request) {
         ? String(body.outlet || "")
         : undefined;
 
+  const addons = await fetchOrgAddons(supabase, org.id);
+  const inventoryEnabled = isAddonEnabled(addons, "inventory");
+
+  const { data: categories } = await supabase
+    .from("product_categories")
+    .select("id, tracks_stock")
+    .eq("organization_id", org.id);
+
+  const willTrackStock = resolveFormTrackStock(
+    stockPolicy,
+    body.category_id ? String(body.category_id) : null,
+    categories || []
+  );
+
+  const hppInput = parseHppInput(bodyMeta.hpp ?? body.hpp);
+  if (inventoryEnabled && willTrackStock && hppInput === null) {
+    return NextResponse.json(
+      { error: "HPP wajib untuk produk yang kelola stok" },
+      { status: 400 }
+    );
+  }
+
   const metadata = mergeProductMetadata(existingMeta, {
     akunPendapatan: String(body.akunPendapatan || existingMeta.akunPendapatan || "Pendapatan").trim(),
     taxTaxable,
-    outlet: outletPatch
+    outlet: outletPatch,
+    ...(inventoryEnabled && willTrackStock && hppInput !== null ? { hpp: hppInput } : {})
   });
 
-  const addons = await fetchOrgAddons(supabase, org.id);
   if (isAddonEnabled(addons, "outlet")) {
     const outletBootstrap = await fetchOutletBootstrap(supabase, org.id);
     if (outletBootstrap.options.length && !productOutletCode(metadata)) {

@@ -24,6 +24,7 @@ export function mergeProductMetadata(
     taxTaxable?: boolean;
     ppnTaxable?: boolean;
     outlet?: string | null;
+    hpp?: number | null;
   }
 ): Record<string, unknown> {
   const base = { ...(existing || {}) };
@@ -39,6 +40,10 @@ export function mergeProductMetadata(
     const code = String(patch.outlet || "").trim();
     if (code) base.outlet = normalizeOutletCode(code);
     else delete base.outlet;
+  }
+  if (patch.hpp !== undefined) {
+    if (patch.hpp == null) delete base.hpp;
+    else base.hpp = patch.hpp;
   }
   return base;
 }

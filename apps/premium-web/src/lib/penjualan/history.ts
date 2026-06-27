@@ -73,10 +73,7 @@ function categoryName(raw: ProductJoin["product_categories"]): string {
   return c?.name || "";
 }
 
-function productHpp(meta: Record<string, unknown>): number {
-  const hpp = Number(meta.hpp ?? meta.cost ?? meta.hargaPokok ?? 0);
-  return Number.isFinite(hpp) ? hpp : 0;
-}
+import { productHppFromMetadata } from "@/lib/products/product-hpp";
 
 export function summarizeOrderForHistory(
   order: OrderRecord,
@@ -134,7 +131,7 @@ export function mapLineForHistory(
     lineTotal: Number(line.line_total) || 0,
     bayar: lineBayar(line),
     kurangBayar: lineKurangBayar(line),
-    hpp: productHpp(prodMeta)
+    hpp: productHppFromMetadata(prodMeta) ?? 0
   };
 }
 

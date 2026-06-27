@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { PRODUCT_KIND_LABELS } from "@/lib/products/inventory-policy";
+import { resolveFormTrackStock } from "@/lib/products/product-hpp";
 
 type FieldType = "text" | "number" | "checkbox" | "select";
 
@@ -17,6 +18,8 @@ export type FieldDef = {
   optionsKey?: string;
   coaAccountTypes?: string[];
   options?: { value: string; label: string }[];
+  /** Tampil hanya jika org inventory ON dan form = kelola stok */
+  whenTrackStock?: boolean;
 };
 
 type Row = Record<string, unknown>;
@@ -25,7 +28,7 @@ export type ColumnDef = {
   key: string;
   label: string;
   metaKey?: string;
-  format?: "boolean" | "product_kind" | "tax_taxable";
+  format?: "boolean" | "product_kind" | "tax_taxable" | "money";
 };
 
 type ProductTaxApiConfig = {
@@ -43,7 +46,8 @@ export function MasterCrudPanel({
   fields,
   columns,
   defaultForm,
-  productTaxFromApi = false
+  productTaxFromApi = false,
+  productInventoryFromApi = false
 }: {
   title: string;
   apiPath: string;
@@ -52,6 +56,8 @@ export function MasterCrudPanel({
   defaultForm?: Row;
   /** Baca konfig pajak produk dari GET (Master → Produk) */
   productTaxFromApi?: boolean;
+  /** Baca add-on inventory dari GET (field HPP + validasi stok) */
+  productInventoryFromApi?: boolean;
 }) {
   const fieldsRef = useRef(fields);
   fieldsRef.current = fields;
@@ -61,6 +67,7 @@ export function MasterCrudPanel({
   const [items, setItems] = useState<Row[]>([]);
   const [extras, setExtras] = useState<Record<string, Row[]>>({});
   const [productTax, setProductTax] = useState<ProductTaxApiConfig | null>(null);
+  const [inventoryEnabled, setInventoryEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +111,9 @@ export function MasterCrudPanel({
           activeType: String(data.tax.activeType || "none")
         });
       }
+      if (productInventoryFromApi) {
+        setInventoryEnabled(data.inventory?.enabled === true);
+      }
       const extraKeys = ["units", "categories", "coa_accounts", "outlets"];
       extraKeys.forEach((k) => {
         if (data[k]) setExtras((prev) => ({ ...prev, [k]: data[k] }));
@@ -125,29 +135,57 @@ export function MasterCrudPanel({
     } finally {
       setLoading(false);
     }
-  }, [apiPath, productTaxFromApi]);
+  }, [apiPath, productTaxFromApi, productInventoryFromApi]);
 
-  const activeFields = useMemo(
-    () =>
+  const formTracksStock = useCallback(
+    (row: Row) => {
+      if (!inventoryEnabled) return false;
+      const categories = (extras.categories || []) as Array<{
+        id: string;
+        tracks_stock?: boolean | null;
+      }>;
+      return resolveFormTrackStock(
+        String(row.stock_policy || "inherit"),
+        row.category_id ? String(row.category_id) : null,
+        categories
+      );
+    },
+    [inventoryEnabled, extras.categories]
+  );
+
+  const visibleFields = useCallback(
+    (sourceFields: FieldDef[]) =>
+      sourceFields.filter((f) => !f.whenTrackStock || formTracksStock(form)),
+    [form, formTracksStock]
+  );
+
+  const activeFields = useMemo(() => {
+    const base =
       productTax?.productTaxEnabled && taxProductFields.length
         ? [...fields, ...taxProductFields]
-        : fields,
-    [fields, productTax?.productTaxEnabled, taxProductFields]
-  );
-  const activeColumns = useMemo(
-    () =>
+        : fields;
+    return visibleFields(base);
+  }, [fields, productTax?.productTaxEnabled, taxProductFields, visibleFields]);
+  const activeColumns = useMemo(() => {
+    const base =
       productTax?.productTaxEnabled && taxProductColumns.length
         ? [...columns, ...taxProductColumns]
-        : columns,
-    [columns, productTax?.productTaxEnabled, taxProductColumns]
-  );
-  const activeDefaultForm = useMemo(
-    () =>
+        : columns;
+    if (!inventoryEnabled) {
+      return base.filter((c) => c.key !== "hpp");
+    }
+    return base;
+  }, [columns, productTax?.productTaxEnabled, taxProductColumns, inventoryEnabled]);
+  const activeDefaultForm = useMemo(() => {
+    const base =
       productTax?.productTaxEnabled && taxProductFields.length
         ? { ...defaultFormRef.current, active: true, tax_taxable: true }
-        : defaultFormRef.current,
-    [productTax?.productTaxEnabled, taxProductFields.length]
-  );
+        : defaultFormRef.current;
+    if (inventoryEnabled) {
+      return { ...base, active: true, stock_policy: base.stock_policy || "track" };
+    }
+    return base;
+  }, [productTax?.productTaxEnabled, taxProductFields.length, inventoryEnabled]);
 
   useEffect(() => {
     void load();
@@ -181,6 +219,11 @@ export function MasterCrudPanel({
       const taxable = row.tax_taxable ?? row.ppn_taxable;
       return taxable === true ? "Ya" : "Tidak";
     }
+    if (col.format === "money") {
+      const n = Number(raw);
+      if (!Number.isFinite(n)) return "—";
+      return n.toLocaleString("id-ID");
+    }
     if (col.key === "active") return row.active ? "Aktif" : "Nonaktif";
     return raw ?? "";
   }
@@ -210,9 +253,37 @@ export function MasterCrudPanel({
     setSaving(true);
     setError(null);
     try {
+      if (inventoryEnabled && formTracksStock(form)) {
+        const meta = (form.metadata || {}) as Record<string, unknown>;
+        const hppRaw = meta.hpp ?? form.hpp;
+        if (hppRaw === undefined || hppRaw === null || String(hppRaw).trim() === "") {
+          throw new Error("HPP wajib untuk produk yang kelola stok");
+        }
+        const hppNum = Number(hppRaw);
+        if (!Number.isFinite(hppNum) || hppNum < 0) {
+          throw new Error("HPP tidak valid");
+        }
+        if (hppNum === 0) {
+          const ok = window.confirm(
+            "HPP = 0 — jurnal HPP penjualan akan Rp 0. Lanjut simpan?"
+          );
+          if (!ok) {
+            setSaving(false);
+            return;
+          }
+        }
+      }
+
       const payload: Row = { ...form };
       activeFields.forEach((f) => {
         if (f.type === "number" && f.key in payload) payload[f.key] = Number(payload[f.key]);
+        if (f.type === "number" && f.metaKey) {
+          const meta = { ...((payload.metadata || {}) as Record<string, unknown>) };
+          if (meta[f.metaKey] !== undefined && meta[f.metaKey] !== "") {
+            meta[f.metaKey] = Number(meta[f.metaKey]);
+          }
+          payload.metadata = meta;
+        }
       });
       const res = await fetch(apiPath, {
         method: "POST",
@@ -231,9 +302,11 @@ export function MasterCrudPanel({
   }
 
   function editRow(row: Row) {
+    const meta = { ...((row.metadata || {}) as Record<string, unknown>) };
+    if (row.hpp != null && meta.hpp == null) meta.hpp = row.hpp;
     setForm({
       ...row,
-      metadata: row.metadata || {},
+      metadata: meta,
       tax_taxable: row.tax_taxable === true || row.ppn_taxable === true,
       pkp: row.pkp === true
     });
@@ -283,6 +356,13 @@ export function MasterCrudPanel({
       {productTax?.productTaxEnabled ? (
         <p className="mb-4 text-xs text-slate-500">
           {taxHint} Pajak dihitung otomatis saat simpan invoice/PO.
+        </p>
+      ) : null}
+
+      {inventoryEnabled ? (
+        <p className="mb-4 text-xs text-slate-500">
+          Produk dengan stok wajib isi HPP (statis). Nanti di-update otomatis dari pembelian
+          (average cost).
         </p>
       ) : null}
 
