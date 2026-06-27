@@ -65,11 +65,12 @@ export async function GET(request: Request) {
   const start = url.searchParams.get("start");
   const end = url.searchParams.get("end");
   const supplierId = url.searchParams.get("supplier_id");
+  const warehouseId = String(url.searchParams.get("warehouse_id") || "").trim();
   const mode = String(url.searchParams.get("mode") || "").trim().toLowerCase();
 
   let query = supabase
     .from("purchase_orders")
-    .select("id, po_no, order_date, total, status, supplier_id, metadata, created_at")
+    .select("id, po_no, order_date, total, status, supplier_id, metadata, created_at, warehouse_id, outlet_code")
     .eq("organization_id", org.id)
     .neq("status", "DRAFT")
     .order("order_date", { ascending: false })
@@ -78,6 +79,7 @@ export async function GET(request: Request) {
   if (start) query = query.gte("order_date", start);
   if (end) query = query.lte("order_date", end);
   if (supplierId) query = query.eq("supplier_id", supplierId);
+  if (warehouseId) query = query.eq("warehouse_id", warehouseId);
 
   const { data: orders, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -102,6 +104,14 @@ export async function GET(request: Request) {
     linesByOrder.set(line.purchase_order_id, bucket);
   }
 
+  const warehouseIds = [
+    ...new Set(filteredOrders.map((o) => o.warehouse_id).filter(Boolean) as string[])
+  ];
+  const { data: warehouseRows } = warehouseIds.length
+    ? await supabase.from("warehouses").select("id, code, name").in("id", warehouseIds)
+    : { data: [] };
+  const warehouseById = new Map((warehouseRows || []).map((w) => [w.id, w]));
+
   let grandTotalSum = 0;
   const rows = filteredOrders.map((o) => {
     const meta = (o.metadata || {}) as Record<string, unknown>;
@@ -125,6 +135,8 @@ export async function GET(request: Request) {
       grandTotalSum += grandTotal;
     }
 
+    const wh = o.warehouse_id ? warehouseById.get(o.warehouse_id) : null;
+
     return {
       id: o.id,
       poNo: o.po_no,
@@ -133,7 +145,9 @@ export async function GET(request: Request) {
       status: o.status,
       grandTotal,
       bayar,
-      sisaTagihan
+      sisaTagihan,
+      warehouseId: o.warehouse_id ? String(o.warehouse_id) : null,
+      warehouseLabel: wh ? `${wh.code} — ${wh.name}` : null
     };
   });
 

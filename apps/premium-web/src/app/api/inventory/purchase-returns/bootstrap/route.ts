@@ -9,6 +9,7 @@ import { productMatchesOutlet } from "@/lib/inventory/product-outlet-scope";
 import { effectiveTracksStock } from "@/lib/products/inventory-policy";
 import { isInventoryPurchaseOrder } from "@/lib/inventory/purchase-inventory";
 import { sumReturnedQtyByPurchaseLine } from "@/lib/inventory/purchase-return";
+import { fetchReceivingWarehouseOptions } from "@/lib/inventory/warehouse-resolve";
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -58,6 +59,11 @@ export async function GET(request: Request) {
   if (productsRes.error) return NextResponse.json({ error: productsRes.error.message }, { status: 500 });
 
   const purchasePpnAvailable = taxSettings.ppn.pkpEnabled;
+  const multiWarehouse = isAddonEnabled(addons, "multi_warehouse");
+
+  const receivingWarehouses = outletCode
+    ? await fetchReceivingWarehouseOptions(supabase, org.id, outletCode)
+    : [];
 
   const products = (productsRes.data || [])
     .filter((p) => effectiveTracksStock(p.tracks_stock, p.category_tracks_stock))
@@ -69,7 +75,7 @@ export async function GET(request: Request) {
       sellPrice: Number(p.sell_price) || 0
     }));
 
-  let purchaseOrders: Array<{ id: string; poNo: string; orderDate: string; total: number }> = [];
+  let purchaseOrders: Array<{ id: string; poNo: string; orderDate: string; total: number; warehouseId: string | null }> = [];
   let poLines: Array<{
     id: string;
     productId: string;
@@ -85,7 +91,7 @@ export async function GET(request: Request) {
   if (supplierId) {
     const { data: pos, error: poErr } = await supabase
       .from("purchase_orders")
-      .select("id, po_no, order_date, total, metadata")
+      .select("id, po_no, order_date, total, metadata, warehouse_id")
       .eq("organization_id", org.id)
       .eq("supplier_id", supplierId)
       .eq("status", "POSTED")
@@ -100,7 +106,8 @@ export async function GET(request: Request) {
         id: po.id,
         poNo: po.po_no,
         orderDate: po.order_date,
-        total: Number(po.total) || 0
+        total: Number(po.total) || 0,
+        warehouseId: po.warehouse_id ? String(po.warehouse_id) : null
       }));
 
     const poId = purchaseOrderId || purchaseOrders[0]?.id;
@@ -158,6 +165,18 @@ export async function GET(request: Request) {
       label: o.label
     })),
     outletLocked: outletBootstrap.enabled && outletBootstrap.options.length <= 1,
+    multiWarehouse,
+    receivingWarehouses: receivingWarehouses.map((w) => ({
+      id: w.id,
+      code: w.code,
+      name: w.name,
+      isDisplay: w.isDisplay,
+      warehouseRole: w.warehouseRole
+    })),
+    poWarehouseId: (() => {
+      const poId = purchaseOrderId || purchaseOrders[0]?.id;
+      return purchaseOrders.find((p) => p.id === poId)?.warehouseId ?? null;
+    })(),
     purchasePpn: purchasePpnAvailable
       ? {
           available: true,

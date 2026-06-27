@@ -65,11 +65,12 @@ export async function GET(request: Request) {
   }
 
   const { start, end, supplierId, limit } = parseConsignmentHistoryQuery(request.url);
+  const warehouseId = String(new URL(request.url).searchParams.get("warehouse_id") || "").trim();
 
   let query = supabase
     .from("purchase_returns")
     .select(
-      "id, return_no, return_date, total, refund_mode, status, outlet_code, suppliers(name), purchase_orders(po_no)"
+      "id, return_no, return_date, total, refund_mode, status, outlet_code, warehouse_id, suppliers(name), purchase_orders(po_no), warehouses(code, name)"
     )
     .eq("organization_id", org.id)
     .gte("return_date", start)
@@ -78,6 +79,7 @@ export async function GET(request: Request) {
     .limit(limit);
 
   if (supplierId) query = query.eq("supplier_id", supplierId);
+  if (warehouseId) query = query.eq("warehouse_id", warehouseId);
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -85,6 +87,11 @@ export async function GET(request: Request) {
   const items = (data || []).map((row) => {
     const sup = row.suppliers as { name: string } | { name: string }[] | null;
     const po = row.purchase_orders as { po_no: string } | { po_no: string }[] | null;
+    const wh = row.warehouses as
+      | { code: string; name: string }
+      | { code: string; name: string }[]
+      | null;
+    const warehouse = Array.isArray(wh) ? wh[0] : wh;
     return {
       id: row.id,
       returnNo: row.return_no,
@@ -94,7 +101,9 @@ export async function GET(request: Request) {
       total: Number(row.total) || 0,
       refundMode: row.refund_mode,
       status: row.status,
-      outletCode: row.outlet_code
+      outletCode: row.outlet_code,
+      warehouseId: row.warehouse_id ? String(row.warehouse_id) : null,
+      warehouseLabel: warehouse ? `${warehouse.code} — ${warehouse.name}` : null
     };
   });
 
@@ -139,22 +148,6 @@ export async function POST(request: Request) {
     );
   }
 
-  let warehouseId: string | null;
-  try {
-    warehouseId = await resolveReceivingWarehouseId(supabase, org.id, {
-      outletCode,
-      explicitWarehouseId: body.warehouse_id
-    });
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Gudang tidak valid" },
-      { status: 400 }
-    );
-  }
-  if (!warehouseId) {
-    return NextResponse.json({ error: "Gudang penerima belum dikonfigurasi" }, { status: 400 });
-  }
-
   const { data: supplier, error: supErr } = await supabase
     .from("suppliers")
     .select("id, name, metadata")
@@ -168,6 +161,7 @@ export async function POST(request: Request) {
 
   const purchaseOrderId = String(body.purchase_order_id || "").trim() || null;
   let poHeader: { id: string; po_no: string; supplier_id: string } | null = null;
+  let poWarehouseId: string | null = null;
   const poLineMap = new Map<
     string,
     {
@@ -183,7 +177,7 @@ export async function POST(request: Request) {
   if (purchaseOrderId) {
     const { data: po, error: poErr } = await supabase
       .from("purchase_orders")
-      .select("id, po_no, supplier_id, status, metadata")
+      .select("id, po_no, supplier_id, status, metadata, warehouse_id")
       .eq("id", purchaseOrderId)
       .eq("organization_id", org.id)
       .maybeSingle();
@@ -200,6 +194,7 @@ export async function POST(request: Request) {
     }
 
     poHeader = { id: po.id, po_no: po.po_no, supplier_id: po.supplier_id };
+    poWarehouseId = po.warehouse_id ? String(po.warehouse_id) : null;
 
     const { data: poLines, error: plErr } = await supabase
       .from("purchase_lines")
@@ -217,6 +212,22 @@ export async function POST(request: Request) {
         metadata: (pl.metadata || {}) as Record<string, unknown>
       });
     }
+  }
+
+  let warehouseId: string | null;
+  try {
+    warehouseId = await resolveReceivingWarehouseId(supabase, org.id, {
+      outletCode,
+      explicitWarehouseId: body.warehouse_id || poWarehouseId
+    });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Gudang tidak valid" },
+      { status: 400 }
+    );
+  }
+  if (!warehouseId) {
+    return NextResponse.json({ error: "Gudang sumber stok belum dikonfigurasi" }, { status: 400 });
   }
 
   const supplierPkp = supplierPkpFromMetadata((supplier.metadata || {}) as Record<string, unknown>);

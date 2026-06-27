@@ -12,6 +12,15 @@ import {
   consignmentLineCardClass,
   consignmentSectionClass
 } from "@/components/inventory/consignment-layout";
+import { formatWarehouseOptionLabel } from "@/lib/inventory/warehouse-option-label";
+
+type WarehouseOption = {
+  id: string;
+  code: string;
+  name: string;
+  isDisplay: boolean;
+  warehouseRole: string;
+};
 
 type Supplier = { id: string; name: string };
 type Product = {
@@ -42,6 +51,9 @@ export function ConsignmentReceiptForm({ onCreated }: { onCreated?: () => void }
   const [products, setProducts] = useState<Product[]>([]);
   const [outlets, setOutlets] = useState<Array<{ code: string; label: string }>>([]);
   const [outletLocked, setOutletLocked] = useState(false);
+  const [multiWarehouse, setMultiWarehouse] = useState(false);
+  const [warehouses, setWarehouses] = useState<WarehouseOption[]>([]);
+  const [warehouseId, setWarehouseId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +79,13 @@ export function ConsignmentReceiptForm({ onCreated }: { onCreated?: () => void }
       setProducts(data.products || []);
       setOutlets(data.outlets || []);
       setOutletLocked(Boolean(data.outletLocked));
+      setMultiWarehouse(Boolean(data.multiWarehouse));
+      const whOpts: WarehouseOption[] = data.warehouses || [];
+      setWarehouses(whOpts);
+      setWarehouseId((prev) => {
+        if (prev && whOpts.some((w) => w.id === prev)) return prev;
+        return whOpts[0]?.id || "";
+      });
       if (data.outlets?.length === 1 && !outletCode) {
         setOutletCode(data.outlets[0].code);
       }
@@ -108,10 +127,14 @@ export function ConsignmentReceiptForm({ onCreated }: { onCreated?: () => void }
     setMessage(null);
     try {
       if (!supplierId) throw new Error("Supplier wajib");
+      if (multiWarehouse && warehouses.length && !warehouseId) {
+        throw new Error("Pilih gudang penerima");
+      }
       const payload = {
         supplier_id: supplierId,
         receipt_date: receiptDate,
         outlet_code: outletCode || undefined,
+        warehouse_id: multiWarehouse && warehouseId ? warehouseId : undefined,
         notes: notes.trim() || undefined,
         lines: lines
           .filter((l) => l.product_id && Number(l.qty) > 0)
@@ -175,7 +198,10 @@ export function ConsignmentReceiptForm({ onCreated }: { onCreated?: () => void }
             <Label>Outlet</Label>
             <Select
               value={outletCode}
-              onChange={(e) => setOutletCode(e.target.value)}
+              onChange={(e) => {
+                setOutletCode(e.target.value);
+                setWarehouseId("");
+              }}
               disabled={outletLocked}
             >
               <option value="">— default —</option>
@@ -185,6 +211,22 @@ export function ConsignmentReceiptForm({ onCreated }: { onCreated?: () => void }
                 </option>
               ))}
             </Select>
+          </div>
+        ) : null}
+        {multiWarehouse && warehouses.length ? (
+          <div>
+            <Label>Gudang penerima</Label>
+            <Select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} required>
+              {warehouses.length > 1 ? <option value="">— Pilih —</option> : null}
+              {warehouses.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {formatWarehouseOptionLabel(w)}
+                </option>
+              ))}
+            </Select>
+            <p className="mt-1 text-xs text-slate-500">
+              Bisa inbound atau display — sesuai barang dititipkan langsung ke rak.
+            </p>
           </div>
         ) : null}
         <div className="sm:col-span-2">

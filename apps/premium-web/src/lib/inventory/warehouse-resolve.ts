@@ -426,3 +426,118 @@ export async function resolveReceivingWarehouseId(
   const primary = receivingOptions.find((w) => w.isPrimary);
   return primary?.id ?? receivingOptions[0].id;
 }
+
+/** Semua gudang outlet (termasuk display) + distribusi — untuk titip jual. */
+export async function fetchConsignmentWarehouseOptions(
+  supabase: SupabaseClient,
+  organizationId: string,
+  outletCode: string | null
+): Promise<OutletWarehouseOption[]> {
+  const multiWarehouse = await isMultiWarehouseEnabled(supabase, organizationId);
+
+  const { data: distributionRows } = await supabase
+    .from("warehouses")
+    .select("id, code, name, is_display, warehouse_role, active")
+    .eq("organization_id", organizationId)
+    .eq("active", true)
+    .eq("warehouse_role", "distribution")
+    .order("name");
+
+  const distribution = (distributionRows || []).map((w) => ({
+    id: w.id,
+    code: w.code,
+    name: w.name,
+    isPrimary: false,
+    isDisplay: w.is_display === true,
+    warehouseRole: "distribution" as WarehouseRole
+  }));
+
+  if (!outletCode) {
+    if (multiWarehouse) return distribution;
+    const { data: wh } = await supabase
+      .from("warehouses")
+      .select("id, code, name, is_display, warehouse_role")
+      .eq("organization_id", organizationId)
+      .eq("active", true)
+      .order("is_default", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!wh) return [];
+    return [
+      {
+        id: wh.id,
+        code: wh.code,
+        name: wh.name,
+        isPrimary: true,
+        isDisplay: wh.is_display === true,
+        warehouseRole: wh.warehouse_role === "distribution" ? "distribution" : "outlet"
+      }
+    ];
+  }
+
+  const { data: outletRow } = await supabase
+    .from("outlets")
+    .select("id, warehouse_id")
+    .eq("organization_id", organizationId)
+    .eq("outlet_code", outletCode.toUpperCase())
+    .eq("active", true)
+    .maybeSingle();
+
+  if (!outletRow) return distribution;
+
+  const linked = await fetchOutletWarehouseOptions(
+    supabase,
+    organizationId,
+    outletRow.id,
+    outletRow.warehouse_id
+  );
+
+  if (!multiWarehouse) {
+    return linked.length ? linked : distribution;
+  }
+
+  const seen = new Set<string>();
+  const merged: OutletWarehouseOption[] = [];
+  for (const w of [...distribution, ...linked]) {
+    if (seen.has(w.id)) continue;
+    seen.add(w.id);
+    merged.push(w);
+  }
+  return merged;
+}
+
+export async function assertConsignmentWarehouseAllowed(
+  supabase: SupabaseClient,
+  organizationId: string,
+  warehouseId: string,
+  outletCode: string | null
+): Promise<void> {
+  const options = await fetchConsignmentWarehouseOptions(supabase, organizationId, outletCode);
+  if (!options.find((w) => w.id === warehouseId)) {
+    throw new Error("Gudang tidak valid untuk outlet ini");
+  }
+}
+
+/** Resolve gudang titip jual — boleh display atau inbound. */
+export async function resolveConsignmentWarehouseId(
+  supabase: SupabaseClient,
+  organizationId: string,
+  options: {
+    outletCode?: string | null;
+    explicitWarehouseId?: string | null;
+  } = {}
+): Promise<string | null> {
+  const explicit = String(options.explicitWarehouseId || "").trim();
+  const outletCode = String(options.outletCode || "").trim() || null;
+
+  if (explicit) {
+    await assertConsignmentWarehouseAllowed(supabase, organizationId, explicit, outletCode);
+    return explicit;
+  }
+
+  const whOptions = await fetchConsignmentWarehouseOptions(supabase, organizationId, outletCode);
+  if (!whOptions.length) return null;
+
+  const primary = whOptions.find((w) => w.isPrimary);
+  return primary?.id ?? whOptions[0].id;
+}

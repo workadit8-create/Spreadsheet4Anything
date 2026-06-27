@@ -24,7 +24,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
   const { data: header, error } = await supabase
     .from("purchase_returns")
     .select(
-      "id, return_no, return_date, status, total, dpp, tax_amount, refund_mode, rekening, notes, outlet_code, suppliers(name), purchase_orders(po_no)"
+      "id, return_no, return_date, status, total, dpp, tax_amount, refund_mode, rekening, notes, outlet_code, warehouse_id, suppliers(name), purchase_orders(po_no), warehouses(code, name)"
     )
     .eq("id", id)
     .eq("organization_id", org.id)
@@ -43,6 +43,11 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
   const sup = header.suppliers as { name: string } | { name: string }[] | null;
   const po = header.purchase_orders as { po_no: string } | { po_no: string }[] | null;
+  const wh = header.warehouses as
+    | { code: string; name: string }
+    | { code: string; name: string }[]
+    | null;
+  const warehouse = Array.isArray(wh) ? wh[0] : wh;
 
   return NextResponse.json({
     kind: "purchase_return",
@@ -59,7 +64,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
       refundMode: header.refund_mode,
       rekening: header.rekening,
       outletCode: header.outlet_code,
-      notes: header.notes
+      notes: header.notes,
+      warehouseLabel: warehouse ? `${warehouse.code} — ${warehouse.name}` : null
     },
     lines: (lines || []).map((l) => {
       const prod = l.products as

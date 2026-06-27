@@ -22,7 +22,11 @@ type HistoryRow = {
   grandTotal: number;
   bayar: number;
   sisaTagihan: number;
+  warehouseId?: string | null;
+  warehouseLabel?: string | null;
 };
+
+type WarehouseFilter = { id: string; code: string; name: string };
 
 type Supplier = { id: string; name: string };
 
@@ -70,6 +74,9 @@ export default function RiwayatPembelianClient({
   const [start, setStart] = useState(defaults.start);
   const [end, setEnd] = useState(defaults.end);
   const [supplierId, setSupplierId] = useState("");
+  const [warehouseId, setWarehouseId] = useState("");
+  const [multiWarehouse, setMultiWarehouse] = useState(false);
+  const [warehouses, setWarehouses] = useState<WarehouseFilter[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [rows, setRows] = useState<HistoryRow[]>([]);
   const [grandTotalSum, setGrandTotalSum] = useState(0);
@@ -93,12 +100,35 @@ export default function RiwayatPembelianClient({
       .catch(() => setSuppliers([]));
   }, []);
 
+  useEffect(() => {
+    if (!isInventory) return;
+    fetch("/api/inventory/warehouses")
+      .then((r) => r.json())
+      .then((data) => {
+        setMultiWarehouse(Boolean(data.flags?.multiWarehouse));
+        setWarehouses(
+          (data.warehouses || [])
+            .filter((w: { active?: boolean }) => w.active !== false)
+            .map((w: { id: string; code: string; name: string }) => ({
+              id: w.id,
+              code: w.code,
+              name: w.name
+            }))
+        );
+      })
+      .catch(() => {
+        setMultiWarehouse(false);
+        setWarehouses([]);
+      });
+  }, [isInventory]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams({ start, end, mode });
       if (supplierId) params.set("supplier_id", supplierId);
+      if (isInventory && warehouseId) params.set("warehouse_id", warehouseId);
       const res = await fetch(`/api/purchase-orders?${params}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -111,7 +141,7 @@ export default function RiwayatPembelianClient({
     } finally {
       setLoading(false);
     }
-  }, [start, end, supplierId, mode]);
+  }, [start, end, supplierId, warehouseId, mode, isInventory]);
 
   useEffect(() => {
     load();
@@ -300,6 +330,19 @@ export default function RiwayatPembelianClient({
               ))}
             </Select>
           </div>
+          {isInventory && multiWarehouse && warehouses.length ? (
+            <div className="min-w-[200px]">
+              <Label>Gudang</Label>
+              <Select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
+                <option value="">Semua gudang</option>
+                {warehouses.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.code} — {w.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          ) : null}
           <Button type="button" onClick={load} disabled={loading}>Cari data</Button>
         </div>
       </Card>
@@ -343,8 +386,11 @@ export default function RiwayatPembelianClient({
               <thead>
                 <tr className="text-left text-xs font-medium text-slate-500">
                   <th className="border-b px-2 py-2">Tanggal</th>
-                  <th className="border-b px-2 py-2">No. Expense</th>
+                  <th className="border-b px-2 py-2">{isInventory ? "No. PO" : "No. Expense"}</th>
                   <th className="border-b px-2 py-2">Supplier</th>
+                  {isInventory && multiWarehouse ? (
+                    <th className="border-b px-2 py-2">Gudang</th>
+                  ) : null}
                   <th className="border-b px-2 py-2">Total</th>
                   <th className="border-b px-2 py-2">Sisa hutang</th>
                   <th className="border-b px-2 py-2">Status</th>
@@ -359,6 +405,11 @@ export default function RiwayatPembelianClient({
                       <td className="border-b border-slate-100 px-2 py-2">{row.orderDate}</td>
                       <td className="border-b border-slate-100 px-2 py-2"><code className="text-xs">{row.poNo}</code></td>
                       <td className="border-b border-slate-100 px-2 py-2">{row.supplierName || "—"}</td>
+                      {isInventory && multiWarehouse ? (
+                        <td className="border-b border-slate-100 px-2 py-2 text-xs text-slate-600">
+                          {row.warehouseLabel || "—"}
+                        </td>
+                      ) : null}
                       <td className="border-b border-slate-100 px-2 py-2">{formatRp(row.grandTotal)}</td>
                       <td className="border-b border-slate-100 px-2 py-2">{formatRp(row.sisaTagihan)}</td>
                       <td className="border-b border-slate-100 px-2 py-2">

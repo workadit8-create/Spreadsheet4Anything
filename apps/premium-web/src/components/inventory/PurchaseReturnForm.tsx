@@ -12,10 +12,25 @@ import {
   consignmentLineCardClass,
   consignmentSectionClass
 } from "@/components/inventory/consignment-layout";
+import { formatWarehouseOptionLabel } from "@/lib/inventory/warehouse-option-label";
+
+type ReceivingWarehouse = {
+  id: string;
+  code: string;
+  name: string;
+  isDisplay: boolean;
+  warehouseRole: string;
+};
 
 type Supplier = { id: string; name: string };
 type KasBank = { id: string; name: string };
-type PurchaseOrder = { id: string; poNo: string; orderDate: string; total: number };
+type PurchaseOrder = {
+  id: string;
+  poNo: string;
+  orderDate: string;
+  total: number;
+  warehouseId: string | null;
+};
 type PoLine = {
   id: string;
   productId: string;
@@ -64,6 +79,9 @@ export function PurchaseReturnForm({ onCreated }: { onCreated?: () => void }) {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [poLines, setPoLines] = useState<PoLine[]>([]);
   const [outletLocked, setOutletLocked] = useState(false);
+  const [multiWarehouse, setMultiWarehouse] = useState(false);
+  const [receivingWarehouses, setReceivingWarehouses] = useState<ReceivingWarehouse[]>([]);
+  const [warehouseId, setWarehouseId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,6 +118,15 @@ export function PurchaseReturnForm({ onCreated }: { onCreated?: () => void }) {
       setKasBank(data.kasBank || []);
       setOutlets(data.outlets || []);
       setOutletLocked(Boolean(data.outletLocked));
+      setMultiWarehouse(Boolean(data.multiWarehouse));
+      const whOpts: ReceivingWarehouse[] = data.receivingWarehouses || [];
+      setReceivingWarehouses(whOpts);
+      const poWh = data.poWarehouseId ? String(data.poWarehouseId) : "";
+      setWarehouseId((prev) => {
+        if (poWh && whOpts.some((w) => w.id === poWh)) return poWh;
+        if (prev && whOpts.some((w) => w.id === prev)) return prev;
+        return whOpts[0]?.id || "";
+      });
       setPurchaseOrders(data.purchaseOrders || []);
       setPoLines(data.poLines || []);
 
@@ -162,11 +189,15 @@ export function PurchaseReturnForm({ onCreated }: { onCreated?: () => void }) {
     try {
       if (!supplierId) throw new Error("Supplier wajib");
       if (refundMode === "TUNAI" && !rekening) throw new Error("Rekening wajib untuk refund tunai");
+      if (multiWarehouse && receivingWarehouses.length && !warehouseId) {
+        throw new Error("Pilih gudang sumber stok");
+      }
 
       const payload = {
         supplier_id: supplierId,
         return_date: returnDate,
         outlet_code: outletCode || undefined,
+        warehouse_id: multiWarehouse && warehouseId ? warehouseId : undefined,
         purchase_order_id: sourceMode === "po" ? purchaseOrderId || undefined : undefined,
         refund_mode: refundMode,
         rekening: refundMode === "TUNAI" ? rekening : undefined,
@@ -261,7 +292,10 @@ export function PurchaseReturnForm({ onCreated }: { onCreated?: () => void }) {
             <Label>Outlet</Label>
             <Select
               value={outletCode}
-              onChange={(e) => setOutletCode(e.target.value)}
+              onChange={(e) => {
+                setOutletCode(e.target.value);
+                setWarehouseId("");
+              }}
               disabled={outletLocked}
             >
               <option value="">— default —</option>
@@ -271,6 +305,26 @@ export function PurchaseReturnForm({ onCreated }: { onCreated?: () => void }) {
                 </option>
               ))}
             </Select>
+          </div>
+        ) : null}
+        {multiWarehouse && receivingWarehouses.length ? (
+          <div>
+            <Label>Gudang sumber stok</Label>
+            <Select
+              value={warehouseId}
+              onChange={(e) => setWarehouseId(e.target.value)}
+              required
+            >
+              {receivingWarehouses.length > 1 ? <option value="">— Pilih —</option> : null}
+              {receivingWarehouses.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {formatWarehouseOptionLabel(w)}
+                </option>
+              ))}
+            </Select>
+            <p className="mt-1 text-xs text-slate-500">
+              Retur keluar dari gudang inbound/distribusi (bukan display).
+            </p>
           </div>
         ) : null}
         {sourceMode === "po" ? (

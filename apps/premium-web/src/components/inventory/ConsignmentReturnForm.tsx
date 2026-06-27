@@ -12,6 +12,15 @@ import {
   consignmentLineCardReturnClass,
   consignmentSectionClass
 } from "@/components/inventory/consignment-layout";
+import { formatWarehouseOptionLabel } from "@/lib/inventory/warehouse-option-label";
+
+type WarehouseOption = {
+  id: string;
+  code: string;
+  name: string;
+  isDisplay: boolean;
+  warehouseRole: string;
+};
 
 type Supplier = { id: string; name: string };
 type Product = { id: string; sku: string | null; name: string };
@@ -35,6 +44,9 @@ export function ConsignmentReturnForm({ onCreated }: { onCreated?: () => void })
   const [products, setProducts] = useState<Product[]>([]);
   const [outlets, setOutlets] = useState<Array<{ code: string; label: string }>>([]);
   const [outletLocked, setOutletLocked] = useState(false);
+  const [multiWarehouse, setMultiWarehouse] = useState(false);
+  const [warehouses, setWarehouses] = useState<WarehouseOption[]>([]);
+  const [warehouseId, setWarehouseId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +72,13 @@ export function ConsignmentReturnForm({ onCreated }: { onCreated?: () => void })
       setProducts(data.products || []);
       setOutlets(data.outlets || []);
       setOutletLocked(Boolean(data.outletLocked));
+      setMultiWarehouse(Boolean(data.multiWarehouse));
+      const whOpts: WarehouseOption[] = data.warehouses || [];
+      setWarehouses(whOpts);
+      setWarehouseId((prev) => {
+        if (prev && whOpts.some((w) => w.id === prev)) return prev;
+        return whOpts[0]?.id || "";
+      });
       if (data.outlets?.length === 1 && !outletCode) {
         setOutletCode(data.outlets[0].code);
       }
@@ -85,10 +104,14 @@ export function ConsignmentReturnForm({ onCreated }: { onCreated?: () => void })
     setMessage(null);
     try {
       if (!supplierId) throw new Error("Supplier wajib");
+      if (multiWarehouse && warehouses.length && !warehouseId) {
+        throw new Error("Pilih gudang sumber stok");
+      }
       const payload = {
         supplier_id: supplierId,
         return_date: returnDate,
         outlet_code: outletCode || undefined,
+        warehouse_id: multiWarehouse && warehouseId ? warehouseId : undefined,
         notes: notes.trim() || undefined,
         lines: lines
           .filter((l) => l.product_id && Number(l.qty) > 0)
@@ -148,13 +171,29 @@ export function ConsignmentReturnForm({ onCreated }: { onCreated?: () => void })
             <Label>Outlet</Label>
             <Select
               value={outletCode}
-              onChange={(e) => setOutletCode(e.target.value)}
+              onChange={(e) => {
+                setOutletCode(e.target.value);
+                setWarehouseId("");
+              }}
               disabled={outletLocked}
             >
               <option value="">— default —</option>
               {outlets.map((o) => (
                 <option key={o.code} value={o.code}>
                   {o.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        ) : null}
+        {multiWarehouse && warehouses.length ? (
+          <div>
+            <Label>Gudang sumber stok</Label>
+            <Select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} required>
+              {warehouses.length > 1 ? <option value="">— Pilih —</option> : null}
+              {warehouses.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {formatWarehouseOptionLabel(w)}
                 </option>
               ))}
             </Select>

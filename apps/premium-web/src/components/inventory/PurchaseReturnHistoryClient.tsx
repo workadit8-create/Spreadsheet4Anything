@@ -18,7 +18,10 @@ type ListItem = {
   total: number;
   refundMode: string;
   status: string;
+  warehouseLabel?: string | null;
 };
+
+type WarehouseFilter = { id: string; code: string; name: string };
 
 type DetailData = {
   header: {
@@ -33,6 +36,7 @@ type DetailData = {
     refundMode: string;
     rekening: string | null;
     notes: string | null;
+    warehouseLabel?: string | null;
   };
   lines: Array<{
     productName: string;
@@ -65,6 +69,9 @@ export function PurchaseReturnHistoryClient({ role }: { role: MembershipRole }) 
   const [start, setStart] = useState(defaults.start);
   const [end, setEnd] = useState(defaults.end);
   const [supplierId, setSupplierId] = useState("");
+  const [warehouseId, setWarehouseId] = useState("");
+  const [multiWarehouse, setMultiWarehouse] = useState(false);
+  const [warehouses, setWarehouses] = useState<WarehouseFilter[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [items, setItems] = useState<ListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,12 +95,34 @@ export function PurchaseReturnHistoryClient({ role }: { role: MembershipRole }) 
     }
   }, []);
 
+  const loadWarehouses = useCallback(async () => {
+    try {
+      const res = await fetch("/api/inventory/warehouses");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setMultiWarehouse(Boolean(data.flags?.multiWarehouse));
+      setWarehouses(
+        (data.warehouses || [])
+          .filter((w: { active?: boolean }) => w.active !== false)
+          .map((w: { id: string; code: string; name: string }) => ({
+            id: w.id,
+            code: w.code,
+            name: w.name
+          }))
+      );
+    } catch {
+      setMultiWarehouse(false);
+      setWarehouses([]);
+    }
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams({ start, end });
       if (supplierId) params.set("supplier_id", supplierId);
+      if (warehouseId) params.set("warehouse_id", warehouseId);
       const res = await fetch(`/api/inventory/purchase-returns?${params}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal memuat");
@@ -103,11 +132,12 @@ export function PurchaseReturnHistoryClient({ role }: { role: MembershipRole }) 
     } finally {
       setLoading(false);
     }
-  }, [start, end, supplierId]);
+  }, [start, end, supplierId, warehouseId]);
 
   useEffect(() => {
     void loadSuppliers();
-  }, [loadSuppliers]);
+    void loadWarehouses();
+  }, [loadSuppliers, loadWarehouses]);
 
   useEffect(() => {
     void load();
@@ -179,6 +209,19 @@ export function PurchaseReturnHistoryClient({ role }: { role: MembershipRole }) 
               ))}
             </Select>
           </div>
+          {multiWarehouse && warehouses.length ? (
+            <div className="min-w-[200px]">
+              <Label>Gudang</Label>
+              <Select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
+                <option value="">Semua gudang</option>
+                {warehouses.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.code} — {w.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          ) : null}
           <Button type="button" onClick={() => void load()} disabled={loading}>
             {loading ? "Memuat…" : "Cari data"}
           </Button>
@@ -206,6 +249,7 @@ export function PurchaseReturnHistoryClient({ role }: { role: MembershipRole }) 
                   <div className="text-slate-600">
                     {r.returnDate} · {r.supplierName}
                     {r.poNo ? ` · PO ${r.poNo}` : ""}
+                    {r.warehouseLabel ? ` · ${r.warehouseLabel}` : ""}
                   </div>
                   <div className="text-xs text-slate-500">
                     {formatRp(r.total)} · {r.refundMode === "TUNAI" ? "Refund tunai" : "Kurangi utang"}
@@ -260,6 +304,7 @@ export function PurchaseReturnHistoryClient({ role }: { role: MembershipRole }) 
                       <p className="text-sm text-slate-500">
                         {detail.header.docDate} · {detail.header.supplierName}
                         {detail.header.poNo ? ` · PO ${detail.header.poNo}` : ""}
+                        {detail.header.warehouseLabel ? ` · ${detail.header.warehouseLabel}` : ""}
                       </p>
                       <p className="text-sm font-medium">{formatRp(detail.header.total)}</p>
                       {detail.header.status === "VOIDED" ? (

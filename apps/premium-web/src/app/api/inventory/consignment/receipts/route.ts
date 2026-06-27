@@ -6,7 +6,7 @@ import {
   consignmentStockLinesFromProducts,
   receiveConsignmentStock
 } from "@/lib/inventory/consignment-receipt";
-import { resolveReceivingWarehouseId } from "@/lib/inventory/warehouse-resolve";
+import { resolveConsignmentWarehouseId } from "@/lib/inventory/warehouse-resolve";
 import { generateConsignmentReceiptNo } from "@/lib/posting/ids";
 import { resolveOutletCodeForSave } from "@/lib/outlets/helpers";
 import { wibDateIsoFromInput, wibTodayIso } from "@/lib/date/wib";
@@ -121,7 +121,7 @@ export async function POST(request: Request) {
 
   let warehouseId: string | null;
   try {
-    warehouseId = await resolveReceivingWarehouseId(supabase, org.id, {
+    warehouseId = await resolveConsignmentWarehouseId(supabase, org.id, {
       outletCode,
       explicitWarehouseId: body.warehouse_id
     });

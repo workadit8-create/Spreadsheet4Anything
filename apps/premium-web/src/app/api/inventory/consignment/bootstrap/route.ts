@@ -5,6 +5,9 @@ import { requireUserOrg, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { isConsignmentProduct } from "@/lib/products/consignment-policy";
 import { productMatchesOutlet } from "@/lib/inventory/product-outlet-scope";
 import { fetchOutletBootstrap } from "@/lib/outlets/bootstrap-options";
+import {
+  fetchConsignmentWarehouseOptions
+} from "@/lib/inventory/warehouse-resolve";
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -77,11 +80,24 @@ export async function GET(request: Request) {
     outletLocked = outletBootstrap.options.length <= 1;
   }
 
+  const multiWarehouse = isAddonEnabled(addons, "multi_warehouse");
+  const warehouseOptions = outletFilter
+    ? await fetchConsignmentWarehouseOptions(supabase, org.id, outletFilter)
+    : [];
+
   return NextResponse.json({
     suppliers: suppliers || [],
     products: consignmentProducts,
     kasBank: kasBank || [],
     outlets,
-    outletLocked
+    outletLocked,
+    multiWarehouse,
+    warehouses: warehouseOptions.map((w) => ({
+      id: w.id,
+      code: w.code,
+      name: w.name,
+      isDisplay: w.isDisplay,
+      warehouseRole: w.warehouseRole
+    }))
   });
 }
