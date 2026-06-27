@@ -315,6 +315,62 @@ export function buildMutasiDanaJournalLines(data: MutasiDanaJournalInput): Journ
   ];
 }
 
+export type PurchaseReturnJournalInput = {
+  tanggal: string;
+  noDok: string;
+  supplier: string;
+  keterangan: string;
+  total: number;
+  dpp: number;
+  taxAmount?: number;
+  taxAccountName?: string;
+  refundMode: "KREDIT" | "TUNAI";
+  rekening?: string;
+  inventoryAccount?: string;
+};
+
+export function buildPurchaseReturnJournalLines(
+  data: PurchaseReturnJournalInput
+): JournalLineDraft[] {
+  const total = Math.max(0, Math.round(Number(data.total) || 0));
+  const dpp = Math.max(0, Math.round(Number(data.dpp) || 0));
+  const taxAmount = Math.max(0, Math.round(Number(data.taxAmount) || 0));
+  if (total <= 0) return [];
+
+  const ketBase = `Retur pembelian - ${data.supplier || ""} ${data.keterangan || ""}`.trim();
+  const akunKasBank = resolveKasBankAccount(data.rekening || "Kas");
+  const debitAccount = data.refundMode === "TUNAI" ? akunKasBank : "Utang Usaha";
+
+  const lines: JournalLineDraft[] = [
+    {
+      lineDate: data.tanggal,
+      accountName: debitAccount,
+      debit: total,
+      credit: 0,
+      keterangan: ketBase
+    },
+    {
+      lineDate: data.tanggal,
+      accountName: data.inventoryAccount || INVENTORY_ACCOUNT,
+      debit: 0,
+      credit: dpp,
+      keterangan: ketBase
+    }
+  ];
+
+  if (taxAmount > 0) {
+    lines.push({
+      lineDate: data.tanggal,
+      accountName: data.taxAccountName || "PPN Masukan",
+      debit: 0,
+      credit: taxAmount,
+      keterangan: ketBase + " (pajak)"
+    });
+  }
+
+  return lines;
+}
+
 export const HPP_EXPENSE_ACCOUNT = "Beban HPP";
 export const INVENTORY_ACCOUNT = "Persediaan Barang";
 export const CONSIGNMENT_PAYABLE_ACCOUNT = "Utang Titip Jual";

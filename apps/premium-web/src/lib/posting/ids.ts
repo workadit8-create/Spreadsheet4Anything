@@ -95,6 +95,18 @@ export function generateConsignmentReturnNo(): string {
   return `RT-PW-${y}${m}${day}-${seq}`;
 }
 
+export function generatePurchaseReturnNo(): string {
+  const { y, m, day } = wibStamp();
+  const seq = String(Math.floor(Math.random() * 9000) + 1000);
+  return `RP-PW-${y}${m}${day}-${seq}`;
+}
+
+export function generatePurchaseReturnTransactionId(): string {
+  const { y, m, day } = wibStamp();
+  const seq = String(Math.floor(Math.random() * 90000) + 10000);
+  return `TX-RP-PW-${y}${m}${day}-${seq}`;
+}
+
 export function generateCicilanBankTransactionId(): string {
   const { y, m, day } = wibStamp();
   const seq = String(Math.floor(Math.random() * 90000) + 10000);

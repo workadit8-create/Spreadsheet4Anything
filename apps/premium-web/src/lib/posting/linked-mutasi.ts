@@ -3,6 +3,7 @@ import { generateMutasiTransferNo } from "./ids";
 
 export type LinkedSourceType =
   | "PURCHASE_ORDER"
+  | "PURCHASE_RETURN"
   | "SALES_ORDER"
   | "UTANG_PAYMENT"
   | "PIUTANG_PAYMENT"

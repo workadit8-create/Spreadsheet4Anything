@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { fetchOrgAddons, isAddonEnabled } from "@/lib/org/addons";
 import { requireUserOrg } from "@/lib/org/require-user-org";
-import { InventoryPlaceholderPage } from "@/components/inventory/InventoryPlaceholderPage";
+import { PurchaseReturnPageClient } from "./PurchaseReturnPageClient";
 
 export default async function InventoryReturnPage() {
   const supabase = await createClient();
@@ -14,15 +14,9 @@ export default async function InventoryReturnPage() {
   }
 
   const addons = await fetchOrgAddons(supabase, auth.org.id);
-  if (!isAddonEnabled(addons, "inventory")) {
+  if (!isAddonEnabled(addons, "pembelian") || !isAddonEnabled(addons, "inventory")) {
     redirect("/dashboard");
   }
 
-  return (
-    <InventoryPlaceholderPage
-      badge="Management Inventory"
-      title="Stock Return"
-      description="Retur barang ke supplier atau antar gudang internal."
-    />
-  );
+  return <PurchaseReturnPageClient />;
 }
