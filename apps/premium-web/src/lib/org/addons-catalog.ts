@@ -1,4 +1,4 @@
-export const ADDON_KEYS = ["project", "pos", "outlet", "inventory", "pembelian", "titip_jual", "pos_gramasi", "crm"] as const;
+export const ADDON_KEYS = ["project", "pos", "outlet", "inventory", "pembelian", "titip_jual", "multi_warehouse", "pos_gramasi", "crm"] as const;
 export type AddonKey = (typeof ADDON_KEYS)[number];
 
 export type AddonInfo = {
@@ -42,6 +42,11 @@ export const ADDON_CATALOG: Record<
       "Barang consignment — penerimaan titip, penjualan POS, settlement ke supplier (pemilik titip).",
     navHref: "/dashboard/inventory/titip-jual/penerimaan"
   },
+  multi_warehouse: {
+    label: "Multi Warehouse",
+    description:
+      "Beberapa gudang per outlet — display vs backroom, pusat distribusi. Transfer stok antar gudang dalam outlet yang sama."
+  },
   pos_gramasi: {
     label: "POS Gramasi",
     description: "POS dengan timbangan / gramasi."
@@ -62,6 +67,7 @@ export function emptyAddonsMap(): OrgAddonsMap {
     inventory: false,
     pembelian: false,
     titip_jual: false,
+    multi_warehouse: false,
     pos_gramasi: false,
     crm: false
   };

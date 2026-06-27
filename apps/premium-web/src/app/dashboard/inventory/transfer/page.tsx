@@ -17,12 +17,15 @@ export default async function InventoryTransferPage() {
   if (!isAddonEnabled(addons, "inventory")) {
     redirect("/dashboard");
   }
+  if (!isAddonEnabled(addons, "multi_warehouse")) {
+    redirect("/dashboard/inventory/warehouse");
+  }
 
   return (
     <InventoryPlaceholderPage
       badge="Management Inventory"
       title="Stock Transfer"
-      description="Transfer stok antar gudang atau outlet."
+      description="Transfer stok antar gudang dalam outlet yang sama (display ↔ backroom, distribusi → outlet)."
     />
   );
 }

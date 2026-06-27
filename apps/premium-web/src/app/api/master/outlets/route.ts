@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAddon } from "@/lib/org/addons";
 import { requireUserOrg, requireMasterEntityRole, toOrgAuthResponse } from "@/lib/org/require-user-org";
 import { normalizeOutletCode } from "@/lib/outlets/helpers";
+import { syncOutletWarehouseLink } from "@/lib/inventory/warehouse-resolve";
 
 export async function GET() {
   const supabase = await createClient();
@@ -78,6 +79,16 @@ export async function POST(request: Request) {
       .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+    if (warehouseId) {
+      await syncOutletWarehouseLink(supabase, {
+        organizationId: auth.org.id,
+        outletId: body.id,
+        warehouseId,
+        isPrimary: true
+      });
+    }
+
     return NextResponse.json({ outlet: data });
   }
 
@@ -111,6 +122,15 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
+  if (warehouseId) {
+    await syncOutletWarehouseLink(supabase, {
+      organizationId: auth.org.id,
+      outletId: data.id,
+      warehouseId,
+      isPrimary: true
+    });
   }
 
   return NextResponse.json({ outlet: data });

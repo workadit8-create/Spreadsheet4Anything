@@ -111,7 +111,7 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
         key: "inventory-transfer",
         href: "/dashboard/inventory/transfer",
         label: "Stock Transfer",
-        requireAddons: ["inventory"]
+        requireAddons: ["inventory", "multi_warehouse"]
       },
       {
         key: "inventory-return",

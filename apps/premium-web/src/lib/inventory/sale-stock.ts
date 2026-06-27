@@ -6,6 +6,7 @@ import {
   type SaleStockLine
 } from "@/lib/inventory/deduct-sale-stock";
 import { effectiveTracksStock } from "@/lib/products/inventory-policy";
+import { resolveSaleWarehouseId } from "@/lib/inventory/warehouse-resolve";
 
 export async function isInventoryStockEnabled(
   supabase: SupabaseClient,
@@ -15,7 +16,7 @@ export async function isInventoryStockEnabled(
   return isAddonEnabled(addons, "inventory");
 }
 
-/** Resolve gudang penjualan: explicit → outlet → default org. */
+/** Resolve gudang penjualan: explicit → outlet display → default org. */
 export async function resolveWarehouseIdForSale(
   supabase: SupabaseClient,
   organizationId: string,
@@ -24,31 +25,7 @@ export async function resolveWarehouseIdForSale(
     explicitWarehouseId?: string | null;
   } = {}
 ): Promise<string | null> {
-  const explicit = String(options.explicitWarehouseId || "").trim();
-  if (explicit) return explicit;
-
-  const outletCode = String(options.outletCode || "").trim();
-  if (outletCode) {
-    const { data: outletRow } = await supabase
-      .from("outlets")
-      .select("warehouse_id")
-      .eq("organization_id", organizationId)
-      .eq("outlet_code", outletCode.toUpperCase())
-      .eq("active", true)
-      .maybeSingle();
-    if (outletRow?.warehouse_id) return outletRow.warehouse_id;
-  }
-
-  const { data: warehouse } = await supabase
-    .from("warehouses")
-    .select("id")
-    .eq("organization_id", organizationId)
-    .eq("active", true)
-    .order("is_default", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  return warehouse?.id ?? null;
+  return resolveSaleWarehouseId(supabase, organizationId, options);
 }
 
 export async function saleStockLinesFromProducts(
