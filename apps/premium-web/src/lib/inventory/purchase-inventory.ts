@@ -1,6 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { effectiveTracksStock } from "@/lib/products/inventory-policy";
 import { mergeProductMetadata } from "@/lib/products/ppn";
+import { productHppFromMetadata } from "@/lib/products/product-hpp";
+import {
+  aggregatePurchaseHppBatches,
+  computeWeightedAverageHpp,
+  reverseWeightedAverageHpp
+} from "@/lib/inventory/average-hpp";
 
 export type PurchaseStockLine = {
   productId: string;
@@ -242,6 +248,43 @@ export function unitHppFromPurchaseLine(
   return Math.max(0, Math.round(net / q));
 }
 
+async function fetchTotalStockQtyByProduct(
+  supabase: SupabaseClient,
+  organizationId: string,
+  productIds: string[]
+): Promise<Map<string, number>> {
+  if (!productIds.length) return new Map();
+
+  const { data, error } = await supabase
+    .from("stock_levels")
+    .select("product_id, qty")
+    .eq("organization_id", organizationId)
+    .in("product_id", productIds);
+
+  if (error) throw new Error(error.message);
+
+  const totals = new Map<string, number>();
+  for (const row of data || []) {
+    const pid = String(row.product_id);
+    totals.set(pid, (totals.get(pid) || 0) + (Number(row.qty) || 0));
+  }
+  return totals;
+}
+
+function purchaseLineUnitHpp(line: {
+  qty: number;
+  unit_cost: number;
+  metadata?: Record<string, unknown> | null;
+}): number {
+  const meta = (line.metadata || {}) as Record<string, unknown>;
+  return unitHppFromPurchaseLine(
+    meta.dpp != null ? Number(meta.dpp) : null,
+    line.qty,
+    line.unit_cost,
+    Number(meta.diskon) || 0
+  );
+}
+
 export async function updateProductHppFromPurchaseLines(
   supabase: SupabaseClient,
   organizationId: string,
@@ -252,39 +295,124 @@ export async function updateProductHppFromPurchaseLines(
     metadata?: Record<string, unknown> | null;
   }>
 ): Promise<number> {
-  let updated = 0;
-  for (const line of lines) {
-    if (!line.product_id) continue;
-    const meta = (line.metadata || {}) as Record<string, unknown>;
-    const hpp = unitHppFromPurchaseLine(
-      meta.dpp != null ? Number(meta.dpp) : null,
-      line.qty,
-      line.unit_cost,
-      Number(meta.diskon) || 0
-    );
-    if (hpp <= 0) continue;
+  const batches = aggregatePurchaseHppBatches(
+    lines
+      .filter((l) => l.product_id)
+      .map((l) => ({
+        productId: String(l.product_id),
+        qty: l.qty,
+        unitHpp: purchaseLineUnitHpp(l)
+      }))
+  );
 
-    const { data: product } = await supabase
+  if (!batches.length) return 0;
+
+  const productIds = batches.map((b) => b.productId);
+  const [stockMap, productsResult] = await Promise.all([
+    fetchTotalStockQtyByProduct(supabase, organizationId, productIds),
+    supabase
       .from("products")
-      .select("metadata")
-      .eq("id", line.product_id)
+      .select("id, metadata")
       .eq("organization_id", organizationId)
-      .maybeSingle();
+      .in("id", productIds)
+  ]);
 
+  if (productsResult.error) throw new Error(productsResult.error.message);
+
+  const productMap = new Map((productsResult.data || []).map((p) => [p.id, p]));
+  let updated = 0;
+
+  for (const batch of batches) {
+    const product = productMap.get(batch.productId);
     if (!product) continue;
 
+    const currentTotalQty = stockMap.get(batch.productId) ?? 0;
+    const oldQty = Math.max(0, currentTotalQty - batch.qty);
+    const oldHpp = productHppFromMetadata((product.metadata || {}) as Record<string, unknown>) ?? 0;
+    const newHpp = computeWeightedAverageHpp(oldQty, oldHpp, batch.qty, batch.unitHpp);
+    if (newHpp <= 0) continue;
+
     const newMeta = mergeProductMetadata((product.metadata || {}) as Record<string, unknown>, {
-      hpp
+      hpp: newHpp
     });
 
     const { error } = await supabase
       .from("products")
       .update({ metadata: newMeta, updated_at: new Date().toISOString() })
-      .eq("id", line.product_id)
+      .eq("id", batch.productId)
       .eq("organization_id", organizationId);
 
     if (!error) updated += 1;
   }
+
+  return updated;
+}
+
+/** Balik rata-rata HPP saat void PO — jalankan sebelum stok dikurangi. */
+export async function reverseProductHppFromPurchaseLines(
+  supabase: SupabaseClient,
+  organizationId: string,
+  lines: Array<{
+    product_id: string | null;
+    qty: number;
+    unit_cost: number;
+    metadata?: Record<string, unknown> | null;
+  }>
+): Promise<number> {
+  const batches = aggregatePurchaseHppBatches(
+    lines
+      .filter((l) => l.product_id)
+      .map((l) => ({
+        productId: String(l.product_id),
+        qty: l.qty,
+        unitHpp: purchaseLineUnitHpp(l)
+      }))
+  );
+
+  if (!batches.length) return 0;
+
+  const productIds = batches.map((b) => b.productId);
+  const [stockMap, productsResult] = await Promise.all([
+    fetchTotalStockQtyByProduct(supabase, organizationId, productIds),
+    supabase
+      .from("products")
+      .select("id, metadata")
+      .eq("organization_id", organizationId)
+      .in("id", productIds)
+  ]);
+
+  if (productsResult.error) throw new Error(productsResult.error.message);
+
+  const productMap = new Map((productsResult.data || []).map((p) => [p.id, p]));
+  let updated = 0;
+
+  for (const batch of batches) {
+    const product = productMap.get(batch.productId);
+    if (!product) continue;
+
+    const currentTotalQty = stockMap.get(batch.productId) ?? 0;
+    const currentHpp =
+      productHppFromMetadata((product.metadata || {}) as Record<string, unknown>) ?? 0;
+    const newHpp = reverseWeightedAverageHpp(
+      currentTotalQty,
+      currentHpp,
+      batch.qty,
+      batch.unitHpp
+    );
+
+    const newMeta = mergeProductMetadata((product.metadata || {}) as Record<string, unknown>, {
+      hpp: newHpp
+    });
+
+    const { error } = await supabase
+      .from("products")
+      .update({ metadata: newMeta, updated_at: new Date().toISOString() })
+      .eq("id", batch.productId)
+      .eq("organization_id", organizationId);
+
+    if (!error) updated += 1;
+  }
+
   return updated;
 }
 

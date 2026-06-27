@@ -389,8 +389,8 @@ export function MasterCrudPanel({
 
       {inventoryEnabled ? (
         <p className="mb-4 text-xs text-slate-500">
-          Produk dengan stok wajib isi HPP (statis). Nanti di-update otomatis dari pembelian
-          (average cost).
+          Produk dengan stok wajib isi HPP awal. Setelah ada pembelian inventory, HPP otomatis
+          dihitung rata-rata tertimbang dari harga beli.
         </p>
       ) : null}
 

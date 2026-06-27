@@ -7,6 +7,7 @@ import {
   purchaseStockLinesFromProducts,
   receivePurchaseStock,
   reversePurchaseStock,
+  reverseProductHppFromPurchaseLines,
   unitHppFromPurchaseLine,
   updateProductHppFromPurchaseLines
 } from "@/lib/inventory/purchase-inventory";
@@ -111,28 +112,28 @@ export async function reversePurchaseStockForOrderIfEnabled(
     lines: PurchaseLineRow[];
     createdBy?: string | null;
   }
-): Promise<{ reversed: boolean; skipped: boolean }> {
+): Promise<{ reversed: boolean; skipped: boolean; hppUpdated: number }> {
   const meta = (params.order.metadata || {}) as Record<string, unknown>;
   if (!isInventoryPurchaseOrder(meta)) {
-    return { reversed: false, skipped: false };
+    return { reversed: false, skipped: false, hppUpdated: 0 };
   }
 
   const enabled = await isInventoryStockEnabled(supabase, params.organizationId);
-  if (!enabled) return { reversed: false, skipped: false };
+  if (!enabled) return { reversed: false, skipped: false, hppUpdated: 0 };
 
   const hadIn = await hasPurchaseStockInMovement(
     supabase,
     params.organizationId,
     params.order.id
   );
-  if (!hadIn) return { reversed: false, skipped: true };
+  if (!hadIn) return { reversed: false, skipped: true, hppUpdated: 0 };
 
   const alreadyVoid = await hasPurchaseStockVoidMovement(
     supabase,
     params.organizationId,
     params.order.id
   );
-  if (alreadyVoid) return { reversed: false, skipped: true };
+  if (alreadyVoid) return { reversed: false, skipped: true, hppUpdated: 0 };
 
   let warehouseId = params.order.warehouse_id ? String(params.order.warehouse_id) : null;
   if (!warehouseId) {
@@ -154,6 +155,12 @@ export async function reversePurchaseStockForOrderIfEnabled(
     stockInputs
   );
 
+  const hppUpdated = await reverseProductHppFromPurchaseLines(
+    supabase,
+    params.organizationId,
+    params.lines
+  );
+
   await reversePurchaseStock(supabase, {
     organizationId: params.organizationId,
     warehouseId,
@@ -164,5 +171,5 @@ export async function reversePurchaseStockForOrderIfEnabled(
     notes: "Void pembelian inventory"
   });
 
-  return { reversed: true, skipped: false };
+  return { reversed: true, skipped: false, hppUpdated };
 }

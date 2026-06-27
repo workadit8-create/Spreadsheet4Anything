@@ -1,6 +1,6 @@
 import { effectiveTracksStock } from "@/lib/products/inventory-policy";
 
-/** Harga pokok per satuan — statis sampai modul pembelian (average cost). */
+/** Harga pokok per satuan — di-update otomatis (rata-rata tertimbang) saat pembelian inventory. */
 export function productHppFromMetadata(
   metadata: Record<string, unknown> | null | undefined
 ): number | null {
