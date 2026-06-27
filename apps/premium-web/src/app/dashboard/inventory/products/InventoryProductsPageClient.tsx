@@ -250,7 +250,7 @@ export default function InventoryProductsPageClient({ role }: { role: Membership
 
       {showForm ? (
         <Card className="mb-6 p-4">
-          <MasterTabPanel tab="products" />
+          <MasterTabPanel tab="products" outletCode={outletCode || undefined} />
         </Card>
       ) : null}
 

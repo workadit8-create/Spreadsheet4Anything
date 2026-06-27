@@ -47,7 +47,8 @@ export function MasterCrudPanel({
   columns,
   defaultForm,
   productTaxFromApi = false,
-  productInventoryFromApi = false
+  productInventoryFromApi = false,
+  scopedOutletCode
 }: {
   title: string;
   apiPath: string;
@@ -58,6 +59,8 @@ export function MasterCrudPanel({
   productTaxFromApi?: boolean;
   /** Baca add-on inventory dari GET (field HPP + validasi stok) */
   productInventoryFromApi?: boolean;
+  /** Filter daftar + prefill outlet (halaman inventory per outlet) */
+  scopedOutletCode?: string;
 }) {
   const fieldsRef = useRef(fields);
   fieldsRef.current = fields;
@@ -71,7 +74,23 @@ export function MasterCrudPanel({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const resolvedApiPath = useMemo(() => {
+    if (!scopedOutletCode) return apiPath;
+    const sep = apiPath.includes("?") ? "&" : "?";
+    return `${apiPath}${sep}outlet_code=${encodeURIComponent(scopedOutletCode)}`;
+  }, [apiPath, scopedOutletCode]);
+
   const [form, setForm] = useState<Row>(() => defaultFormRef.current);
+
+  useEffect(() => {
+    if (!scopedOutletCode) return;
+    setForm((prev) => {
+      if (prev.id != null && prev.id !== "") return prev;
+      const meta = { ...((prev.metadata || {}) as Record<string, unknown>) };
+      meta.outlet = scopedOutletCode;
+      return { ...prev, metadata: meta };
+    });
+  }, [scopedOutletCode]);
 
   const taxProductFields = useMemo<FieldDef[]>(() => {
     if (!productTax?.productTaxEnabled) return [];
@@ -99,7 +118,7 @@ export function MasterCrudPanel({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(apiPath);
+      const res = await fetch(resolvedApiPath);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal memuat");
       setItems(data.items || []);
@@ -135,7 +154,7 @@ export function MasterCrudPanel({
     } finally {
       setLoading(false);
     }
-  }, [apiPath, productTaxFromApi, productInventoryFromApi]);
+  }, [resolvedApiPath, productTaxFromApi, productInventoryFromApi]);
 
   const formTracksStock = useCallback(
     (row: Row) => {
@@ -177,15 +196,24 @@ export function MasterCrudPanel({
     return base;
   }, [columns, productTax?.productTaxEnabled, taxProductColumns, inventoryEnabled]);
   const activeDefaultForm = useMemo(() => {
-    const base =
+    let base: Row =
       productTax?.productTaxEnabled && taxProductFields.length
         ? { ...defaultFormRef.current, active: true, tax_taxable: true }
-        : defaultFormRef.current;
+        : { ...defaultFormRef.current, active: true };
     if (inventoryEnabled) {
-      return { ...base, active: true, stock_policy: base.stock_policy || "track" };
+      base = { ...base, stock_policy: base.stock_policy || "track" };
+    }
+    if (scopedOutletCode) {
+      const meta = { ...((base.metadata || {}) as Record<string, unknown>), outlet: scopedOutletCode };
+      base = { ...base, metadata: meta };
     }
     return base;
-  }, [productTax?.productTaxEnabled, taxProductFields.length, inventoryEnabled]);
+  }, [
+    productTax?.productTaxEnabled,
+    taxProductFields.length,
+    inventoryEnabled,
+    scopedOutletCode
+  ]);
 
   useEffect(() => {
     void load();
@@ -363,6 +391,13 @@ export function MasterCrudPanel({
         <p className="mb-4 text-xs text-slate-500">
           Produk dengan stok wajib isi HPP (statis). Nanti di-update otomatis dari pembelian
           (average cost).
+        </p>
+      ) : null}
+
+      {scopedOutletCode ? (
+        <p className="mb-4 text-xs text-slate-500">
+          Daftar produk outlet <span className="font-semibold">{scopedOutletCode}</span> — tambah
+          produk baru otomatis ter-assign ke outlet ini.
         </p>
       ) : null}
 

@@ -16,7 +16,7 @@ import {
   productHppFromMetadata,
   resolveFormTrackStock
 } from "@/lib/products/product-hpp";
-import { productOutletCode } from "@/lib/inventory/product-outlet-scope";
+import { productMatchesOutlet, productOutletCode } from "@/lib/inventory/product-outlet-scope";
 import { fetchOrgAddons, isAddonEnabled } from "@/lib/org/addons";
 import { fetchOutletBootstrap } from "@/lib/outlets/bootstrap-options";
 import {
@@ -26,7 +26,7 @@ import {
   productTaxFieldLabel
 } from "@/lib/org/tax-settings";
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = await createClient();
   let auth;
   try {
@@ -35,6 +35,9 @@ export async function GET() {
     return toOrgAuthResponse(e);
   }
   const { org } = auth;
+
+  const url = new URL(request.url);
+  const outletFilter = String(url.searchParams.get("outlet_code") || "").trim();
 
   const taxSettings = await fetchOrgTaxSettings(supabase, org.id);
   const productTaxEnabled = isProductTaxEnabled(taxSettings);
@@ -78,7 +81,8 @@ export async function GET() {
     (categories || []).map((c) => [c.id, c])
   );
 
-  const items = (data || []).map((p) => {
+  const items = (data || [])
+    .map((p) => {
     const cat = p.category_id ? categoryMap.get(p.category_id) : null;
     const categoryTracksStock = cat?.tracks_stock as boolean | null | undefined;
     const effective = effectiveTracksStock(p.tracks_stock, categoryTracksStock);
@@ -106,13 +110,19 @@ export async function GET() {
       ),
       hpp: productHppFromMetadata(meta)
     };
-  });
+  })
+    .filter((p) =>
+      outletFilter
+        ? productMatchesOutlet((p.metadata || {}) as Record<string, unknown>, outletFilter)
+        : true
+    );
 
   return NextResponse.json({
     items,
     units: units || [],
     categories: categories || [],
     outlets,
+    scopedOutletCode: outletFilter || null,
     inventory: { enabled: inventoryEnabled },
     tax: {
       activeType: taxSettings.activeType,

@@ -18,7 +18,14 @@ const COA_TYPE_OPTIONS = [
   { value: "Beban", label: "Beban" }
 ];
 
-export function MasterTabPanel({ tab }: { tab: MasterTabId }) {
+export function MasterTabPanel({
+  tab,
+  outletCode
+}: {
+  tab: MasterTabId;
+  /** Filter produk per outlet (halaman inventory) */
+  outletCode?: string;
+}) {
   if (tab === "customers") {
     return (
       <MasterCrudPanel
@@ -82,6 +89,7 @@ export function MasterTabPanel({ tab }: { tab: MasterTabId }) {
         apiPath="/api/master/products"
         productTaxFromApi
         productInventoryFromApi
+        scopedOutletCode={outletCode}
         fields={[
           { key: "sku", label: "Barcode / Kode", type: "text" },
           { key: "name", label: "Nama", type: "text", required: true },
