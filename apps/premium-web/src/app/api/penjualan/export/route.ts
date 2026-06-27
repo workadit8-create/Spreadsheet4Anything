@@ -22,6 +22,8 @@ function parseDateRange(url: string) {
     start: searchParams.get("start") || defaultStart,
     end: searchParams.get("end") || defaultEnd,
     customerId: searchParams.get("customer_id") || undefined,
+    supplierId: searchParams.get("supplier_id") || undefined,
+    outletCode: searchParams.get("outlet_code") || undefined,
     type: searchParams.get("type") || "produk"
   };
 }
@@ -36,13 +38,19 @@ export async function GET(request: Request) {
   }
   const { user, org } = auth;
 
-  const { start, end, customerId, type } = parseDateRange(request.url);
+  const { start, end, customerId, supplierId, outletCode, type } = parseDateRange(request.url);
   if (!TYPES.has(type)) {
     return NextResponse.json({ error: "Tipe export tidak valid" }, { status: 400 });
   }
 
   try {
-    const bundle = await fetchPenjualanHistory(supabase, org.id, { start, end, customerId });
+    const bundle = await fetchPenjualanHistory(supabase, org.id, {
+      start,
+      end,
+      customerId,
+      supplierId,
+      outletCode
+    });
     const flatLines = flattenLinesForExport(bundle);
 
     let rows: Record<string, string | number>[] = [];

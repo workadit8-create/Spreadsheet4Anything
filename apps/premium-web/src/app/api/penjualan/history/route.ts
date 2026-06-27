@@ -12,8 +12,10 @@ function parseDateRange(url: string) {
   const start = searchParams.get("start") || defaultStart;
   const end = searchParams.get("end") || defaultEnd;
   const customerId = searchParams.get("customer_id") || undefined;
+  const supplierId = searchParams.get("supplier_id") || undefined;
+  const outletCode = searchParams.get("outlet_code") || undefined;
 
-  return { start, end, customerId };
+  return { start, end, customerId, supplierId, outletCode };
 }
 
 export async function GET(request: Request) {

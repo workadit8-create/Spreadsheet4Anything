@@ -60,7 +60,11 @@ export default function RiwayatPenjualanClient({ role }: { role: MembershipRole 
   const [start, setStart] = useState(defaults.start);
   const [end, setEnd] = useState(defaults.end);
   const [customerId, setCustomerId] = useState("");
+  const [supplierId, setSupplierId] = useState("");
+  const [outletCode, setOutletCode] = useState("");
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [suppliers, setSuppliers] = useState<Customer[]>([]);
+  const [outlets, setOutlets] = useState<Array<{ code: string; label: string }>>([]);
   const [rows, setRows] = useState<HistoryRow[]>([]);
   const [grandTotalSum, setGrandTotalSum] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -88,12 +92,41 @@ export default function RiwayatPenjualanClient({ role }: { role: MembershipRole 
     }
   }, []);
 
+  const loadSuppliers = useCallback(async () => {
+    try {
+      const res = await fetch("/api/master/suppliers");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setSuppliers((data.items || data.suppliers || []).map((s: Customer) => ({ id: s.id, name: s.name })));
+    } catch {
+      setSuppliers([]);
+    }
+  }, []);
+
+  const loadOutlets = useCallback(async () => {
+    try {
+      const res = await fetch("/api/master/outlets");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setOutlets(
+        (data.items || data.outlets || []).map((o: { code: string; name?: string; label?: string }) => ({
+          code: o.code,
+          label: o.label || o.name || o.code
+        }))
+      );
+    } catch {
+      setOutlets([]);
+    }
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams({ start, end });
       if (customerId) params.set("customer_id", customerId);
+      if (supplierId) params.set("supplier_id", supplierId);
+      if (outletCode) params.set("outlet_code", outletCode);
       const res = await fetch(`/api/penjualan/history?${params}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -106,11 +139,13 @@ export default function RiwayatPenjualanClient({ role }: { role: MembershipRole 
     } finally {
       setLoading(false);
     }
-  }, [start, end, customerId]);
+  }, [start, end, customerId, supplierId, outletCode]);
 
   useEffect(() => {
     loadCustomers();
-  }, [loadCustomers]);
+    loadSuppliers();
+    loadOutlets();
+  }, [loadCustomers, loadSuppliers, loadOutlets]);
 
   useEffect(() => {
     load();
@@ -215,6 +250,8 @@ export default function RiwayatPenjualanClient({ role }: { role: MembershipRole 
     try {
       const params = new URLSearchParams({ start, end, type });
       if (customerId) params.set("customer_id", customerId);
+      if (supplierId) params.set("supplier_id", supplierId);
+      if (outletCode) params.set("outlet_code", outletCode);
       const res = await fetch(`/api/penjualan/export?${params}`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -273,6 +310,34 @@ export default function RiwayatPenjualanClient({ role }: { role: MembershipRole 
               ))}
             </Select>
           </div>
+          <div className="min-w-[200px]">
+            <Label>Supplier titip</Label>
+            <Select
+              id="hist-supplier"
+              value={supplierId}
+              onChange={(e) => setSupplierId(e.target.value)}
+            >
+              <option value="">Semua supplier</option>
+              {suppliers.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </Select>
+          </div>
+          {outlets.length ? (
+            <div className="min-w-[160px]">
+              <Label>Outlet</Label>
+              <Select
+                id="hist-outlet"
+                value={outletCode}
+                onChange={(e) => setOutletCode(e.target.value)}
+              >
+                <option value="">Semua outlet</option>
+                {outlets.map((o) => (
+                  <option key={o.code} value={o.code}>{o.label}</option>
+                ))}
+              </Select>
+            </div>
+          ) : null}
           <Button type="button" onClick={() => load()} disabled={loading}>
             {loading ? "Memuat..." : "Cari data"}
           </Button>

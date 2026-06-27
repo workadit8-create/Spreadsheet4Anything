@@ -9,7 +9,8 @@ const ALLOWED_SOURCE_TYPES = new Set([
   "CASH_TRANSFER",
   "PIUTANG_PAYMENT",
   "UTANG_PAYMENT",
-  "CICILAN_BANK"
+  "CICILAN_BANK",
+  "CONSIGNMENT_SETTLEMENT"
 ]);
 
 export async function GET(request: Request) {

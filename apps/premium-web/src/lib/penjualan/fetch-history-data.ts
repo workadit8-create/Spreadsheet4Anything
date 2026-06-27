@@ -1,4 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  consignmentSupplierIdFromMetadata,
+  isConsignmentProduct
+} from "@/lib/products/consignment-policy";
 import type { SalesLineRow } from "@/lib/posting/types";
 import {
   buildDetail,
@@ -26,6 +30,7 @@ type OrderRecord = {
   total: number;
   status: string;
   customer_id: string | null;
+  outlet_code: string | null;
   metadata: Record<string, unknown>;
 };
 
@@ -33,6 +38,8 @@ export type PenjualanHistoryFilters = {
   start: string;
   end: string;
   customerId?: string;
+  supplierId?: string;
+  outletCode?: string;
 };
 
 export type PenjualanHistoryBundle = {
@@ -91,7 +98,7 @@ export async function fetchPenjualanHistory(
 ): Promise<PenjualanHistoryBundle> {
   let query = supabase
     .from("sales_orders")
-    .select("id, order_no, order_date, total, status, customer_id, metadata, created_at")
+    .select("id, order_no, order_date, total, status, customer_id, outlet_code, metadata, created_at")
     .eq("organization_id", orgId)
     .gte("order_date", filters.start)
     .lte("order_date", filters.end)
@@ -101,6 +108,9 @@ export async function fetchPenjualanHistory(
 
   if (filters.customerId) {
     query = query.eq("customer_id", filters.customerId);
+  }
+  if (filters.outletCode) {
+    query = query.eq("outlet_code", filters.outletCode);
   }
 
   const { data: orders, error } = await query;
@@ -126,8 +136,22 @@ export async function fetchPenjualanHistory(
   const customers = await loadCustomers(supabase, orgId);
   const products = await loadProductsForLines(supabase, orgId, lines);
 
+  const supplierFilter = filters.supplierId?.trim() || "";
+  let filteredOrders = orderList;
+  if (supplierFilter) {
+    filteredOrders = orderList.filter((order) => {
+      const orderLines = linesByOrder.get(order.id) || [];
+      return orderLines.some((line) => {
+        if (!line.product_id) return false;
+        const product = products.get(line.product_id);
+        if (!product || !isConsignmentProduct(product.metadata)) return false;
+        return consignmentSupplierIdFromMetadata(product.metadata) === supplierFilter;
+      });
+    });
+  }
+
   let grandTotalSum = 0;
-  const rows: HistoryOrderRow[] = orderList.map((order) => {
+  const rows: HistoryOrderRow[] = filteredOrders.map((order) => {
     const orderLines = linesByOrder.get(order.id) || [];
     const customerName =
       (order.customer_id && customers.get(order.customer_id)) ||
