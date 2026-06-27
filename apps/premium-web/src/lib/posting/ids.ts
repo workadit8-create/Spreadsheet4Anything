@@ -101,6 +101,12 @@ export function generatePurchaseReturnNo(): string {
   return `RP-PW-${y}${m}${day}-${seq}`;
 }
 
+export function generateStockTransferNo(): string {
+  const { y, m, day } = wibStamp();
+  const seq = String(Math.floor(Math.random() * 9000) + 1000);
+  return `TF-PW-${y}${m}${day}-${seq}`;
+}
+
 export function generatePurchaseReturnTransactionId(): string {
   const { y, m, day } = wibStamp();
   const seq = String(Math.floor(Math.random() * 90000) + 10000);

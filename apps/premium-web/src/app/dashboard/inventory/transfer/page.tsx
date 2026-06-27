@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { fetchOrgAddons, isAddonEnabled } from "@/lib/org/addons";
 import { requireUserOrg } from "@/lib/org/require-user-org";
-import { InventoryPlaceholderPage } from "@/components/inventory/InventoryPlaceholderPage";
+import { StockTransferPageClient } from "./StockTransferPageClient";
 
 export default async function InventoryTransferPage() {
   const supabase = await createClient();
@@ -21,11 +21,5 @@ export default async function InventoryTransferPage() {
     redirect("/dashboard/inventory/warehouse");
   }
 
-  return (
-    <InventoryPlaceholderPage
-      badge="Management Inventory"
-      title="Stock Transfer"
-      description="Transfer stok antar gudang dalam outlet yang sama (display ↔ backroom, distribusi → outlet)."
-    />
-  );
+  return <StockTransferPageClient />;
 }
