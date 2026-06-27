@@ -165,3 +165,97 @@ export async function reverseHppForReturnLines(
     }))
   );
 }
+
+export async function hasPurchaseReturnVoidMovement(
+  supabase: SupabaseClient,
+  organizationId: string,
+  returnId: string
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("stock_movements")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .eq("movement_type", "IN")
+    .eq("source_type", "PURCHASE_RETURN_VOID")
+    .eq("source_id", returnId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return Boolean(data?.id);
+}
+
+/** Balik stok IN saat void retur pembelian (kembalikan qty ke gudang). */
+export async function restorePurchaseStockAfterReturnVoid(
+  supabase: SupabaseClient,
+  params: {
+    organizationId: string;
+    warehouseId: string;
+    returnId: string;
+    returnNo: string;
+    lines: PurchaseStockLine[];
+    createdBy?: string | null;
+    notes?: string;
+  }
+): Promise<void> {
+  const stockLines = params.lines.filter((l) => l.tracksStock && l.qty > 0);
+  if (!stockLines.length) return;
+
+  const productIds = [...new Set(stockLines.map((l) => l.productId))];
+  const { data: levels, error: levelErr } = await supabase
+    .from("stock_levels")
+    .select("product_id, qty")
+    .eq("organization_id", params.organizationId)
+    .eq("warehouse_id", params.warehouseId)
+    .in("product_id", productIds);
+
+  if (levelErr) throw new Error(levelErr.message);
+
+  const qtyMap = new Map((levels || []).map((r) => [r.product_id, Number(r.qty) || 0]));
+
+  const { data: movement, error: movErr } = await supabase
+    .from("stock_movements")
+    .insert({
+      organization_id: params.organizationId,
+      warehouse_id: params.warehouseId,
+      movement_type: "IN",
+      source_type: "PURCHASE_RETURN_VOID",
+      source_id: params.returnId,
+      reference_no: params.returnNo,
+      notes: params.notes || "Void retur pembelian",
+      created_by: params.createdBy ?? null
+    })
+    .select("id")
+    .single();
+
+  if (movErr || !movement) {
+    throw new Error(movErr?.message || "Gagal buat stock movement void retur");
+  }
+
+  const movementLines = stockLines.map((line) => ({
+    movement_id: movement.id,
+    product_id: line.productId,
+    qty: line.qty
+  }));
+
+  const { error: lineErr } = await supabase.from("stock_movement_lines").insert(movementLines);
+  if (lineErr) throw new Error(lineErr.message);
+
+  for (const line of stockLines) {
+    const current = qtyMap.get(line.productId) ?? 0;
+    const qtyAfter = current + line.qty;
+
+    const { error: upsertErr } = await supabase.from("stock_levels").upsert(
+      {
+        organization_id: params.organizationId,
+        product_id: line.productId,
+        warehouse_id: params.warehouseId,
+        qty: qtyAfter,
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: "organization_id,product_id,warehouse_id" }
+    );
+
+    if (upsertErr) throw new Error(upsertErr.message);
+  }
+}

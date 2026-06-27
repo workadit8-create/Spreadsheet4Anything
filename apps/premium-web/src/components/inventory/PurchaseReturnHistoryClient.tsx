@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { DetailModalTabs, TransactionJournalView } from "@/components/jurnal/TransactionJournalView";
+import { canPostJournal, type MembershipRole } from "@/lib/org/roles";
+import { PostingRoleBanner } from "@/components/layout/PostingRoleBanner";
 import { ConsignmentFormCard } from "@/components/inventory/consignment-layout";
 import { wibMonthStartIso, wibTodayIso } from "@/lib/date/wib";
 
@@ -15,12 +17,14 @@ type ListItem = {
   poNo: string | null;
   total: number;
   refundMode: string;
+  status: string;
 };
 
 type DetailData = {
   header: {
     docNo: string;
     docDate: string;
+    status: string;
     supplierName: string;
     poNo: string | null;
     total: number;
@@ -55,7 +59,8 @@ function defaultDateRange() {
   return { start: wibMonthStartIso(), end: wibTodayIso() };
 }
 
-export function PurchaseReturnHistoryClient() {
+export function PurchaseReturnHistoryClient({ role }: { role: MembershipRole }) {
+  const canPost = canPostJournal(role);
   const defaults = useMemo(() => defaultDateRange(), []);
   const [start, setStart] = useState(defaults.start);
   const [end, setEnd] = useState(defaults.end);
@@ -69,6 +74,8 @@ export function PurchaseReturnHistoryClient() {
   const [detailTab, setDetailTab] = useState<"detail" | "jurnal">("detail");
   const [detailLoading, setDetailLoading] = useState(false);
   const [detail, setDetail] = useState<DetailData | null>(null);
+  const [actingId, setActingId] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
   const loadSuppliers = useCallback(async () => {
     try {
@@ -124,8 +131,33 @@ export function PurchaseReturnHistoryClient() {
     }
   }
 
+  async function voidReturn(id: string, returnNo: string) {
+    const reason = window.prompt(`Alasan batal retur ${returnNo}?`, "Input salah");
+    if (reason === null) return;
+
+    setActingId(id);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/inventory/purchase-returns/${id}/void`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setMessage(data.message || "Retur dibatalkan");
+      setDetailOpen(false);
+      await load();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Gagal void");
+    } finally {
+      setActingId(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
+      <PostingRoleBanner canPost={canPost} />
       <ConsignmentFormCard>
         <div className="flex flex-wrap items-end gap-x-6 gap-y-5">
           <div>
@@ -154,6 +186,7 @@ export function PurchaseReturnHistoryClient() {
       </ConsignmentFormCard>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {message ? <p className="text-sm text-slate-600">{message}</p> : null}
 
       <ConsignmentFormCard>
         <h2 className="mb-4 text-sm font-semibold text-slate-800">Riwayat retur</h2>
@@ -176,11 +209,24 @@ export function PurchaseReturnHistoryClient() {
                   </div>
                   <div className="text-xs text-slate-500">
                     {formatRp(r.total)} · {r.refundMode === "TUNAI" ? "Refund tunai" : "Kurangi utang"}
+                    {r.status === "VOIDED" ? " · Dibatalkan" : ""}
                   </div>
                 </div>
-                <Button type="button" variant="ghost" onClick={() => openDetail(r.id)}>
-                  Detail
-                </Button>
+                <div className="flex flex-col items-end gap-1">
+                  <Button type="button" variant="ghost" onClick={() => openDetail(r.id)}>
+                    Detail
+                  </Button>
+                  {r.status === "POSTED" && canPost ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={actingId === r.id}
+                      onClick={() => voidReturn(r.id, r.returnNo)}
+                    >
+                      {actingId === r.id ? "..." : "Batal"}
+                    </Button>
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>
@@ -203,7 +249,7 @@ export function PurchaseReturnHistoryClient() {
                 <DetailModalTabs
                   tab={detailTab}
                   onTabChange={setDetailTab}
-                  showJournal={detail.hasJournal}
+                  showJournal={detail.header.status === "POSTED" || detail.header.status === "VOIDED"}
                 />
                 {detailTab === "detail" ? (
                   <>
@@ -216,6 +262,9 @@ export function PurchaseReturnHistoryClient() {
                         {detail.header.poNo ? ` · PO ${detail.header.poNo}` : ""}
                       </p>
                       <p className="text-sm font-medium">{formatRp(detail.header.total)}</p>
+                      {detail.header.status === "VOIDED" ? (
+                        <p className="text-sm text-amber-700">Status: dibatalkan</p>
+                      ) : null}
                     </div>
                     <table className="w-full border-collapse text-sm">
                       <thead>
@@ -238,7 +287,17 @@ export function PurchaseReturnHistoryClient() {
                         ))}
                       </tbody>
                     </table>
-                    <div className="mt-4 flex justify-end">
+                    <div className="mt-4 flex flex-wrap justify-end gap-2">
+                      {detail.header.status === "POSTED" && canPost ? (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          disabled={actingId !== null}
+                          onClick={() => voidReturn(detail.journalSourceId, detail.header.docNo)}
+                        >
+                          Batal retur
+                        </Button>
+                      ) : null}
                       <Button type="button" variant="ghost" onClick={() => setDetailOpen(false)}>
                         Tutup
                       </Button>

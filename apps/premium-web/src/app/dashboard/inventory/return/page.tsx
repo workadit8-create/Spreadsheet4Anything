@@ -18,5 +18,5 @@ export default async function InventoryReturnPage() {
     redirect("/dashboard");
   }
 
-  return <PurchaseReturnPageClient />;
+  return <PurchaseReturnPageClient role={auth.role} />;
 }

@@ -18,5 +18,5 @@ export default async function ConsignmentHistoryPage() {
     redirect("/dashboard");
   }
 
-  return <ConsignmentHistoryClient />;
+  return <ConsignmentHistoryClient role={auth.role} />;
 }

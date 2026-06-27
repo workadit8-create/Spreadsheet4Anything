@@ -5,8 +5,9 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { PurchaseReturnForm } from "@/components/inventory/PurchaseReturnForm";
 import { PurchaseReturnHistoryClient } from "@/components/inventory/PurchaseReturnHistoryClient";
 import { ConsignmentFormCard, ConsignmentPageShell } from "@/components/inventory/consignment-layout";
+import type { MembershipRole } from "@/lib/org/roles";
 
-export function PurchaseReturnPageClient() {
+export function PurchaseReturnPageClient({ role }: { role: MembershipRole }) {
   const [tab, setTab] = useState<"form" | "history">("form");
   const [historyKey, setHistoryKey] = useState(0);
 
@@ -52,7 +53,7 @@ export function PurchaseReturnPageClient() {
           />
         </ConsignmentFormCard>
       ) : (
-        <PurchaseReturnHistoryClient key={historyKey} />
+        <PurchaseReturnHistoryClient key={historyKey} role={role} />
       )}
     </ConsignmentPageShell>
   );

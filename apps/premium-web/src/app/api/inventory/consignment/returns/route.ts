@@ -70,6 +70,7 @@ export async function GET(request: Request) {
       returnDate: row.return_date,
       supplierName: (Array.isArray(sup) ? sup[0]?.name : sup?.name) || "—",
       outletCode: row.outlet_code,
+      status: row.status,
       totalQty: lines.reduce((s, l) => s + (Number(l.qty) || 0), 0),
       lineCount: lines.length
     };

@@ -7,6 +7,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { DetailModalTabs, TransactionJournalView } from "@/components/jurnal/TransactionJournalView";
 import { ConsignmentFormCard, ConsignmentPageShell } from "@/components/inventory/consignment-layout";
 import { wibMonthStartIso, wibTodayIso } from "@/lib/date/wib";
+import { canPostJournal, type MembershipRole } from "@/lib/org/roles";
+import { PostingRoleBanner } from "@/components/layout/PostingRoleBanner";
 
 type ListItem = {
   id: string;
@@ -17,6 +19,7 @@ type ListItem = {
   totalQty?: number;
   lineCount?: number;
   total?: number;
+  status?: string;
 };
 
 type DetailKind = "receipt" | "settlement" | "return";
@@ -73,14 +76,22 @@ function DocList({
   items,
   kind,
   emptyLabel,
-  onDetail
+  onDetail,
+  onVoid,
+  canPost,
+  actingId
 }: {
   items: ListItem[];
   kind: DetailKind;
   emptyLabel: string;
   onDetail: (kind: DetailKind, id: string) => void;
+  onVoid?: (id: string, docNo: string) => void;
+  canPost?: boolean;
+  actingId?: string | null;
 }) {
   if (!items.length) return <p className="text-sm text-slate-500">{emptyLabel}</p>;
+
+  const showVoid = kind === "return" && canPost && onVoid;
 
   return (
     <ul className="space-y-3 text-sm">
@@ -99,18 +110,32 @@ function DocList({
               {r.total != null
                 ? formatRp(r.total)
                 : `${r.lineCount ?? 0} produk · qty ${r.totalQty ?? 0}`}
+              {r.status === "VOIDED" ? " · Dibatalkan" : ""}
             </div>
           </div>
-          <Button type="button" variant="ghost" onClick={() => onDetail(kind, r.id)}>
-            Detail
-          </Button>
+          <div className="flex flex-col items-end gap-1">
+            <Button type="button" variant="ghost" onClick={() => onDetail(kind, r.id)}>
+              Detail
+            </Button>
+            {showVoid && r.status === "POSTED" ? (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={actingId === r.id}
+                onClick={() => onVoid(r.id, r.docNo)}
+              >
+                {actingId === r.id ? "..." : "Batal"}
+              </Button>
+            ) : null}
+          </div>
         </li>
       ))}
     </ul>
   );
 }
 
-export function ConsignmentHistoryClient() {
+export function ConsignmentHistoryClient({ role }: { role: MembershipRole }) {
+  const canPost = canPostJournal(role);
   const defaults = useMemo(() => defaultDateRange(), []);
   const [start, setStart] = useState(defaults.start);
   const [end, setEnd] = useState(defaults.end);
@@ -126,6 +151,8 @@ export function ConsignmentHistoryClient() {
   const [detailTab, setDetailTab] = useState<"detail" | "jurnal">("detail");
   const [detailLoading, setDetailLoading] = useState(false);
   const [detail, setDetail] = useState<DetailData | null>(null);
+  const [actingId, setActingId] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
   const loadSuppliers = useCallback(async () => {
     try {
@@ -185,7 +212,8 @@ export function ConsignmentHistoryClient() {
           supplierName: String(r.supplierName),
           outletCode: r.outletCode as string | null,
           totalQty: Number(r.totalQty) || 0,
-          lineCount: Number(r.lineCount) || 0
+          lineCount: Number(r.lineCount) || 0,
+          status: String(r.status || "POSTED")
         }))
       );
     } catch (e) {
@@ -226,6 +254,30 @@ export function ConsignmentHistoryClient() {
     setDetail(null);
   }
 
+  async function voidReturn(id: string, returnNo: string) {
+    const reason = window.prompt(`Alasan batal retur ${returnNo}?`, "Input salah");
+    if (reason === null) return;
+
+    setActingId(id);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/inventory/consignment/returns/${id}/void`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setMessage(data.message || "Retur dibatalkan");
+      closeDetail();
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal void");
+    } finally {
+      setActingId(null);
+    }
+  }
+
   const kindLabel =
     detail?.kind === "receipt"
       ? "Penerimaan titip"
@@ -240,6 +292,8 @@ export function ConsignmentHistoryClient() {
         description="Penerimaan barang titip, pelunasan ke supplier, dan retur barang"
       />
       {error ? <p className="mb-6 text-sm text-red-600">{error}</p> : null}
+      {message ? <p className="mb-6 text-sm text-slate-600">{message}</p> : null}
+      <PostingRoleBanner canPost={canPost} />
 
       <ConsignmentFormCard>
         <div className="flex flex-wrap items-end gap-x-6 gap-y-5">
@@ -298,6 +352,9 @@ export function ConsignmentHistoryClient() {
             kind="return"
             emptyLabel="Belum ada retur."
             onDetail={openDetail}
+            onVoid={voidReturn}
+            canPost={canPost}
+            actingId={actingId}
           />
         </ConsignmentFormCard>
       </div>
@@ -343,6 +400,9 @@ export function ConsignmentHistoryClient() {
                         ) : null}
                         {detail.header.notes ? (
                           <p className="text-xs text-slate-500">Catatan: {detail.header.notes}</p>
+                        ) : null}
+                        {detail.kind === "return" && detail.header.status === "VOIDED" ? (
+                          <p className="text-sm text-amber-700">Status: dibatalkan</p>
                         ) : null}
                       </div>
                       <button
@@ -410,7 +470,19 @@ export function ConsignmentHistoryClient() {
                       </tbody>
                     </table>
 
-                    <div className="mt-4 flex justify-end border-t border-slate-100 pt-4">
+                    <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
+                      {detail.kind === "return" &&
+                      detail.header.status === "POSTED" &&
+                      canPost ? (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          disabled={actingId !== null}
+                          onClick={() => voidReturn(detail.header.id, detail.header.docNo)}
+                        >
+                          Batal retur
+                        </Button>
+                      ) : null}
                       <Button type="button" variant="ghost" onClick={closeDetail}>
                         Tutup
                       </Button>

@@ -68,7 +68,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("purchase_returns")
     .select(
-      "id, return_no, return_date, total, refund_mode, outlet_code, suppliers(name), purchase_orders(po_no)"
+      "id, return_no, return_date, total, refund_mode, status, outlet_code, suppliers(name), purchase_orders(po_no)"
     )
     .eq("organization_id", org.id)
     .gte("return_date", start)
@@ -92,6 +92,7 @@ export async function GET(request: Request) {
       poNo: (Array.isArray(po) ? po[0]?.po_no : po?.po_no) || null,
       total: Number(row.total) || 0,
       refundMode: row.refund_mode,
+      status: row.status,
       outletCode: row.outlet_code
     };
   });
