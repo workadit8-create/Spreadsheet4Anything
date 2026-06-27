@@ -4,6 +4,7 @@ import type { JournalLineDraft } from "@/lib/posting/journal-rules";
 import { buildSaleHppJournalLines, saleHppTransactionId } from "@/lib/posting/journal-rules";
 import { effectiveTracksStock } from "@/lib/products/inventory-policy";
 import { productHppFromMetadata } from "@/lib/products/product-hpp";
+import { isConsignmentProduct } from "@/lib/products/consignment-policy";
 import { isInventoryStockEnabled } from "@/lib/inventory/sale-stock";
 
 export type SaleHppLineInput = {
@@ -48,6 +49,8 @@ export async function computeSaleHppTotal(
     if (!tracks) continue;
 
     const meta = (product.metadata || {}) as Record<string, unknown>;
+    if (isConsignmentProduct(meta)) continue;
+
     const hpp = productHppFromMetadata(meta);
     const qty = Number(line.qty) || 0;
     if (hpp == null) {

@@ -34,6 +34,9 @@ export const NAV_KEYS = [
   "inventory-transfer",
   "inventory-return",
   "inventory-stock-report",
+  "titip-jual-penerimaan",
+  "titip-jual-settlement",
+  "titip-jual-riwayat",
   "tim",
   "audit-log",
   "akun"
@@ -72,6 +75,9 @@ export const ROLE_MENU_KEYS: Record<MembershipRole, readonly NavKey[] | null> = 
     "inventory-transfer",
     "inventory-return",
     "inventory-stock-report",
+    "titip-jual-penerimaan",
+    "titip-jual-settlement",
+    "titip-jual-riwayat",
     "akun"
   ],
   akuntan: [
@@ -292,5 +298,6 @@ export function addonNavKey(addon: AddonKey): NavKey | null {
   if (addon === "pos") return "pos";
   if (addon === "inventory") return "stok-outlet";
   if (addon === "pembelian") return "pembelian-inventory";
+  if (addon === "titip_jual") return "titip-jual-penerimaan";
   return null;
 }

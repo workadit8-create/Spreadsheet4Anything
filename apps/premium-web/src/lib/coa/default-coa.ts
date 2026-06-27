@@ -51,6 +51,13 @@ export const DEFAULT_COA_USAHA: DefaultCoaRow[] = [
     saldo_normal: "Kredit"
   },
   {
+    code: "2-10003",
+    name: "Utang Titip Jual",
+    account_type: "Kewajiban",
+    sub_category: "Kewajiban Lancar",
+    saldo_normal: "Kredit"
+  },
+  {
     code: "2-20001",
     name: "Utang Bank Jangka Panjang",
     account_type: "Kewajiban",

@@ -128,6 +128,30 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
     ]
   },
   {
+    id: "titip-jual",
+    label: "Titip Jual",
+    items: [
+      {
+        key: "titip-jual-penerimaan",
+        href: "/dashboard/inventory/titip-jual/penerimaan",
+        label: "Penerimaan Titip",
+        requireAddons: ["titip_jual", "inventory"]
+      },
+      {
+        key: "titip-jual-settlement",
+        href: "/dashboard/inventory/titip-jual/settlement",
+        label: "Pelunasan Titip",
+        requireAddons: ["titip_jual", "inventory"]
+      },
+      {
+        key: "titip-jual-riwayat",
+        href: "/dashboard/inventory/titip-jual/riwayat",
+        label: "Riwayat Titip",
+        requireAddons: ["titip_jual", "inventory"]
+      }
+    ]
+  },
+  {
     id: "akuntansi",
     label: "Akuntansi",
     items: [

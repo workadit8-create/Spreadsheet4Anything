@@ -13,7 +13,9 @@ export type PostJournalEntryInput = {
     | "CICILAN_UTANG_BANK"
     | "ASSET_DEPRECIATION"
     | "ASSET_DISPOSAL"
-    | "HPP_PENJUALAN";
+    | "HPP_PENJUALAN"
+    | "TITIP_JUAL_PENJUALAN"
+    | "TITIP_JUAL_SETTLEMENT";
   transactionId: string;
   docNo: string;
   entryDate: string;

@@ -6,6 +6,7 @@ import {
 } from "@/lib/inventory/sale-stock";
 import { receivePurchaseStockForOrderIfEnabled } from "@/lib/inventory/purchase-inventory-post";
 import { postSaleHppJournalIfEnabled } from "@/lib/inventory/sale-hpp-journal";
+import { postConsignmentSaleJournalIfEnabled } from "@/lib/inventory/consignment-sale-journal";
 import { buildPemasukanPayload } from "./pemasukan";
 import { buildPelunasanPiutangPayload } from "./pelunasan-piutang";
 import {
@@ -594,6 +595,19 @@ export async function processPendingPostingJobs(
           }))
         });
 
+        const titipResult = await postConsignmentSaleJournalIfEnabled(supabase, {
+          organizationId: job.organization_id,
+          salesOrderId: order.id,
+          orderNo: order.order_no,
+          entryDate: order.order_date,
+          keterangan: meta.keterangan || order.order_no,
+          lines: (lines || []).map((l) => ({
+            product_id: l.product_id,
+            qty: Number(l.qty) || 0,
+            description: l.description
+          }))
+        });
+
         await supabase
           .from("posting_jobs")
           .update({
@@ -628,7 +642,21 @@ export async function processPendingPostingJobs(
           }
         }
 
-        await logJob(supabase, job.id, "INFO", journalMsg + hppMsg);
+        let titipMsg = "";
+        if (titipResult) {
+          if (titipResult.posted) {
+            titipMsg = ` · Jurnal titip OK (${titipResult.totalAmount.toLocaleString("id-ID")})`;
+          } else if (titipResult.skipped) {
+            titipMsg = " · Jurnal titip sudah ada (skip)";
+          } else if (titipResult.totalAmount <= 0) {
+            titipMsg = " · Jurnal titip tidak perlu";
+          }
+          if (titipResult.warnings.length) {
+            titipMsg += ` · ${titipResult.warnings.join("; ")}`;
+          }
+        }
+
+        await logJob(supabase, job.id, "INFO", journalMsg + hppMsg + titipMsg);
 
         results.push({
           jobId: job.id,

@@ -16,6 +16,14 @@ import {
   productHppFromMetadata,
   resolveFormTrackStock
 } from "@/lib/products/product-hpp";
+import {
+  consignmentSettlementPriceFromMetadata,
+  consignmentSupplierIdFromMetadata,
+  mergeConsignmentProductMetadata,
+  parseStockOwnership,
+  productStockOwnership,
+  STOCK_OWNERSHIP_LABELS
+} from "@/lib/products/consignment-policy";
 import { productMatchesOutlet, productOutletCode } from "@/lib/inventory/product-outlet-scope";
 import { fetchOrgAddons, isAddonEnabled } from "@/lib/org/addons";
 import { fetchOutletBootstrap } from "@/lib/outlets/bootstrap-options";
@@ -56,6 +64,7 @@ export async function GET(request: Request) {
 
   const addons = await fetchOrgAddons(supabase, org.id);
   const inventoryEnabled = isAddonEnabled(addons, "inventory");
+  const titipJualEnabled = isAddonEnabled(addons, "titip_jual");
   let outlets: Array<{ code: string; name: string }> = [];
   if (isAddonEnabled(addons, "outlet")) {
     const outletBootstrap = await fetchOutletBootstrap(supabase, org.id);
@@ -63,6 +72,17 @@ export async function GET(request: Request) {
       code: o.outletCode,
       name: o.label
     }));
+  }
+
+  let suppliers: Array<{ id: string; name: string }> = [];
+  if (inventoryEnabled) {
+    const { data: supplierRows } = await supabase
+      .from("suppliers")
+      .select("id, name")
+      .eq("organization_id", org.id)
+      .eq("active", true)
+      .order("name");
+    suppliers = (supplierRows || []).map((s) => ({ id: s.id, name: s.name }));
   }
 
   const outletNameByCode = new Map(outlets.map((o) => [o.code, o.name]));
@@ -108,7 +128,11 @@ export async function GET(request: Request) {
       ppn_taxable: productTaxableFromMetadata(
         (p.metadata || {}) as Record<string, unknown>
       ),
-      hpp: productHppFromMetadata(meta)
+      hpp: productHppFromMetadata(meta),
+      stock_ownership: productStockOwnership(meta),
+      stock_ownership_label: STOCK_OWNERSHIP_LABELS[productStockOwnership(meta)],
+      consignment_supplier_id: consignmentSupplierIdFromMetadata(meta),
+      consignment_settlement_price: consignmentSettlementPriceFromMetadata(meta)
     };
   })
     .filter((p) =>
@@ -124,6 +148,8 @@ export async function GET(request: Request) {
     outlets,
     scopedOutletCode: outletFilter || null,
     inventory: { enabled: inventoryEnabled },
+    titipJual: { enabled: titipJualEnabled },
+    suppliers,
     tax: {
       activeType: taxSettings.activeType,
       productTaxEnabled,
@@ -191,6 +217,7 @@ export async function POST(request: Request) {
 
   const addons = await fetchOrgAddons(supabase, org.id);
   const inventoryEnabled = isAddonEnabled(addons, "inventory");
+  const titipJualEnabled = isAddonEnabled(addons, "titip_jual");
 
   const { data: categories } = await supabase
     .from("product_categories")
@@ -203,20 +230,71 @@ export async function POST(request: Request) {
     categories || []
   );
 
+  const stockOwnership = titipJualEnabled
+    ? parseStockOwnership(bodyMeta.stockOwnership ?? body.stock_ownership)
+    : "owned";
+
   const hppInput = parseHppInput(bodyMeta.hpp ?? body.hpp);
-  if (inventoryEnabled && willTrackStock && hppInput === null) {
+  const isConsignment =
+    titipJualEnabled && inventoryEnabled && willTrackStock && stockOwnership === "consignment";
+
+  if (inventoryEnabled && willTrackStock && !isConsignment && hppInput === null) {
     return NextResponse.json(
-      { error: "HPP wajib untuk produk yang kelola stok" },
+      { error: "HPP wajib untuk produk milik sendiri yang kelola stok" },
       { status: 400 }
     );
   }
 
-  const metadata = mergeProductMetadata(existingMeta, {
+  let consignmentSupplierId: string | null = null;
+  let consignmentSettlementPrice: number | null = null;
+  if (isConsignment) {
+    consignmentSupplierId = String(
+      bodyMeta.consignmentSupplierId ?? body.consignment_supplier_id ?? ""
+    ).trim();
+    if (!consignmentSupplierId) {
+      return NextResponse.json(
+        { error: "Supplier pemilik titip wajib untuk produk titip jual" },
+        { status: 400 }
+      );
+    }
+    const { data: supplierRow } = await supabase
+      .from("suppliers")
+      .select("id")
+      .eq("id", consignmentSupplierId)
+      .eq("organization_id", org.id)
+      .maybeSingle();
+    if (!supplierRow) {
+      return NextResponse.json({ error: "Supplier pemilik titip tidak ditemukan" }, { status: 400 });
+    }
+    const settlementRaw = bodyMeta.consignmentSettlementPrice ?? body.consignment_settlement_price;
+    const settlement = Number(settlementRaw);
+    if (!Number.isFinite(settlement) || settlement < 0) {
+      return NextResponse.json(
+        { error: "Harga settlement titip jual wajib (>= 0)" },
+        { status: 400 }
+      );
+    }
+    consignmentSettlementPrice = Math.round(settlement);
+  }
+
+  let metadata = mergeProductMetadata(existingMeta, {
     akunPendapatan: String(body.akunPendapatan || existingMeta.akunPendapatan || "Pendapatan").trim(),
     taxTaxable,
     outlet: outletPatch,
-    ...(inventoryEnabled && willTrackStock && hppInput !== null ? { hpp: hppInput } : {})
+    ...(inventoryEnabled && willTrackStock && !isConsignment && hppInput !== null
+      ? { hpp: hppInput }
+      : {})
   });
+
+  if (titipJualEnabled && inventoryEnabled && willTrackStock) {
+    metadata = mergeConsignmentProductMetadata(metadata, {
+      stockOwnership,
+      consignmentSupplierId: isConsignment ? consignmentSupplierId : null,
+      consignmentSettlementPrice: isConsignment ? consignmentSettlementPrice : null
+    });
+  } else {
+    metadata = mergeConsignmentProductMetadata(metadata, { stockOwnership: "owned" });
+  }
 
   if (isAddonEnabled(addons, "outlet")) {
     const outletBootstrap = await fetchOutletBootstrap(supabase, org.id);

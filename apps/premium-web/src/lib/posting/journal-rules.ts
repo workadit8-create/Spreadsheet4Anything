@@ -317,6 +317,7 @@ export function buildMutasiDanaJournalLines(data: MutasiDanaJournalInput): Journ
 
 export const HPP_EXPENSE_ACCOUNT = "Beban HPP";
 export const INVENTORY_ACCOUNT = "Persediaan Barang";
+export const CONSIGNMENT_PAYABLE_ACCOUNT = "Utang Titip Jual";
 
 export function saleHppTransactionId(salesOrderId: string): string {
   return `HPP-${salesOrderId}`;
@@ -345,6 +346,72 @@ export function buildSaleHppJournalLines(input: {
     {
       lineDate: input.entryDate,
       accountName: input.inventoryAccount || INVENTORY_ACCOUNT,
+      debit: 0,
+      credit: total,
+      keterangan: ket
+    }
+  ];
+}
+
+export function consignmentSaleTransactionId(salesOrderId: string): string {
+  return `TJP-${salesOrderId}`;
+}
+
+export function consignmentSettlementTransactionId(settlementId: string): string {
+  return `TJS-${settlementId}`;
+}
+
+export function buildConsignmentSaleJournalLines(input: {
+  entryDate: string;
+  orderNo: string;
+  keterangan: string;
+  totalSettlement: number;
+}): JournalLineDraft[] {
+  const total = Math.max(0, Math.round(Number(input.totalSettlement) || 0));
+  if (total <= 0) return [];
+
+  const ket = `Titip jual terjual ${input.orderNo} — ${input.keterangan}`.trim();
+  return [
+    {
+      lineDate: input.entryDate,
+      accountName: HPP_EXPENSE_ACCOUNT,
+      debit: total,
+      credit: 0,
+      keterangan: ket
+    },
+    {
+      lineDate: input.entryDate,
+      accountName: CONSIGNMENT_PAYABLE_ACCOUNT,
+      debit: 0,
+      credit: total,
+      keterangan: ket
+    }
+  ];
+}
+
+export function buildConsignmentSettlementJournalLines(input: {
+  entryDate: string;
+  settlementNo: string;
+  supplierName: string;
+  total: number;
+  rekening: string;
+}): JournalLineDraft[] {
+  const total = Math.max(0, Math.round(Number(input.total) || 0));
+  if (total <= 0) return [];
+
+  const ket = `Pelunasan titip jual ${input.settlementNo} — ${input.supplierName}`.trim();
+  const kasAccount = resolveKasBankAccount(input.rekening);
+  return [
+    {
+      lineDate: input.entryDate,
+      accountName: CONSIGNMENT_PAYABLE_ACCOUNT,
+      debit: total,
+      credit: 0,
+      keterangan: ket
+    },
+    {
+      lineDate: input.entryDate,
+      accountName: kasAccount,
       debit: 0,
       credit: total,
       keterangan: ket

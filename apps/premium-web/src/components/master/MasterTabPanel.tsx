@@ -118,12 +118,44 @@ export function MasterTabPanel({
             ]
           },
           {
+            key: "stockOwnership",
+            label: "Kepemilikan stok",
+            type: "select",
+            metaKey: "stockOwnership",
+            whenTrackStock: true,
+            whenTitipJual: true,
+            options: [
+              { value: "owned", label: "Milik sendiri (beli putus)" },
+              { value: "consignment", label: "Titip jual" }
+            ]
+          },
+          {
+            key: "consignmentSupplierId",
+            label: "Supplier pemilik titip",
+            type: "select",
+            metaKey: "consignmentSupplierId",
+            optionsKey: "suppliers",
+            whenTrackStock: true,
+            whenTitipJual: true,
+            whenConsignment: true
+          },
+          {
+            key: "consignmentSettlementPrice",
+            label: "Harga settlement / unit",
+            type: "number",
+            metaKey: "consignmentSettlementPrice",
+            whenTrackStock: true,
+            whenTitipJual: true,
+            whenConsignment: true,
+            placeholder: "Bayar ke supplier saat laku"
+          },
+          {
             key: "hpp",
             label: "HPP (harga pokok)",
             type: "number",
             metaKey: "hpp",
             whenTrackStock: true,
-            placeholder: "Per satuan, statis"
+            placeholder: "Per satuan, milik sendiri"
           },
           { key: "unit_id", label: "Satuan", type: "select", optionsKey: "units" },
           {
@@ -142,7 +174,9 @@ export function MasterTabPanel({
           { key: "outlet_label", label: "Outlet" },
           { key: "category_name", label: "Kategori" },
           { key: "tracks_stock_label", label: "Stok" },
+          { key: "stock_ownership_label", label: "Kepemilikan" },
           { key: "hpp", label: "HPP", format: "money" },
+          { key: "consignment_settlement_price", label: "Settlement", format: "money" },
           { key: "sell_price", label: "Harga jual", format: "money" },
           { key: "akunPendapatan", label: "Akun", metaKey: "akunPendapatan" },
           { key: "active", label: "Status" }

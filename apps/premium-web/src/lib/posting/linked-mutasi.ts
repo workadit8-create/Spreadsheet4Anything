@@ -7,7 +7,8 @@ export type LinkedSourceType =
   | "UTANG_PAYMENT"
   | "PIUTANG_PAYMENT"
   | "CICILAN_BANK"
-  | "ASSET_DISPOSAL";
+  | "ASSET_DISPOSAL"
+  | "CONSIGNMENT_SETTLEMENT";
 
 export type KasBankAccountRef = {
   id: string;

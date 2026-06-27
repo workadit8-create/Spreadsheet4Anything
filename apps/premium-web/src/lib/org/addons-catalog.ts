@@ -1,4 +1,4 @@
-export const ADDON_KEYS = ["project", "pos", "outlet", "inventory", "pembelian", "pos_gramasi", "crm"] as const;
+export const ADDON_KEYS = ["project", "pos", "outlet", "inventory", "pembelian", "titip_jual", "pos_gramasi", "crm"] as const;
 export type AddonKey = (typeof ADDON_KEYS)[number];
 
 export type AddonInfo = {
@@ -36,6 +36,12 @@ export const ADDON_CATALOG: Record<
     description: "PO terhubung produk master — stok masuk saat posting (ERP pesantren/koperasi).",
     navHref: "/dashboard/inventory/pembelian"
   },
+  titip_jual: {
+    label: "Titip Jual",
+    description:
+      "Barang consignment — penerimaan titip, penjualan POS, settlement ke supplier (pemilik titip).",
+    navHref: "/dashboard/inventory/titip-jual/penerimaan"
+  },
   pos_gramasi: {
     label: "POS Gramasi",
     description: "POS dengan timbangan / gramasi."
@@ -55,6 +61,7 @@ export function emptyAddonsMap(): OrgAddonsMap {
     outlet: false,
     inventory: false,
     pembelian: false,
+    titip_jual: false,
     pos_gramasi: false,
     crm: false
   };

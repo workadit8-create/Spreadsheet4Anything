@@ -20,6 +20,10 @@ export type FieldDef = {
   options?: { value: string; label: string }[];
   /** Tampil hanya jika org inventory ON dan form = kelola stok */
   whenTrackStock?: boolean;
+  /** Tampil hanya jika add-on titip jual aktif */
+  whenTitipJual?: boolean;
+  /** Tampil hanya jika kepemilikan = titip jual */
+  whenConsignment?: boolean;
 };
 
 type Row = Record<string, unknown>;
@@ -71,6 +75,7 @@ export function MasterCrudPanel({
   const [extras, setExtras] = useState<Record<string, Row[]>>({});
   const [productTax, setProductTax] = useState<ProductTaxApiConfig | null>(null);
   const [inventoryEnabled, setInventoryEnabled] = useState(false);
+  const [titipJualEnabled, setTitipJualEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -132,8 +137,9 @@ export function MasterCrudPanel({
       }
       if (productInventoryFromApi) {
         setInventoryEnabled(data.inventory?.enabled === true);
+        setTitipJualEnabled(data.titipJual?.enabled === true);
       }
-      const extraKeys = ["units", "categories", "coa_accounts", "outlets"];
+      const extraKeys = ["units", "categories", "coa_accounts", "outlets", "suppliers"];
       extraKeys.forEach((k) => {
         if (data[k]) setExtras((prev) => ({ ...prev, [k]: data[k] }));
       });
@@ -172,10 +178,22 @@ export function MasterCrudPanel({
     [inventoryEnabled, extras.categories]
   );
 
+  const formIsConsignment = useCallback((row: Row) => {
+    const meta = (row.metadata || {}) as Record<string, unknown>;
+    const ownership = String(meta.stockOwnership || row.stock_ownership || "owned");
+    return ownership === "consignment";
+  }, []);
+
   const visibleFields = useCallback(
     (sourceFields: FieldDef[]) =>
-      sourceFields.filter((f) => !f.whenTrackStock || formTracksStock(form)),
-    [form, formTracksStock]
+      sourceFields.filter((f) => {
+        if (f.whenTitipJual && !titipJualEnabled) return false;
+        if (f.whenConsignment && !formIsConsignment(form)) return false;
+        if (f.whenTrackStock && !formTracksStock(form)) return false;
+        if (f.key === "hpp" && formIsConsignment(form)) return false;
+        return true;
+      }),
+    [form, formTracksStock, titipJualEnabled, formIsConsignment]
   );
 
   const activeFields = useMemo(() => {
@@ -283,21 +301,32 @@ export function MasterCrudPanel({
     try {
       if (inventoryEnabled && formTracksStock(form)) {
         const meta = (form.metadata || {}) as Record<string, unknown>;
-        const hppRaw = meta.hpp ?? form.hpp;
-        if (hppRaw === undefined || hppRaw === null || String(hppRaw).trim() === "") {
-          throw new Error("HPP wajib untuk produk yang kelola stok");
-        }
-        const hppNum = Number(hppRaw);
-        if (!Number.isFinite(hppNum) || hppNum < 0) {
-          throw new Error("HPP tidak valid");
-        }
-        if (hppNum === 0) {
-          const ok = window.confirm(
-            "HPP = 0 — jurnal HPP penjualan akan Rp 0. Lanjut simpan?"
-          );
-          if (!ok) {
-            setSaving(false);
-            return;
+        const isConsignment = formIsConsignment(form);
+        if (!isConsignment) {
+          const hppRaw = meta.hpp ?? form.hpp;
+          if (hppRaw === undefined || hppRaw === null || String(hppRaw).trim() === "") {
+            throw new Error("HPP wajib untuk produk milik sendiri yang kelola stok");
+          }
+          const hppNum = Number(hppRaw);
+          if (!Number.isFinite(hppNum) || hppNum < 0) {
+            throw new Error("HPP tidak valid");
+          }
+          if (hppNum === 0) {
+            const ok = window.confirm(
+              "HPP = 0 — jurnal HPP penjualan akan Rp 0. Lanjut simpan?"
+            );
+            if (!ok) {
+              setSaving(false);
+              return;
+            }
+          }
+        } else if (titipJualEnabled) {
+          const supplierId = String(meta.consignmentSupplierId || "").trim();
+          if (!supplierId) throw new Error("Supplier pemilik titip wajib");
+          const settlementRaw = meta.consignmentSettlementPrice;
+          const settlement = Number(settlementRaw);
+          if (!Number.isFinite(settlement) || settlement < 0) {
+            throw new Error("Harga settlement titip jual wajib (>= 0)");
           }
         }
       }
@@ -332,6 +361,15 @@ export function MasterCrudPanel({
   function editRow(row: Row) {
     const meta = { ...((row.metadata || {}) as Record<string, unknown>) };
     if (row.hpp != null && meta.hpp == null) meta.hpp = row.hpp;
+    if (row.stock_ownership != null && meta.stockOwnership == null) {
+      meta.stockOwnership = row.stock_ownership;
+    }
+    if (row.consignment_supplier_id != null && meta.consignmentSupplierId == null) {
+      meta.consignmentSupplierId = row.consignment_supplier_id;
+    }
+    if (row.consignment_settlement_price != null && meta.consignmentSettlementPrice == null) {
+      meta.consignmentSettlementPrice = row.consignment_settlement_price;
+    }
     setForm({
       ...row,
       metadata: meta,
@@ -358,6 +396,12 @@ export function MasterCrudPanel({
       return (extras.outlets || []).map((o) => ({
         value: String(o.code),
         label: String(o.name)
+      }));
+    }
+    if (field.optionsKey === "suppliers") {
+      return (extras.suppliers || []).map((s) => ({
+        value: String(s.id),
+        label: String(s.name)
       }));
     }
     if (field.optionsKey) {
@@ -389,8 +433,9 @@ export function MasterCrudPanel({
 
       {inventoryEnabled ? (
         <p className="mb-4 text-xs text-slate-500">
-          Produk dengan stok wajib isi HPP awal. Setelah ada pembelian inventory, HPP otomatis
-          dihitung rata-rata tertimbang dari harga beli.
+          {titipJualEnabled
+            ? "Produk milik sendiri: HPP awal + update dari pembelian PO. Produk titip jual: isi supplier pemilik & harga settlement — stok masuk via Penerimaan Titip."
+            : "Produk dengan stok wajib isi HPP awal. Setelah ada pembelian inventory, HPP otomatis dihitung rata-rata tertimbang dari harga beli."}
         </p>
       ) : null}
 
