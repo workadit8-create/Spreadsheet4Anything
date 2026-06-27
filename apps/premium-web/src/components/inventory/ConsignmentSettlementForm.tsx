@@ -4,6 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { wibTodayIso } from "@/lib/date/wib";
+import {
+  consignmentActionsClass,
+  consignmentFieldGridClass,
+  consignmentFormClass,
+  consignmentHintClass,
+  consignmentSectionClass
+} from "@/components/inventory/consignment-layout";
 
 type Supplier = { id: string; name: string };
 type Liability = {
@@ -137,18 +144,18 @@ export function ConsignmentSettlementForm({ onSettled }: { onSettled?: () => voi
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat…</p>;
+  if (loading) return <p className="py-8 text-sm text-slate-500">Memuat…</p>;
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} className={consignmentFormClass}>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
 
-      <p className="text-xs text-slate-500">
+      <p className={consignmentHintClass}>
         Bayar supplier untuk barang titip yang sudah terjual — jurnal Dr Utang Titip Jual / Cr Kas.
       </p>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className={consignmentFieldGridClass}>
         <div>
           <Label>Supplier</Label>
           <Select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} required>
@@ -186,9 +193,9 @@ export function ConsignmentSettlementForm({ onSettled }: { onSettled?: () => voi
       </div>
 
       {supplierId ? (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Hutang titip terbuka</h3>
+        <div className={consignmentSectionClass}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-slate-800">Hutang titip terbuka</h3>
             <Button type="button" variant="secondary" onClick={selectAllOpen}>
               Pilih semua
             </Button>
@@ -196,31 +203,31 @@ export function ConsignmentSettlementForm({ onSettled }: { onSettled?: () => voi
           {!filteredLiabilities.length ? (
             <p className="text-sm text-slate-500">Tidak ada hutang titip terbuka.</p>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-slate-200">
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
               <table className="min-w-full text-sm">
-                <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-3 py-2">Pilih</th>
-                    <th className="px-3 py-2">Invoice</th>
-                    <th className="px-3 py-2">Produk</th>
-                    <th className="px-3 py-2">Qty</th>
-                    <th className="px-3 py-2">Total</th>
+                    <th className="px-4 py-3">Pilih</th>
+                    <th className="px-4 py-3">Invoice</th>
+                    <th className="px-4 py-3">Produk</th>
+                    <th className="px-4 py-3">Qty</th>
+                    <th className="px-4 py-3">Total</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredLiabilities.map((l) => (
                     <tr key={l.id} className="border-t border-slate-100">
-                      <td className="px-3 py-2">
+                      <td className="px-4 py-3">
                         <input
                           type="checkbox"
                           checked={selected.has(l.id)}
                           onChange={() => toggle(l.id)}
                         />
                       </td>
-                      <td className="px-3 py-2">{l.orderNo}</td>
-                      <td className="px-3 py-2">{l.productName}</td>
-                      <td className="px-3 py-2">{l.qty}</td>
-                      <td className="px-3 py-2">{formatRp(l.totalAmount)}</td>
+                      <td className="px-4 py-3">{l.orderNo}</td>
+                      <td className="px-4 py-3">{l.productName}</td>
+                      <td className="px-4 py-3">{l.qty}</td>
+                      <td className="px-4 py-3">{formatRp(l.totalAmount)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -234,9 +241,11 @@ export function ConsignmentSettlementForm({ onSettled }: { onSettled?: () => voi
         </div>
       ) : null}
 
-      <Button type="submit" disabled={saving || !supplierId}>
-        {saving ? "Memproses…" : "Bayar settlement"}
-      </Button>
+      <div className={consignmentActionsClass}>
+        <Button type="submit" disabled={saving || !supplierId}>
+          {saving ? "Memproses…" : "Bayar settlement"}
+        </Button>
+      </div>
     </form>
   );
 }

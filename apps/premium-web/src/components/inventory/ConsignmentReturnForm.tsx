@@ -4,6 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { wibTodayIso } from "@/lib/date/wib";
+import {
+  consignmentActionsClass,
+  consignmentFieldGridClass,
+  consignmentFormClass,
+  consignmentHintClass,
+  consignmentLineCardReturnClass,
+  consignmentSectionClass
+} from "@/components/inventory/consignment-layout";
 
 type Supplier = { id: string; name: string };
 type Product = { id: string; sku: string | null; name: string };
@@ -107,19 +115,19 @@ export function ConsignmentReturnForm({ onCreated }: { onCreated?: () => void })
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat…</p>;
+  if (loading) return <p className="py-8 text-sm text-slate-500">Memuat…</p>;
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} className={consignmentFormClass}>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
 
-      <p className="text-xs text-slate-500">
+      <p className={consignmentHintClass}>
         Barang titip yang belum terjual dikembalikan ke supplier — stok keluar, tanpa jurnal
         pembayaran.
       </p>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className={consignmentFieldGridClass}>
         <div>
           <Label>Tanggal retur</Label>
           <Input type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} />
@@ -158,15 +166,16 @@ export function ConsignmentReturnForm({ onCreated }: { onCreated?: () => void })
         </div>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Barang dikembalikan</h3>
+      <div className={consignmentSectionClass}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-slate-800">Barang dikembalikan</h3>
           <Button type="button" variant="secondary" onClick={() => setLines((p) => [...p, emptyLine()])}>
             + Baris
           </Button>
         </div>
+        <div className="space-y-4">
         {lines.map((line) => (
-          <div key={line.key} className="grid gap-2 rounded-lg border border-slate-200 p-3 sm:grid-cols-3">
+          <div key={line.key} className={consignmentLineCardReturnClass}>
             <div className="sm:col-span-2">
               <Label>Produk</Label>
               <Select
@@ -196,11 +205,14 @@ export function ConsignmentReturnForm({ onCreated }: { onCreated?: () => void })
             </div>
           </div>
         ))}
+        </div>
       </div>
 
-      <Button type="submit" disabled={saving}>
-        {saving ? "Menyimpan…" : "Simpan retur barang"}
-      </Button>
+      <div className={consignmentActionsClass}>
+        <Button type="submit" disabled={saving}>
+          {saving ? "Menyimpan…" : "Simpan retur barang"}
+        </Button>
+      </div>
     </form>
   );
 }

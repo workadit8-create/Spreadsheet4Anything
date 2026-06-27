@@ -1,16 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Card } from "@/components/ui/Card";
 import { ConsignmentReturnForm } from "@/components/inventory/ConsignmentReturnForm";
 import { ConsignmentSettlementForm } from "@/components/inventory/ConsignmentSettlementForm";
+import { ConsignmentFormCard } from "@/components/inventory/consignment-layout";
 
 export function ConsignmentSettlementPageClient() {
   const [mode, setMode] = useState<"settlement" | "return">("settlement");
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-2">
+    <div className="space-y-6">
+      <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => setMode("settlement")}
@@ -35,9 +35,9 @@ export function ConsignmentSettlementPageClient() {
         </button>
       </div>
 
-      <Card className="p-4">
+      <ConsignmentFormCard>
         {mode === "settlement" ? <ConsignmentSettlementForm /> : <ConsignmentReturnForm />}
-      </Card>
+      </ConsignmentFormCard>
     </div>
   );
 }

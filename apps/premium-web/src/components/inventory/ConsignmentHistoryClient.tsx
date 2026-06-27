@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { DetailModalTabs, TransactionJournalView } from "@/components/jurnal/TransactionJournalView";
+import { ConsignmentFormCard, ConsignmentPageShell } from "@/components/inventory/consignment-layout";
 import { wibMonthStartIso, wibTodayIso } from "@/lib/date/wib";
 
 type ListItem = {
@@ -83,9 +83,12 @@ function DocList({
   if (!items.length) return <p className="text-sm text-slate-500">{emptyLabel}</p>;
 
   return (
-    <ul className="space-y-2 text-sm">
+    <ul className="space-y-3 text-sm">
       {items.map((r) => (
-        <li key={r.id} className="flex items-start justify-between gap-2 rounded border border-slate-100 p-2">
+        <li
+          key={r.id}
+          className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4"
+        >
           <div>
             <div className="font-medium">{r.docNo}</div>
             <div className="text-slate-600">
@@ -231,15 +234,15 @@ export function ConsignmentHistoryClient() {
         : "Retur barang titip";
 
   return (
-    <div>
+    <ConsignmentPageShell wide>
       <PageHeader
         title="Riwayat Titip Jual"
         description="Penerimaan barang titip, pelunasan ke supplier, dan retur barang"
       />
-      {error ? <p className="mb-4 text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="mb-6 text-sm text-red-600">{error}</p> : null}
 
-      <Card className="mb-6 p-4">
-        <div className="flex flex-wrap items-end gap-4">
+      <ConsignmentFormCard>
+        <div className="flex flex-wrap items-end gap-x-6 gap-y-5">
           <div>
             <Label>Dari tanggal</Label>
             <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
@@ -263,40 +266,40 @@ export function ConsignmentHistoryClient() {
             {loading ? "Memuat…" : "Cari data"}
           </Button>
         </div>
-      </Card>
+      </ConsignmentFormCard>
 
-      {loading ? <p className="mb-4 text-sm text-slate-500">Memuat…</p> : null}
+      {loading ? <p className="my-6 text-sm text-slate-500">Memuat…</p> : null}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="p-4">
-          <h2 className="mb-3 text-sm font-semibold">Penerimaan titip</h2>
+      <div className="mt-6 grid gap-6 lg:grid-cols-3">
+        <ConsignmentFormCard>
+          <h2 className="mb-4 text-sm font-semibold text-slate-800">Penerimaan titip</h2>
           <DocList
             items={receipts}
             kind="receipt"
             emptyLabel="Belum ada penerimaan."
             onDetail={openDetail}
           />
-        </Card>
+        </ConsignmentFormCard>
 
-        <Card className="p-4">
-          <h2 className="mb-3 text-sm font-semibold">Pelunasan titip</h2>
+        <ConsignmentFormCard>
+          <h2 className="mb-4 text-sm font-semibold text-slate-800">Pelunasan titip</h2>
           <DocList
             items={settlements}
             kind="settlement"
             emptyLabel="Belum ada settlement."
             onDetail={openDetail}
           />
-        </Card>
+        </ConsignmentFormCard>
 
-        <Card className="p-4">
-          <h2 className="mb-3 text-sm font-semibold">Retur barang</h2>
+        <ConsignmentFormCard>
+          <h2 className="mb-4 text-sm font-semibold text-slate-800">Retur barang</h2>
           <DocList
             items={returns}
             kind="return"
             emptyLabel="Belum ada retur."
             onDetail={openDetail}
           />
-        </Card>
+        </ConsignmentFormCard>
       </div>
 
       {detailOpen && (
@@ -453,6 +456,6 @@ export function ConsignmentHistoryClient() {
           </div>
         </div>
       )}
-    </div>
+    </ConsignmentPageShell>
   );
 }
