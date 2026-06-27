@@ -19,6 +19,8 @@ type CatalogResponse = {
   };
   selectedOutlet: { outletCode: string; name: string } | null;
   warehouse: { id: string; code: string; name: string } | null;
+  warehouses: Array<{ id: string; code: string; name: string; isPrimary: boolean }>;
+  selectedWarehouse: { id: string; code: string; name: string } | null;
   categories: Array<{ id: string; code: string; name: string; productKind: string }>;
   productKinds: Array<{ value: string; label: string }>;
   items: InventoryCatalogItem[];
@@ -41,9 +43,10 @@ export default function InventoryProductsPageClient({ role }: { role: Membership
   const [outletLocked, setOutletLocked] = useState(false);
   const [categories, setCategories] = useState<CatalogResponse["categories"]>([]);
   const [productKinds, setProductKinds] = useState<CatalogResponse["productKinds"]>([]);
-  const [warehouseName, setWarehouseName] = useState("");
+  const [warehouseOptions, setWarehouseOptions] = useState<CatalogResponse["warehouses"]>([]);
 
   const [outletCode, setOutletCode] = useState("");
+  const [warehouseId, setWarehouseId] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [productKind, setProductKind] = useState("");
   const [search, setSearch] = useState("");
@@ -66,6 +69,7 @@ export default function InventoryProductsPageClient({ role }: { role: Membership
     try {
       const params = new URLSearchParams();
       if (outletCode) params.set("outlet_code", outletCode);
+      if (warehouseId) params.set("warehouse_id", warehouseId);
       if (categoryId) params.set("category_id", categoryId);
       if (productKind) params.set("product_kind", productKind);
       if (searchDebounced.trim()) params.set("search", searchDebounced.trim());
@@ -81,10 +85,13 @@ export default function InventoryProductsPageClient({ role }: { role: Membership
       setOutletLocked(Boolean(data.outlets?.locked));
       setCategories(data.categories || []);
       setProductKinds(data.productKinds || []);
-      setWarehouseName(data.warehouse?.name || data.selectedOutlet?.name || "—");
+      setWarehouseOptions(data.warehouses || []);
 
       if (data.selectedOutlet?.outletCode && data.selectedOutlet.outletCode !== outletCode) {
         setOutletCode(data.selectedOutlet.outletCode);
+      }
+      if (data.selectedWarehouse?.id && data.selectedWarehouse.id !== warehouseId) {
+        setWarehouseId(data.selectedWarehouse.id);
       }
     } catch (e) {
       if (seq === requestSeq.current) {
@@ -96,7 +103,7 @@ export default function InventoryProductsPageClient({ role }: { role: Membership
         setLoading(false);
       }
     }
-  }, [outletCode, categoryId, productKind, searchDebounced]);
+  }, [outletCode, warehouseId, categoryId, productKind, searchDebounced]);
 
   useEffect(() => {
     void loadCatalog();
@@ -104,7 +111,7 @@ export default function InventoryProductsPageClient({ role }: { role: Membership
 
   useEffect(() => {
     setPage(1);
-  }, [outletCode, categoryId, productKind, searchDebounced, pageSize]);
+  }, [outletCode, warehouseId, categoryId, productKind, searchDebounced, pageSize]);
 
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
   const pageItems = useMemo(() => {
@@ -168,14 +175,17 @@ export default function InventoryProductsPageClient({ role }: { role: Membership
       </div>
 
       <Card className="mb-6 p-4">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           {outletOptions.length > 0 ? (
             <div>
-              <Label>Outlet / Gudang</Label>
+              <Label>Outlet</Label>
               <Select
                 value={outletCode}
                 disabled={outletLocked || loading}
-                onChange={(e) => setOutletCode(e.target.value)}
+                onChange={(e) => {
+                  setOutletCode(e.target.value);
+                  setWarehouseId("");
+                }}
               >
                 {!outletLocked ? <option value="">— Pilih outlet —</option> : null}
                 {outletOptions.map((o) => (
@@ -184,9 +194,24 @@ export default function InventoryProductsPageClient({ role }: { role: Membership
                   </option>
                 ))}
               </Select>
-              {warehouseName ? (
-                <p className="mt-1 text-xs text-slate-500">Gudang: {warehouseName}</p>
-              ) : null}
+            </div>
+          ) : null}
+
+          {outletCode && warehouseOptions.length > 0 ? (
+            <div>
+              <Label>Gudang</Label>
+              <Select
+                value={warehouseId}
+                disabled={loading || warehouseOptions.length <= 1}
+                onChange={(e) => setWarehouseId(e.target.value)}
+              >
+                {warehouseOptions.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.code} — {w.name}
+                    {w.isPrimary ? " (utama)" : ""}
+                  </option>
+                ))}
+              </Select>
             </div>
           ) : null}
 
@@ -244,6 +269,8 @@ export default function InventoryProductsPageClient({ role }: { role: Membership
           </Button>
           {canPickOutlet && !outletCode ? (
             <p className="text-xs text-amber-700">Pilih outlet untuk melihat stok per gudang.</p>
+          ) : outletCode && warehouseOptions.length > 1 && !warehouseId ? (
+            <p className="text-xs text-amber-700">Pilih gudang untuk melihat stok.</p>
           ) : null}
         </div>
       </Card>
@@ -276,6 +303,9 @@ export default function InventoryProductsPageClient({ role }: { role: Membership
           <p>
             {items.length} produk
             {outletCode ? ` · ${outletCode}` : ""}
+            {warehouseId
+              ? ` · ${warehouseOptions.find((w) => w.id === warehouseId)?.code || ""}`
+              : ""}
           </p>
         </div>
 

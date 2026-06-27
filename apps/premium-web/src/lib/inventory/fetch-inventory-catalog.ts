@@ -36,6 +36,8 @@ export type InventoryCatalogResult = {
   };
   selectedOutlet: { outletCode: string; name: string } | null;
   warehouse: { id: string; code: string; name: string } | null;
+  warehouses: Array<{ id: string; code: string; name: string; isPrimary: boolean }>;
+  selectedWarehouse: { id: string; code: string; name: string } | null;
   categories: Array<{ id: string; code: string; name: string; productKind: string }>;
   productKinds: Array<{ value: string; label: string }>;
   items: InventoryCatalogItem[];
@@ -43,10 +45,69 @@ export type InventoryCatalogResult = {
 
 export type InventoryCatalogFilters = {
   outletCode?: string;
+  warehouseId?: string;
   categoryId?: string;
   productKind?: string;
   search?: string;
 };
+
+type WarehouseOption = { id: string; code: string; name: string; isPrimary: boolean };
+
+async function fetchWarehousesForOutlet(
+  supabase: SupabaseClient,
+  orgId: string,
+  outletId: string,
+  fallbackWarehouseId: string | null
+): Promise<WarehouseOption[]> {
+  const { data: links, error } = await supabase
+    .from("outlet_warehouses")
+    .select("warehouse_id, is_primary, warehouses(id, code, name, active)")
+    .eq("organization_id", orgId)
+    .eq("outlet_id", outletId);
+
+  if (error) throw new Error(error.message);
+
+  const options: WarehouseOption[] = [];
+  const seen = new Set<string>();
+
+  for (const link of links || []) {
+    const wh = link.warehouses as
+      | { id: string; code: string; name: string; active: boolean }
+      | { id: string; code: string; name: string; active: boolean }[]
+      | null;
+    const w = Array.isArray(wh) ? wh[0] : wh;
+    if (!w?.id || w.active === false || seen.has(w.id)) continue;
+    seen.add(w.id);
+    options.push({
+      id: w.id,
+      code: w.code,
+      name: w.name,
+      isPrimary: link.is_primary === true
+    });
+  }
+
+  if (!options.length && fallbackWarehouseId) {
+    const { data: wh } = await supabase
+      .from("warehouses")
+      .select("id, code, name, active")
+      .eq("id", fallbackWarehouseId)
+      .eq("organization_id", orgId)
+      .maybeSingle();
+    if (wh && wh.active !== false) {
+      options.push({
+        id: wh.id,
+        code: wh.code,
+        name: wh.name,
+        isPrimary: true
+      });
+    }
+  }
+
+  return options.sort((a, b) => {
+    if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+}
 
 export async function fetchInventoryProductCatalog(
   supabase: SupabaseClient,
@@ -93,24 +154,37 @@ export async function fetchInventoryProductCatalog(
 
   let warehouse: { id: string; code: string; name: string } | null = null;
   let selectedOutlet: { outletCode: string; name: string } | null = null;
+  let warehouseOptions: WarehouseOption[] = [];
+  let selectedWarehouse: { id: string; code: string; name: string } | null = null;
 
   if (outletCode && outletAddon) {
     const { data: outletRow } = await supabase
       .from("outlets")
-      .select("outlet_code, name, warehouse_id")
+      .select("id, outlet_code, name, warehouse_id")
       .eq("organization_id", orgId)
       .eq("outlet_code", outletCode)
       .eq("active", true)
       .maybeSingle();
 
-    if (outletRow?.warehouse_id) {
+    if (outletRow) {
       selectedOutlet = { outletCode: outletRow.outlet_code, name: outletRow.name };
-      const { data: wh } = await supabase
-        .from("warehouses")
-        .select("id, code, name")
-        .eq("id", outletRow.warehouse_id)
-        .maybeSingle();
-      if (wh) warehouse = wh;
+      warehouseOptions = await fetchWarehousesForOutlet(
+        supabase,
+        orgId,
+        outletRow.id,
+        outletRow.warehouse_id
+      );
+
+      const requestedId = filters.warehouseId?.trim() || "";
+      const picked =
+        requestedId && warehouseOptions.some((w) => w.id === requestedId)
+          ? warehouseOptions.find((w) => w.id === requestedId)!
+          : warehouseOptions.find((w) => w.isPrimary) || warehouseOptions[0] || null;
+
+      if (picked) {
+        warehouse = { id: picked.id, code: picked.code, name: picked.name };
+        selectedWarehouse = warehouse;
+      }
     }
   }
 
@@ -123,7 +197,10 @@ export async function fetchInventoryProductCatalog(
       .order("is_default", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (wh) warehouse = wh;
+    if (wh) {
+      warehouse = wh;
+      selectedWarehouse = wh;
+    }
   }
 
   const [{ data: categories }, { data: units }, { data: conversions }, { data: recipes }] =
@@ -250,6 +327,8 @@ export async function fetchInventoryProductCatalog(
     },
     selectedOutlet,
     warehouse,
+    warehouses: warehouseOptions,
+    selectedWarehouse,
     categories: (categories || []).map((c) => ({
       id: c.id,
       code: c.code,

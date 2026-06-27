@@ -16,6 +16,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const outletCode = url.searchParams.get("outlet_code") || "";
+  const warehouseId = url.searchParams.get("warehouse_id") || "";
   const categoryId = url.searchParams.get("category_id") || "";
   const productKind = url.searchParams.get("product_kind") || "";
   const search = url.searchParams.get("search") || "";
@@ -23,6 +24,7 @@ export async function GET(request: Request) {
   try {
     const data = await fetchInventoryProductCatalog(supabase, auth.org.id, auth.role, {
       outletCode: outletCode || undefined,
+      warehouseId: warehouseId || undefined,
       categoryId: categoryId || undefined,
       productKind: productKind || undefined,
       search: search || undefined

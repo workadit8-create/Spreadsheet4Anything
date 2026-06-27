@@ -5,12 +5,10 @@ import { Button } from "@/components/ui/Button";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { wibTodayIso } from "@/lib/date/wib";
 import {
-  ConsignmentFormCard,
   consignmentActionsClass,
   consignmentFieldGridClass,
   consignmentFormClass,
   consignmentHintClass,
-  consignmentLineCardClass,
   consignmentSectionClass
 } from "@/components/inventory/consignment-layout";
 
@@ -35,7 +33,6 @@ type LineState = {
   product_id: string;
   qty: string;
   maxQty: number;
-  label: string;
 };
 
 function emptyLine(): LineState {
@@ -43,13 +40,12 @@ function emptyLine(): LineState {
     key: `${Date.now()}-${Math.random()}`,
     product_id: "",
     qty: "1",
-    maxQty: 0,
-    label: ""
+    maxQty: 0
   };
 }
 
 function warehouseLabel(w: WarehouseOption) {
-  const tags = [];
+  const tags: string[] = [];
   if (w.warehouseRole === "distribution") tags.push("distribusi");
   if (w.isDisplay) tags.push("display");
   if (w.outletCodes.length) tags.push(w.outletCodes.join(", "));
@@ -93,6 +89,9 @@ export function StockTransferForm({ onCreated }: { onCreated?: () => void }) {
     () => allowedToWarehouses(fromWarehouseId, warehouses),
     [fromWarehouseId, warehouses]
   );
+
+  const fromWarehouse = warehouses.find((w) => w.id === fromWarehouseId);
+  const toWarehouse = warehouses.find((w) => w.id === toWarehouseId);
 
   const loadBootstrap = useCallback(async () => {
     setLoading(true);
@@ -171,60 +170,76 @@ export function StockTransferForm({ onCreated }: { onCreated?: () => void }) {
   }
 
   if (loading && !warehouses.length) {
-    return <p className="text-sm text-slate-500">Memuat…</p>;
+    return <p className="py-8 text-sm text-slate-500">Memuat…</p>;
   }
 
   return (
     <form onSubmit={(e) => void handleSubmit(e)} className={consignmentFormClass}>
-      <div className={consignmentSectionClass}>
-        <div className={consignmentFieldGridClass}>
-          <div>
-            <Label>Tanggal transfer</Label>
-            <Input type="date" value={transferDate} onChange={(e) => setTransferDate(e.target.value)} required />
-          </div>
-          <div>
-            <Label>Gudang asal</Label>
-            <Select
-              value={fromWarehouseId}
-              onChange={(e) => {
-                setFromWarehouseId(e.target.value);
-                setLines([emptyLine()]);
-              }}
-              required
-            >
-              <option value="">— pilih gudang asal —</option>
-              {warehouses.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {warehouseLabel(w)}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label>Gudang tujuan</Label>
-            <Select
-              value={toWarehouseId}
-              onChange={(e) => setToWarehouseId(e.target.value)}
-              required
-              disabled={!fromWarehouseId}
-            >
-              <option value="">— pilih gudang tujuan —</option>
-              {toOptions.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {warehouseLabel(w)}
-                </option>
-              ))}
-            </Select>
-          </div>
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
+
+      <p className={consignmentHintClass}>
+        Transfer hanya antar gudang dalam outlet yang sama, atau dari pusat distribusi ke gudang outlet.
+        Antar outlet gunakan pembelian.
+      </p>
+
+      <div className={consignmentFieldGridClass}>
+        <div>
+          <Label>Tanggal transfer</Label>
+          <Input
+            type="date"
+            value={transferDate}
+            onChange={(e) => setTransferDate(e.target.value)}
+            required
+          />
         </div>
-        <p className={consignmentHintClass}>
-          Transfer hanya antar gudang dalam outlet yang sama, atau dari pusat distribusi ke gudang outlet.
-          Antar outlet gunakan pembelian.
-        </p>
+        <div>
+          <Label>Gudang asal</Label>
+          <Select
+            value={fromWarehouseId}
+            onChange={(e) => {
+              setFromWarehouseId(e.target.value);
+              setToWarehouseId("");
+              setLines([emptyLine()]);
+            }}
+            required
+          >
+            <option value="">— pilih gudang asal —</option>
+            {warehouses.map((w) => (
+              <option key={w.id} value={w.id}>
+                {warehouseLabel(w)}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="sm:col-span-2">
+          <Label>Gudang tujuan</Label>
+          <Select
+            value={toWarehouseId}
+            onChange={(e) => setToWarehouseId(e.target.value)}
+            required
+            disabled={!fromWarehouseId}
+          >
+            <option value="">— pilih gudang tujuan —</option>
+            {toOptions.map((w) => (
+              <option key={w.id} value={w.id}>
+                {warehouseLabel(w)}
+              </option>
+            ))}
+          </Select>
+        </div>
       </div>
 
+      {fromWarehouse && toWarehouse ? (
+        <p className="text-sm text-slate-600">
+          <span className="font-medium text-slate-800">{fromWarehouse.code}</span>
+          {" → "}
+          <span className="font-medium text-slate-800">{toWarehouse.code}</span>
+        </p>
+      ) : null}
+
       <div className={consignmentSectionClass}>
-        <div className="mb-3 flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-sm font-semibold text-slate-800">Barang transfer</h3>
           <Button type="button" variant="secondary" onClick={addLine} disabled={!fromWarehouseId}>
             + Baris
@@ -236,58 +251,73 @@ export function StockTransferForm({ onCreated }: { onCreated?: () => void }) {
         ) : !products.length ? (
           <p className={consignmentHintClass}>Tidak ada stok &gt; 0 di gudang asal.</p>
         ) : (
-          <div className="space-y-3">
-            {lines.map((line) => (
-              <div key={line.key} className={consignmentLineCardClass}>
-                <div className="grid gap-3 sm:grid-cols-[1fr_120px_auto]">
-                  <div>
-                    <Label>Produk</Label>
-                    <Select
-                      value={line.product_id}
-                      onChange={(e) => {
-                        const p = products.find((x) => x.id === e.target.value);
-                        updateLine(line.key, {
-                          product_id: e.target.value,
-                          maxQty: p?.stockQty ?? 0,
-                          label: p ? `${p.sku ? `${p.sku} — ` : ""}${p.name}` : "",
-                          qty: p ? String(Math.min(Number(line.qty) || 1, p.stockQty)) : "1"
-                        });
-                      }}
-                    >
-                      <option value="">— pilih —</option>
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.sku ? `${p.sku} — ` : ""}
-                          {p.name} (stok {p.stockQty})
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Qty</Label>
-                    <Input
-                      type="number"
-                      min={0.0001}
-                      step="any"
-                      max={line.maxQty || undefined}
-                      value={line.qty}
-                      onChange={(e) => updateLine(line.key, { qty: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    <Button type="button" variant="ghost" onClick={() => removeLine(line.key)}>
-                      Hapus
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">Produk</th>
+                  <th className="w-28 px-4 py-3 text-center">Qty</th>
+                  <th className="w-20 px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {lines.map((line) => (
+                  <tr key={line.key}>
+                    <td className="px-4 py-3">
+                      <Select
+                        className="w-full"
+                        value={line.product_id}
+                        onChange={(e) => {
+                          const p = products.find((x) => x.id === e.target.value);
+                          updateLine(line.key, {
+                            product_id: e.target.value,
+                            maxQty: p?.stockQty ?? 0,
+                            qty: p
+                              ? String(Math.min(Number(line.qty) || 1, p.stockQty))
+                              : "1"
+                          });
+                        }}
+                      >
+                        <option value="">— pilih produk —</option>
+                        {products.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.sku ? `${p.sku} — ` : ""}
+                            {p.name} (stok {p.stockQty})
+                          </option>
+                        ))}
+                      </Select>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Input
+                        type="number"
+                        min={0.0001}
+                        step="any"
+                        max={line.maxQty || undefined}
+                        value={line.qty}
+                        onChange={(e) => updateLine(line.key, { qty: e.target.value })}
+                        required
+                        className="text-center"
+                      />
+                      {line.maxQty > 0 ? (
+                        <p className="mt-1 text-center text-[11px] text-slate-400">
+                          max {line.maxQty}
+                        </p>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Button type="button" variant="ghost" onClick={() => removeLine(line.key)}>
+                        Hapus
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
 
-      <div className={consignmentSectionClass}>
+      <div>
         <Label>Catatan (opsional)</Label>
         <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Restock display, dll." />
       </div>
@@ -297,9 +327,6 @@ export function StockTransferForm({ onCreated }: { onCreated?: () => void }) {
           {saving ? "Menyimpan…" : "Simpan transfer"}
         </Button>
       </div>
-
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
     </form>
   );
 }
