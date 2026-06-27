@@ -96,11 +96,17 @@ export default function WarehousePageClient() {
           is_display: form.is_display,
           warehouse_role: form.warehouse_role,
           outlet_id: form.outlet_id || null,
-          is_primary: form.is_primary
+          is_primary: form.is_display
         })
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Gagal simpan");
+      const raw = await res.text();
+      let data: { error?: string } = {};
+      try {
+        data = raw ? (JSON.parse(raw) as { error?: string }) : {};
+      } catch {
+        throw new Error(raw || `Gagal simpan (HTTP ${res.status})`);
+      }
+      if (!res.ok) throw new Error(data.error || `Gagal simpan (HTTP ${res.status})`);
       setForm(emptyForm);
       await load();
     } catch (e) {
