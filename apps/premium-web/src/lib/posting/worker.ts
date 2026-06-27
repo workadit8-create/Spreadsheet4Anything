@@ -4,6 +4,7 @@ import {
   deductSaleStockForOrderIfEnabled,
   resolveWarehouseIdForSale
 } from "@/lib/inventory/sale-stock";
+import { receivePurchaseStockForOrderIfEnabled } from "@/lib/inventory/purchase-inventory-post";
 import { postSaleHppJournalIfEnabled } from "@/lib/inventory/sale-hpp-journal";
 import { buildPemasukanPayload } from "./pemasukan";
 import { buildPelunasanPiutangPayload } from "./pelunasan-piutang";
@@ -722,6 +723,16 @@ export async function processPendingPostingJobs(
           );
         }
 
+        const stockResult = await receivePurchaseStockForOrderIfEnabled(supabase, {
+          organizationId: job.organization_id,
+          order: order as PurchaseOrderRow & {
+            warehouse_id?: string | null;
+            outlet_code?: string | null;
+          },
+          lines: (lines || []) as PurchaseLineRow[],
+          skipIfExists: true
+        });
+
         await supabase
           .from("posting_jobs")
           .update({
@@ -743,11 +754,15 @@ export async function processPendingPostingJobs(
           "INFO",
           skippedCount > 0 && postedCount === 0
             ? assetCreated > 0
-              ? `Jurnal sudah ada (skip); ${assetCreated} aset dibuat`
-              : "Jurnal sudah ada di Supabase (idempotent skip)"
+              ? `Jurnal sudah ada (skip); ${assetCreated} aset; stok ${stockResult.received ? "IN" : stockResult.skipped ? "skip" : "—"}`
+              : stockResult.received
+                ? `Jurnal skip; stok masuk OK (HPP ${stockResult.hppUpdated} produk)`
+                : "Jurnal sudah ada di Supabase (idempotent skip)"
             : assetCreated > 0
-              ? `Jurnal Supabase OK (${postedCount} entri); ${assetCreated} aset dibuat`
-              : `Jurnal Supabase OK (${postedCount} entri, ${skippedCount} skip)`
+              ? `Jurnal OK (${postedCount}); ${assetCreated} aset; stok ${stockResult.received ? "IN" : "skip"}`
+              : stockResult.received
+                ? `Jurnal OK (${postedCount}); stok masuk; HPP ${stockResult.hppUpdated} produk`
+                : `Jurnal Supabase OK (${postedCount} entri, ${skippedCount} skip)`
         );
 
         results.push({

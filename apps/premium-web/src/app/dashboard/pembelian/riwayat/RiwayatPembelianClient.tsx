@@ -56,7 +56,15 @@ function statusClass(status: string) {
   return "text-slate-500";
 }
 
-export default function RiwayatPembelianClient({ role }: { role: MembershipRole }) {
+export default function RiwayatPembelianClient({
+  role,
+  mode = "expense"
+}: {
+  role: MembershipRole;
+  mode?: "expense" | "inventory";
+}) {
+  const isInventory = mode === "inventory";
+  const docLabel = isInventory ? "PO" : "Expense";
   const canPost = canPostJournal(role);
   const defaults = useMemo(() => defaultDateRange(), []);
   const [start, setStart] = useState(defaults.start);
@@ -89,7 +97,7 @@ export default function RiwayatPembelianClient({ role }: { role: MembershipRole 
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ start, end });
+      const params = new URLSearchParams({ start, end, mode });
       if (supplierId) params.set("supplier_id", supplierId);
       const res = await fetch(`/api/purchase-orders?${params}`);
       const data = await res.json();
@@ -103,7 +111,7 @@ export default function RiwayatPembelianClient({ role }: { role: MembershipRole 
     } finally {
       setLoading(false);
     }
-  }, [start, end, supplierId]);
+  }, [start, end, supplierId, mode]);
 
   useEffect(() => {
     load();
@@ -149,7 +157,7 @@ export default function RiwayatPembelianClient({ role }: { role: MembershipRole 
       const res = await fetch(`/api/purchase-orders/${id}/post`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setMessage(data.message || `Expense ${poNo} diposting`);
+      setMessage(data.message || `${docLabel} ${poNo} diposting`);
       await load();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Gagal posting");
@@ -159,7 +167,7 @@ export default function RiwayatPembelianClient({ role }: { role: MembershipRole 
   }
 
   async function voidOrder(id: string, poNo: string) {
-    const reason = window.prompt(`Alasan batal expense ${poNo}?`, "Input salah");
+    const reason = window.prompt(`Alasan batal ${docLabel} ${poNo}?`, "Input salah");
     if (reason === null) return;
     setActingId(id);
     try {
@@ -170,7 +178,7 @@ export default function RiwayatPembelianClient({ role }: { role: MembershipRole 
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setMessage(data.message || "Expense dibatalkan");
+      setMessage(data.message || `${docLabel} dibatalkan`);
       await load();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Gagal void");
@@ -180,7 +188,7 @@ export default function RiwayatPembelianClient({ role }: { role: MembershipRole 
   }
 
   async function deleteOrder(id: string, poNo: string) {
-    if (!window.confirm(`Hapus expense ${poNo}? (belum posting)`)) return;
+    if (!window.confirm(`Hapus ${docLabel.toLowerCase()} ${poNo}? (belum posting)`)) return;
     setActingId(id);
     try {
       const res = await fetch(`/api/purchase-orders/${id}`, { method: "DELETE" });
@@ -254,8 +262,21 @@ export default function RiwayatPembelianClient({ role }: { role: MembershipRole 
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-8">
-      <PageHeader badge="Expense" title="Riwayat Expense" description="Filter, detail, cetak, export, post jurnal, void">
-        <Link href="/dashboard/pembelian" className="text-sm text-slate-500 hover:text-slate-700">← Expense</Link>
+      <PageHeader
+        badge={isInventory ? "Pembelian · Inventory" : "Expense"}
+        title={isInventory ? "Riwayat PO Inventory" : "Riwayat Expense"}
+        description={
+          isInventory
+            ? "Filter, post jurnal persediaan + stok masuk, void"
+            : "Filter, detail, cetak, export, post jurnal, void"
+        }
+      >
+        <Link
+          href={isInventory ? "/dashboard/inventory/pembelian" : "/dashboard/pembelian"}
+          className="text-sm text-slate-500 hover:text-slate-700"
+        >
+          ← {isInventory ? "PO Inventory" : "Expense"}
+        </Link>
       </PageHeader>
 
       <PostingRoleBanner canPost={canPost} />

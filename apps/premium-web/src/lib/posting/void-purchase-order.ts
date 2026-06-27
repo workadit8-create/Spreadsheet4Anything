@@ -4,6 +4,8 @@ import { buildReversalJournalLines, voidTransactionId } from "./journal-reversal
 import { postJournalEntry } from "./journal-supabase";
 import type { JournalLineDraft } from "./journal-rules";
 import { voidLinkedMutasiBySource, deleteLinkedMutasiBySource } from "./linked-mutasi";
+import { reversePurchaseStockForOrderIfEnabled } from "@/lib/inventory/purchase-inventory-post";
+import type { PurchaseLineRow, PurchaseOrderRow } from "./types";
 
 type JournalLineRow = {
   line_date: string;
@@ -31,7 +33,7 @@ export async function voidPurchaseOrder(
 ): Promise<{ reversedEntries: number }> {
   const { data: order, error: orderErr } = await supabase
     .from("purchase_orders")
-    .select("id, organization_id, po_no, status, order_date")
+    .select("id, organization_id, po_no, status, order_date, warehouse_id, outlet_code, metadata")
     .eq("id", orderId)
     .single();
 
@@ -74,6 +76,16 @@ export async function voidPurchaseOrder(
 
   if (entriesErr) {
     throw new Error(entriesErr.message);
+  }
+
+  const { data: poLines, error: poLinesErr } = await supabase
+    .from("purchase_lines")
+    .select("*")
+    .eq("purchase_order_id", order.id)
+    .order("sort_order");
+
+  if (poLinesErr) {
+    throw new Error(poLinesErr.message);
   }
 
   const voidDate = wibTodayIso();
@@ -122,6 +134,16 @@ export async function voidPurchaseOrder(
         .eq("id", result.entryId);
     }
   }
+
+  await reversePurchaseStockForOrderIfEnabled(supabase, {
+    organizationId: order.organization_id,
+    order: order as PurchaseOrderRow & {
+      warehouse_id?: string | null;
+      outlet_code?: string | null;
+    },
+    lines: (poLines || []) as PurchaseLineRow[],
+    createdBy: userId
+  });
 
   const { error: updErr } = await supabase
     .from("purchase_orders")

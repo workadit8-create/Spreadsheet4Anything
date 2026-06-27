@@ -67,7 +67,7 @@ export type PurchaseOrderMetadata = {
   keterangan?: string;
   supplierId?: string;
   supplierName?: string;
-  pembelianMode?: "proper";
+  pembelianMode?: "proper" | "inventory";
   subtotalDpp?: number;
   taxTotal?: number;
   taxType?: string;

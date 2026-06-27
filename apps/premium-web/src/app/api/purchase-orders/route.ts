@@ -65,6 +65,7 @@ export async function GET(request: Request) {
   const start = url.searchParams.get("start");
   const end = url.searchParams.get("end");
   const supplierId = url.searchParams.get("supplier_id");
+  const mode = String(url.searchParams.get("mode") || "").trim().toLowerCase();
 
   let query = supabase
     .from("purchase_orders")
@@ -81,7 +82,15 @@ export async function GET(request: Request) {
   const { data: orders, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const orderIds = (orders || []).map((o) => o.id);
+  const filteredOrders = (orders || []).filter((o) => {
+    const meta = (o.metadata || {}) as Record<string, unknown>;
+    const isInventory = meta.pembelianMode === "inventory";
+    if (mode === "inventory") return isInventory;
+    if (mode === "expense") return !isInventory;
+    return true;
+  });
+
+  const orderIds = filteredOrders.map((o) => o.id);
   const { data: lineRows } = orderIds.length
     ? await supabase.from("purchase_lines").select("*").in("purchase_order_id", orderIds)
     : { data: [] };
@@ -94,7 +103,7 @@ export async function GET(request: Request) {
   }
 
   let grandTotalSum = 0;
-  const rows = (orders || []).map((o) => {
+  const rows = filteredOrders.map((o) => {
     const meta = (o.metadata || {}) as Record<string, unknown>;
     const lines = linesByOrder.get(o.id) || [];
     const hutang = summarizeHutangFromLines(
