@@ -314,3 +314,40 @@ export function buildMutasiDanaJournalLines(data: MutasiDanaJournalInput): Journ
     }
   ];
 }
+
+export const HPP_EXPENSE_ACCOUNT = "Beban HPP";
+export const INVENTORY_ACCOUNT = "Persediaan Barang";
+
+export function saleHppTransactionId(salesOrderId: string): string {
+  return `HPP-${salesOrderId}`;
+}
+
+export function buildSaleHppJournalLines(input: {
+  entryDate: string;
+  orderNo: string;
+  keterangan: string;
+  totalHpp: number;
+  hppAccount?: string;
+  inventoryAccount?: string;
+}): JournalLineDraft[] {
+  const total = Math.max(0, Math.round(Number(input.totalHpp) || 0));
+  if (total <= 0) return [];
+
+  const ket = `HPP penjualan ${input.orderNo} — ${input.keterangan}`.trim();
+  return [
+    {
+      lineDate: input.entryDate,
+      accountName: input.hppAccount || HPP_EXPENSE_ACCOUNT,
+      debit: total,
+      credit: 0,
+      keterangan: ket
+    },
+    {
+      lineDate: input.entryDate,
+      accountName: input.inventoryAccount || INVENTORY_ACCOUNT,
+      debit: 0,
+      credit: total,
+      keterangan: ket
+    }
+  ];
+}

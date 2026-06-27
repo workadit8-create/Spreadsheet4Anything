@@ -4,6 +4,7 @@ import {
   deductSaleStockForOrderIfEnabled,
   resolveWarehouseIdForSale
 } from "@/lib/inventory/sale-stock";
+import { postSaleHppJournalIfEnabled } from "@/lib/inventory/sale-hpp-journal";
 import { buildPemasukanPayload } from "./pemasukan";
 import { buildPelunasanPiutangPayload } from "./pelunasan-piutang";
 import {
@@ -579,6 +580,19 @@ export async function processPendingPostingJobs(
           skipIfExists: true
         });
 
+        const hppResult = await postSaleHppJournalIfEnabled(supabase, {
+          organizationId: job.organization_id,
+          salesOrderId: order.id,
+          orderNo: order.order_no,
+          entryDate: order.order_date,
+          keterangan: meta.keterangan || order.order_no,
+          lines: (lines || []).map((l) => ({
+            product_id: l.product_id,
+            qty: Number(l.qty) || 0,
+            description: l.description
+          }))
+        });
+
         await supabase
           .from("posting_jobs")
           .update({
@@ -594,14 +608,26 @@ export async function processPendingPostingJobs(
           .update({ status: "POSTED", updated_at: new Date().toISOString() })
           .eq("id", order.id);
 
-        await logJob(
-          supabase,
-          job.id,
-          "INFO",
+        const journalMsg =
           skippedCount > 0 && postedCount === 0
-            ? "Jurnal sudah ada di Supabase (idempotent skip)"
-            : `Jurnal Supabase OK (${postedCount} entri, ${skippedCount} skip)`
-        );
+            ? "Jurnal pendapatan sudah ada (idempotent skip)"
+            : `Jurnal pendapatan OK (${postedCount} entri, ${skippedCount} skip)`;
+
+        let hppMsg = "";
+        if (hppResult) {
+          if (hppResult.posted) {
+            hppMsg = ` · Jurnal HPP OK (${hppResult.totalAmount.toLocaleString("id-ID")})`;
+          } else if (hppResult.skipped) {
+            hppMsg = " · Jurnal HPP sudah ada (skip)";
+          } else if (hppResult.totalAmount <= 0) {
+            hppMsg = " · Jurnal HPP tidak perlu (tanpa barang stok/HPP)";
+          }
+          if (hppResult.warnings.length) {
+            hppMsg += ` · ${hppResult.warnings.join("; ")}`;
+          }
+        }
+
+        await logJob(supabase, job.id, "INFO", journalMsg + hppMsg);
 
         results.push({
           jobId: job.id,

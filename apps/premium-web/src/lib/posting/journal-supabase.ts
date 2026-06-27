@@ -12,7 +12,8 @@ export type PostJournalEntryInput = {
     | "MUTASI_DANA"
     | "CICILAN_UTANG_BANK"
     | "ASSET_DEPRECIATION"
-    | "ASSET_DISPOSAL";
+    | "ASSET_DISPOSAL"
+    | "HPP_PENJUALAN";
   transactionId: string;
   docNo: string;
   entryDate: string;
